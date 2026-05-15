@@ -1,0 +1,278 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { GAME_CONFIG } from '@/config/game.config';
+import { awardMainXp, awardCategoryXp } from '@/lib/game/xp';
+import { calcMeleeDamage, applyDefense } from '@/lib/game/formulas';
+
+const { exploration: EXP, attributes: ATTR } = GAME_CONFIG;
+
+// Cap offline ticks at 2 hours so processing stays fast and the result is meaningful.
+const MAX_OFFLINE_TICKS = Math.ceil((2 * 60 * 60 * 1000) / (EXP.tickIntervalSeconds * 1000));
+
+export interface OfflineSummary {
+  ticksProcessed: number;
+  resourcesGained: Array<{ item: string; displayName: string; quantity: number }>;
+  lootGained: Array<{ item: string; quantity: number }>;
+  enemiesKilled: number;
+  coinsGained: number;
+  xpGained: number;
+  hpLost: number;
+  sessionEnded: boolean;
+}
+
+/**
+ * POST /api/tick/catchup
+ * Body: { characterId: string }
+ *
+ * Batch-processes all ticks that accumulated while the client was offline.
+ * Resources, enemies, and treasure are auto-resolved using the character's current stats.
+ * Returns a summary of everything that happened so the client can show a recap.
+ */
+export async function POST(req: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
+
+    const body = await req.json() as { characterId?: string };
+    const { characterId } = body;
+    if (!characterId) return NextResponse.json({ error: 'Missing characterId' }, { status: 400 });
+
+    // Verify ownership and get character stats
+    const { data: character } = await supabase
+      .from('characters')
+      .select('id, current_hp, character_attributes(*)')
+      .eq('id', characterId)
+      .eq('user_id', user.id)
+      .single();
+    if (!character) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+    const { data: session } = await supabase
+      .from('exploration_sessions')
+      .select('*, biome_tiers(*, biomes(*))')
+      .eq('character_id', characterId)
+      .eq('status', 'active')
+      .single();
+    if (!session) return NextResponse.json({ error: 'No active session' }, { status: 404 });
+
+    // Determine how many ticks are pending
+    const intervalMs = EXP.tickIntervalSeconds * 1000;
+    const elapsed = Date.now() - new Date(session.last_tick_at).getTime();
+    const pendingTicks = Math.min(MAX_OFFLINE_TICKS, Math.floor(elapsed / intervalMs));
+
+    // Fewer than 2 pending ticks — let the normal cycle handle it
+    if (pendingTicks < 2) {
+      return NextResponse.json({ processed: 0, summary: null });
+    }
+
+    const biomeTier = session.biome_tiers as {
+      tier: number;
+      enemy_level_min: number;
+      enemy_level_max: number;
+      biomes?: { id: string; name: string };
+    } | null;
+    const biomeTierNumber = biomeTier?.tier ?? 1;
+    const biomeName = biomeTier?.biomes?.name ?? '';
+    const biomeId = biomeTier?.biomes?.id ?? null;
+    const isRuins = biomeName === 'ruins';
+
+    // Fetch simulation inputs in parallel — one round-trip for everything
+    const [
+      { data: biomeResources },
+      { data: enemyTypes },
+      { data: equippedItems },
+    ] = await Promise.all([
+      supabase
+        .from('biome_tier_resources')
+        .select('item_name, base_yield_min, base_yield_max, spawn_weight')
+        .eq('biome_tier_id', session.biome_tier_id),
+      biomeId
+        ? supabase
+            .from('enemy_types')
+            .select('display_name, level, xp_reward, loot_table')
+            .eq('tier', biomeTierNumber)
+            .eq('biome_id', biomeId)
+        : Promise.resolve({ data: [] }),
+      supabase
+        .from('character_inventory')
+        .select('equipped_slot, item_definitions(type, stats)')
+        .eq('character_id', characterId)
+        .not('equipped_slot', 'is', null),
+    ]);
+
+    // Resolve equipped weapon + armor for offline combat
+    type EquippedItem = {
+      equipped_slot: string | null;
+      item_definitions: { type: string; stats: Record<string, number> } | null;
+    };
+    const equipped = (equippedItems ?? []) as unknown as EquippedItem[];
+    const weaponDmgBase = Number(
+      equipped.find(e => e.item_definitions?.type === 'weapon')?.item_definitions?.stats?.weapon_damage ?? 5
+    );
+    const armorRating = Number(
+      equipped.find(e => e.item_definitions?.type === 'armor')?.item_definitions?.stats?.armor_rating ?? 0
+    );
+
+    const attrs = character.character_attributes as unknown as { strength: number; vigor: number } | null;
+    const strength = attrs?.strength ?? 5;
+    const vigor = attrs?.vigor ?? 5;
+    const maxHp = ATTR.baseHp + vigor * ATTR.hpPerVigor;
+    let currentHp = character.current_hp;
+
+    const collectPrefs = (session.collect_preferences ?? {}) as Record<string, string>;
+    const retreatThreshold = session.retreat_hp_threshold ?? 20;
+
+    // Accumulators — aggregate by item name to minimise DB writes
+    const resourceAccum: Record<string, { displayName: string; quantity: number }> = {};
+    const lootAccum: Record<string, number> = {};
+    let coinsGained = 0;
+    let enemiesKilled = 0;
+    let totalXpGained = 0;
+    let totalHpLost = 0;
+    let sessionEnded = false;
+    let ticksProcessed = 0;
+
+    // Same event weights as /api/tick
+    const rChance = isRuins ? 0.00 : 0.65;
+    const eChance = isRuins ? 0.70 : 0.20;
+    const tChance = isRuins ? 0.15 : 0.07;
+    const total = rChance + eChance + tChance;
+
+    type LootEntry = { item: string; min: number; max: number; weight: number };
+    type EnemyType = { display_name: string; level: number; xp_reward: number; loot_table: LootEntry[] };
+    const enemies = (enemyTypes ?? []) as EnemyType[];
+
+    for (let tick = 0; tick < pendingTicks; tick++) {
+      ticksProcessed++;
+
+      const roll = Math.random() * total;
+      const eventType =
+        roll < rChance ? 'resource'
+        : roll < rChance + eChance ? 'enemy'
+        : 'treasure';
+
+      if (eventType === 'resource' && biomeResources && biomeResources.length > 0) {
+        const totalW = biomeResources.reduce((s, r) => s + (r.spawn_weight ?? 10), 0);
+        let w = Math.random() * totalW;
+        const picked =
+          biomeResources.find(r => { w -= r.spawn_weight ?? 10; return w <= 0; }) ?? biomeResources[0];
+
+        // Respect per-item collect preferences set during the live session
+        const pref = collectPrefs[picked.item_name] ?? 'always';
+        if (pref !== 'never') {
+          const qty = Math.round(
+            Math.random() * (picked.base_yield_max - picked.base_yield_min) + picked.base_yield_min
+          );
+          const prev = resourceAccum[picked.item_name];
+          resourceAccum[picked.item_name] = {
+            displayName: prev?.displayName ?? picked.item_name.replace(/_/g, ' '),
+            quantity: (prev?.quantity ?? 0) + qty,
+          };
+        }
+      } else if (eventType === 'enemy') {
+        const pickedEnemy = enemies.length > 0
+          ? enemies[Math.floor(Math.random() * enemies.length)]
+          : null;
+        const level = pickedEnemy?.level ?? (
+          Math.floor(
+            Math.random() * ((biomeTier?.enemy_level_max ?? 5) - (biomeTier?.enemy_level_min ?? 1) + 1)
+          ) + (biomeTier?.enemy_level_min ?? 1)
+        );
+
+        // Simulate the same combat math used in actOnExploreEvent
+        const enemyHp = 10 + level * 4;
+        const playerDmgBase = calcMeleeDamage(weaponDmgBase, strength, 0);
+        const playerDmg = Math.max(1, playerDmgBase * (0.8 + Math.random() * 0.4));
+        const enemyDmgRaw = Math.max(1, 2 + level * 1.5 * Math.random());
+        const enemyDmg = applyDefense(enemyDmgRaw, armorRating);
+        const rounds = Math.ceil(enemyHp / playerDmg);
+        const victory = playerDmg * rounds >= enemyHp;
+
+        if (victory) {
+          enemiesKilled++;
+          totalXpGained += Number(pickedEnemy?.xp_reward ?? (10 + level * 3));
+          // Roll each loot entry independently by weight-out-of-10
+          for (const entry of (pickedEnemy?.loot_table ?? [])) {
+            if (Math.random() * 10 < entry.weight) {
+              const qty = Math.floor(Math.random() * (entry.max - entry.min + 1)) + entry.min;
+              lootAccum[entry.item] = (lootAccum[entry.item] ?? 0) + qty;
+            }
+          }
+        } else {
+          const hpLost = Math.min(currentHp - 1, Math.floor(rounds * enemyDmg * 0.4));
+          currentHp = Math.max(1, currentHp - hpLost);
+          totalHpLost += hpLost;
+          // Stop early if HP drops below retreat threshold (same as live session)
+          if ((currentHp / maxHp) * 100 <= retreatThreshold) {
+            sessionEnded = true;
+            break;
+          }
+        }
+      } else {
+        // treasure_found
+        coinsGained += Math.floor(Math.random() * 25) + 5;
+      }
+    }
+
+    // ── Write all accumulated results to the DB ──────────────────────────────
+    // Use PromiseLike to accommodate both Promise (awardXp) and PostgrestFilterBuilder (rpc).
+    const writes: PromiseLike<unknown>[] = [];
+
+    for (const [itemName, { quantity }] of Object.entries(resourceAccum)) {
+      writes.push(
+        supabase.rpc('add_to_inventory', { p_character_id: characterId, p_item_name: itemName, p_quantity: quantity })
+      );
+    }
+    for (const [itemName, quantity] of Object.entries(lootAccum)) {
+      writes.push(
+        supabase.rpc('add_to_inventory', { p_character_id: characterId, p_item_name: itemName, p_quantity: quantity })
+      );
+    }
+    if (coinsGained > 0) {
+      writes.push(
+        supabase.rpc('add_to_inventory', { p_character_id: characterId, p_item_name: 'coin', p_quantity: coinsGained })
+      );
+    }
+    if (totalXpGained > 0) {
+      writes.push(awardMainXp(supabase, characterId, totalXpGained));
+      writes.push(awardCategoryXp(supabase, characterId, 'usage', totalXpGained));
+    }
+    const resourceQty = Object.values(resourceAccum).reduce((s, r) => s + r.quantity, 0);
+    if (resourceQty > 0) {
+      writes.push(awardCategoryXp(supabase, characterId, 'gathering', resourceQty * 2));
+    }
+    if (totalHpLost > 0) {
+      writes.push(supabase.from('characters').update({ current_hp: currentHp }).eq('id', characterId));
+    }
+
+    await Promise.all(writes);
+
+    if (sessionEnded) {
+      await supabase.from('exploration_sessions').update({ status: 'completed' }).eq('id', session.id);
+      await supabase.rpc('restore_hp_on_return', { p_character_id: characterId });
+    } else {
+      await supabase
+        .from('exploration_sessions')
+        .update({ last_tick_at: new Date().toISOString() })
+        .eq('id', session.id);
+    }
+
+    const summary: OfflineSummary = {
+      ticksProcessed,
+      resourcesGained: Object.entries(resourceAccum).map(([item, { displayName, quantity }]) => ({
+        item, displayName, quantity,
+      })),
+      lootGained: Object.entries(lootAccum).map(([item, quantity]) => ({ item, quantity })),
+      enemiesKilled,
+      coinsGained,
+      xpGained: totalXpGained,
+      hpLost: totalHpLost,
+      sessionEnded,
+    };
+
+    return NextResponse.json({ processed: ticksProcessed, summary });
+  } catch (err: unknown) {
+    console.error('[tick/catchup]', err);
+    return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
+}

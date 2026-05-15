@@ -20,6 +20,7 @@ export interface ActOnEventResult {
     xpGained: number;
     newHp: number;
     fleeSuccess?: boolean;
+    lootDrops?: Array<{ item: string; quantity: number }>;
   };
 }
 
@@ -228,7 +229,28 @@ export async function actOnExploreEvent(
     const rounds    = Math.ceil(enemyHp / playerDmg);
     hpLost  = Math.min(character.current_hp - 1, Math.floor(rounds * enemyDmg * 0.4));
     victory = playerDmg * rounds >= enemyHp;
-    xpGained = victory ? 10 + level * 3 : 0;
+    // Prefer xp_reward stored in event data (from enemy_types), fall back to formula
+    xpGained = victory ? Number(d.xp_reward ?? (10 + level * 3)) : 0;
+  }
+
+  // Roll loot drops from the enemy's loot_table stored in event data.
+  // Each entry has a weight-out-of-10 drop chance (e.g. weight=8 → 80% to drop).
+  type LootEntry = { item: string; min: number; max: number; weight: number };
+  const lootTable = (d.loot_table as LootEntry[] | undefined) ?? [];
+  const lootDrops: Array<{ item: string; quantity: number }> = [];
+
+  if (victory && lootTable.length > 0) {
+    for (const entry of lootTable) {
+      if (Math.random() * 10 < entry.weight) {
+        const qty = Math.floor(Math.random() * (entry.max - entry.min + 1)) + entry.min;
+        await supabase.rpc('add_to_inventory', {
+          p_character_id: characterId,
+          p_item_name:    entry.item,
+          p_quantity:     qty,
+        });
+        lootDrops.push({ item: entry.item, quantity: qty });
+      }
+    }
   }
 
   const newHp = Math.max(1, character.current_hp - hpLost);
@@ -252,7 +274,7 @@ export async function actOnExploreEvent(
     event_type:   action === 'flee' ? 'flee_result' : 'combat_result',
     data: action === 'flee'
       ? { enemy: d.enemy, fleeSuccess, hpLost, newHp }
-      : { enemy: d.enemy, level, victory, hpLost, xpGained, newHp },
+      : { enemy: d.enemy, level, victory, hpLost, xpGained, newHp, lootDrops },
   });
 
   // Check auto-retreat threshold
@@ -270,10 +292,10 @@ export async function actOnExploreEvent(
       data:         { reason: 'auto_retreat', hp: newHp },
     });
     revalidatePath('/game');
-    return { ok: true, autoRetreat: true, combatResult: { victory, hpLost, xpGained, newHp, fleeSuccess } };
+    return { ok: true, autoRetreat: true, combatResult: { victory, hpLost, xpGained, newHp, fleeSuccess, lootDrops } };
   }
 
-  return { ok: true, combatResult: { victory, hpLost, xpGained, newHp, fleeSuccess } };
+  return { ok: true, combatResult: { victory, hpLost, xpGained, newHp, fleeSuccess, lootDrops } };
 }
 
 /** Update collect preference for an item type in the active session. */

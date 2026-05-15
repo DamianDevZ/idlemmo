@@ -90,16 +90,22 @@ function formatEvent(ev: DbExplorationEvent): EventDisplay {
         subtitle: undefined,
         accent: 'blue',
       };
-    case 'combat_result':
+    case 'combat_result': {
+      const loot = d.lootDrops as Array<{ item: string; quantity: number }> | undefined;
+      const lootStr = loot?.length
+        ? loot.map(l => `${l.quantity}× ${l.item.replace(/_/g, ' ')}`).join(', ')
+        : null;
       return {
         icon: d.victory ? '⚔️' : '💀',
         title: d.victory ? `Defeated ${d.enemy}` : `Lost to ${d.enemy}`,
         subtitle: [
           d.hpLost ? `−${d.hpLost} HP` : null,
           d.xpGained ? `+${d.xpGained} XP` : null,
+          lootStr,
         ].filter(Boolean).join(' · ') || undefined,
         accent: d.victory ? 'blue' : 'red',
       };
+    }
     case 'flee_result':
       return {
         icon: d.fleeSuccess ? '💨' : '⚠️',
@@ -163,6 +169,18 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
   const [autoApprove, setAutoApprove] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState('');
+
+  // Offline catch-up: shown when returning after missing ≥2 ticks
+  const [catchingUp, setCatchingUp] = useState(false);
+  const [offlineSummary, setOfflineSummary] = useState<{
+    ticksProcessed: number;
+    resourcesGained: Array<{ item: string; displayName: string; quantity: number }>;
+    lootGained: Array<{ item: string; quantity: number }>;
+    enemiesKilled: number;
+    coinsGained: number;
+    xpGained: number;
+    hpLost: number;
+  } | null>(null);
 
   // Tick progress bar: track when last tick happened
   const lastTickRef = useRef<number>(Date.now());
@@ -251,7 +269,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
               id: crypto.randomUUID(), session_id: session.id, character_id: character.id,
               event_type: 'combat_result',
               data: { enemy: d.enemy, level: d.level, victory: cr.victory,
-                      hpLost: cr.hpLost, xpGained: cr.xpGained, newHp: cr.newHp },
+                      hpLost: cr.hpLost, xpGained: cr.xpGained, newHp: cr.newHp, lootDrops: cr.lootDrops },
               occurred_at: new Date().toISOString(), acknowledged_at: null,
             } as DbExplorationEvent, ...prev].slice(0, 50));
           }
@@ -319,14 +337,48 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
     }, Math.max(0, intervalMs - 1500));
   };
 
-  // Start cycle when session is created or changes
+  // Start cycle when session is created or changes.
+  // On mount with an existing session, check for offline ticks first — if there are
+  // ≥2 pending ticks (user was away), fire the catch-up endpoint before resuming.
   useEffect(() => {
     if (!activeSession) {
       if (cycleTimerRef.current) clearTimeout(cycleTimerRef.current);
       if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
       return;
     }
-    startCycleRef.current();
+
+    const intervalMs = GAME_CONFIG.exploration.tickIntervalSeconds * 1000;
+    const elapsed = Date.now() - new Date(activeSession.last_tick_at).getTime();
+    const pendingTicks = Math.floor(elapsed / intervalMs);
+
+    if (pendingTicks >= 2) {
+      setCatchingUp(true);
+      fetch('/api/tick/catchup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ characterId: character.id }),
+      })
+        .then(r => r.json().catch(() => ({})))
+        .then((json: { processed?: number; summary?: typeof offlineSummary }) => {
+          if (json.summary) {
+            setOfflineSummary(json.summary);
+            if ((json.summary as { sessionEnded?: boolean }).sessionEnded) {
+              setActiveSession(null);
+              setCatchingUp(false);
+              return;
+            }
+          }
+          setCatchingUp(false);
+          startCycleRef.current();
+        })
+        .catch(() => {
+          setCatchingUp(false);
+          startCycleRef.current();
+        });
+    } else {
+      startCycleRef.current();
+    }
+
     return () => {
       if (cycleTimerRef.current) clearTimeout(cycleTimerRef.current);
       if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
@@ -427,7 +479,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
             event_type:   action === 'flee' ? 'flee_result' : 'combat_result',
             data: action === 'flee'
               ? { enemy: d.enemy, fleeSuccess: cr.fleeSuccess, hpLost: cr.hpLost, newHp: cr.newHp }
-              : { enemy: d.enemy, level: d.level, victory: cr.victory, hpLost: cr.hpLost, xpGained: cr.xpGained, newHp: cr.newHp },
+              : { enemy: d.enemy, level: d.level, victory: cr.victory, hpLost: cr.hpLost, xpGained: cr.xpGained, newHp: cr.newHp, lootDrops: cr.lootDrops },
             occurred_at:     new Date().toISOString(),
             acknowledged_at: null,
           };
@@ -511,8 +563,37 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
           />
         </div>
 
+        {/* ── Offline catch-up summary ── */}
+        {offlineSummary && (
+          <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 px-4 py-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-yellow-400">⏳ While you were away ({offlineSummary.ticksProcessed} ticks)</p>
+              <button onClick={() => setOfflineSummary(null)} className="text-xs text-muted-foreground hover:text-foreground leading-none">✕</button>
+            </div>
+            <div className="text-xs text-muted-foreground space-y-0.5">
+              {offlineSummary.resourcesGained.map(r => (
+                <p key={r.item}>🌿 {r.quantity}× {r.displayName}</p>
+              ))}
+              {offlineSummary.lootGained.map(l => (
+                <p key={l.item}>💎 {l.quantity}× {l.item.replace(/_/g, ' ')}</p>
+              ))}
+              {offlineSummary.enemiesKilled > 0 && <p>⚔️ {offlineSummary.enemiesKilled} {offlineSummary.enemiesKilled === 1 ? 'enemy' : 'enemies'} defeated</p>}
+              {offlineSummary.coinsGained > 0 && <p>🪙 {offlineSummary.coinsGained} coins found</p>}
+              {offlineSummary.xpGained > 0 && <p>✨ +{offlineSummary.xpGained} XP</p>}
+              {offlineSummary.hpLost > 0 && <p className="text-red-400">❤️ −{offlineSummary.hpLost} HP taken</p>}
+            </div>
+          </div>
+        )}
+
+        {/* ── Catching up spinner ── */}
+        {catchingUp && (
+          <div className="text-center text-sm text-muted-foreground py-3 animate-pulse">
+            ⏳ Processing offline ticks…
+          </div>
+        )}
+
         {/* ── Tick progress (hidden while waiting for decision) ── */}
-        {!pendingEvent && (
+        {!pendingEvent && !catchingUp && (
           <div className="space-y-1.5">
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>{tickProgress < 95 ? `Exploring… next find in ${secsLeft}s` : 'Finding…'}</span>

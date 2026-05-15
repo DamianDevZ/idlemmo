@@ -7,6 +7,7 @@ import { GAME_CONFIG } from '@/config/game.config';
 import { FriendRequestCard } from '@/components/game/FriendRequestCard';
 import { AddFriendForm } from '@/components/game/AddFriendForm';
 import { ArenaQueueButton } from '@/components/game/ArenaQueueButton';
+import { WorldBossPanel } from '@/components/game/WorldBossPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,10 @@ export default async function TownPage() {
     .single();
 
   if (!character) redirect('/create-character');
+
+  // Lazily transition boss states and spawn a new boss if none is active.
+  // This runs on every page load — the function is idempotent and fast.
+  await supabase.rpc('ensure_world_boss');
 
   const [
     { data: friends },
@@ -53,7 +58,7 @@ export default async function TownPage() {
       .limit(5),
     supabase
       .from('world_bosses')
-      .select('id, name, current_hp, max_hp, status, spawns_at')
+      .select('id, name, current_hp, max_hp, status, spawns_at, queue_closes_at')
       .in('status', ['queuing', 'in_progress'])
       .order('spawns_at')
       .limit(3),
@@ -64,6 +69,28 @@ export default async function TownPage() {
       .gt('expires_at', new Date().toISOString())
       .single(),
   ]);
+
+  // For the active boss (if any): check if the character has joined and get their last attack time
+  const activeBoss = worldBosses?.[0] ?? null;
+  let bossParticipant: { last_attack_at: string | null } | null = null;
+  let bossParticipantCount = 0;
+
+  if (activeBoss) {
+    const [{ data: part }, { count }] = await Promise.all([
+      supabase
+        .from('world_boss_participants')
+        .select('last_attack_at')
+        .eq('boss_id', activeBoss.id)
+        .eq('character_id', character.id)
+        .maybeSingle(),
+      supabase
+        .from('world_boss_participants')
+        .select('*', { count: 'exact', head: true })
+        .eq('boss_id', activeBoss.id),
+    ]);
+    bossParticipant = part;
+    bossParticipantCount = count ?? 0;
+  }
 
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto space-y-4">
@@ -213,36 +240,19 @@ export default async function TownPage() {
             </CardHeader>
           </Card>
 
-          {(worldBosses?.length ?? 0) === 0 ? (
+          {activeBoss ? (
+            <WorldBossPanel
+              boss={activeBoss}
+              characterId={character.id}
+              isParticipant={!!bossParticipant}
+              lastAttackAt={bossParticipant?.last_attack_at ?? null}
+              participantCount={bossParticipantCount}
+            />
+          ) : (
             <EmptyState
               icon="💀"
               message={`No active world bosses. They spawn every ${GAME_CONFIG.worldBoss.spawnIntervalHours} hours. Check back soon.`}
             />
-          ) : (
-            <div className="space-y-3">
-              {worldBosses!.map(boss => {
-                const hpPct = Math.round((boss.current_hp / boss.max_hp) * 100);
-                return (
-                  <Card key={boss.id} className="border-red-500/20">
-                    <CardContent className="pt-4 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <p className="font-bold text-red-400">{boss.name}</p>
-                        <Badge variant="destructive" className="text-xs capitalize">{boss.status}</Badge>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>HP</span>
-                          <span className="tabular-nums">{boss.current_hp.toLocaleString()} / {boss.max_hp.toLocaleString()}</span>
-                        </div>
-                        <div className="h-2 rounded-full bg-muted overflow-hidden">
-                          <div className="h-full bg-red-500/70 transition-all" style={{ width: `${hpPct}%` }} />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
           )}
         </TabsContent>
       </Tabs>

@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
       tier: number;
       enemy_level_min: number;
       enemy_level_max: number;
-      biomes?: { name: string };
+      biomes?: { id: string; name: string };
     } | null;
     const biomeTierNumber: number = biomeTier?.tier ?? 1;
     const biomeName: string = biomeTier?.biomes?.name ?? '';
@@ -239,11 +239,46 @@ export async function POST(req: NextRequest) {
         eventData = { item: 'nothing', quantity: 0 };
       }
     } else if (eventType === 'enemy_encountered') {
-      const minLv = biomeTier?.enemy_level_min ?? 1;
-      const maxLv = biomeTier?.enemy_level_max ?? 5;
-      const level = Math.floor(Math.random() * (maxLv - minLv + 1)) + minLv;
-      // Just record the encounter — combat is resolved when player clicks Fight/Flee
-      eventData = { enemy: `Lv ${level} Creature`, level };
+      // Look up a real enemy from the DB for this biome + tier.
+      // Stores the loot_table in event data so actOnExploreEvent can roll drops on victory.
+      const biomeId = biomeTier?.biomes?.id;
+      let pickedEnemy: {
+        display_name: string;
+        level: number;
+        xp_reward: number;
+        loot_table: Array<{ item: string; min: number; max: number; weight: number }>;
+      } | null = null;
+
+      if (biomeId) {
+        const { data: enemyTypes } = await supabase
+          .from('enemy_types')
+          .select('display_name, level, xp_reward, loot_table')
+          .eq('tier', biomeTierNumber)
+          .eq('biome_id', biomeId);
+        if (enemyTypes && enemyTypes.length > 0) {
+          pickedEnemy = enemyTypes[Math.floor(Math.random() * enemyTypes.length)] as {
+            display_name: string;
+            level: number;
+            xp_reward: number;
+            loot_table: Array<{ item: string; min: number; max: number; weight: number }>;
+          };
+        }
+      }
+
+      if (pickedEnemy) {
+        eventData = {
+          enemy: pickedEnemy.display_name,
+          level: pickedEnemy.level,
+          xp_reward: pickedEnemy.xp_reward,
+          loot_table: pickedEnemy.loot_table ?? [],
+        };
+      } else {
+        // No enemy_types seeded for this biome+tier — fall back to generic
+        const minLv = biomeTier?.enemy_level_min ?? 1;
+        const maxLv = biomeTier?.enemy_level_max ?? 5;
+        const level = Math.floor(Math.random() * (maxLv - minLv + 1)) + minLv;
+        eventData = { enemy: `Lv ${level} Creature`, level, xp_reward: 10 + level * 3, loot_table: [] };
+      }
     } else if (eventType === 'recipe_found' && pickedRecipe) {
       // Upsert so a duplicate-key race condition never silently swallows the insert.
       // ignoreDuplicates=true means: if they somehow already know it, just skip.
