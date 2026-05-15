@@ -252,23 +252,6 @@ export default function CraftingPanel({ skillLevels, allocBySkill }: Props) {
   );
 }
 
-
-interface AllocProps {
-  characterId: string;
-  categoryId: string;
-  skillId: string;
-  cost: number;
-  canAllocate: boolean;
-}
-
-interface Props {
-  /** skill.name → current level */
-  skillLevels: Record<string, number>;
-  /** skill.name → pre-computed allocate props from server */
-  allocBySkill: Record<string, AllocProps>;
-}
-
-export default function CraftingPanel({ skillLevels, allocBySkill }: Props) {
   const [catKey, setCatKey] = useState(CRAFT_CATEGORIES[0].key);
   const [recipeKey, setRecipeKey] = useState(CRAFT_CATEGORIES[0].recipes[0].key);
   const [tier, setTier] = useState(0);
