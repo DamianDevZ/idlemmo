@@ -168,6 +168,20 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
   const lastTickRef = useRef<number>(Date.now());
   const [tickProgress, setTickProgress] = useState(0);
 
+  // ── Cycle engine refs ───────────────────────────────────────────────────────
+  // prefetchRef holds the tick result while the countdown runs:
+  //   'in-flight' = fetch pending, null = no decision event, event = decision ready
+  const cycleTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prefetchRef    = useRef<DbExplorationEvent | null | 'in-flight'>('in-flight');
+  const timeElapsedRef = useRef(false);
+  const sessionRef     = useRef(activeSession);
+  const autoApproveRef = useRef(autoApprove);
+  const startCycleRef  = useRef<() => void>(() => {});
+  const revealRef      = useRef<(ev: DbExplorationEvent | null) => void>(() => {});
+  // Keep mutable values in sync on every render (safe to assign in render body)
+  sessionRef.current     = activeSession;
+  autoApproveRef.current = autoApprove;
+
   // ── Realtime subscription ──────────────────────────────────────────────────
   useEffect(() => {
     const supabase = createClient();
@@ -197,56 +211,149 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
     return () => { supabase.removeChannel(channel); };
   }, [character.id]);
 
-  // ── Tick driver (pauses while awaiting player decision) ────────────────────
-  useEffect(() => {
-    if (!activeSession || pendingEvent) return;
-    const characterId = character.id;
+  // ── Cycle engine ────────────────────────────────────────────────────────────
+  // revealRef and startCycleRef are re-assigned each render so async callbacks
+  // always close over the freshest state/props without needing dependency arrays.
 
-    // Reset progress bar when session starts or resumes after a decision
-    lastTickRef.current = Date.now();
+  revealRef.current = (ev: DbExplorationEvent | null) => {
+    const session = sessionRef.current;
+    if (!session) return;
 
-    async function fire() {
-      lastTickRef.current = Date.now();
-      console.log('[Tick] firing for session', activeSession?.id);
-      try {
-        const res = await fetch('/api/tick', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ characterId }),
-        });
-        const json = await res.json().catch(() => ({})) as { ok?: boolean; event?: DbExplorationEvent; skipped?: boolean };
-        console.log('[Tick] response:', res.status, json);
-        if (json.ok && json.event) {
-          const ev = json.event;
-          setEvents(prev => [ev, ...prev].slice(0, 50));
-          if (ev.event_type === 'resource_found' || ev.event_type === 'enemy_encountered') {
-            setPendingEvent(ev); // pause tick until player decides
-          } else {
-            // treasure_found / recipe_found — auto-resolved, just reset progress
-            lastTickRef.current = Date.now();
-          }
-        }
-      } catch (e) {
-        console.error('[Tick] network error', e);
-        // Network error — retry on next interval
-      }
+    // Surface the event in history exactly when the progress bar completes
+    if (ev) setEvents(prev => [ev, ...prev].slice(0, 50));
+
+    const isDecision = ev && (ev.event_type === 'resource_found' || ev.event_type === 'enemy_encountered');
+    if (!isDecision) {
+      startCycleRef.current(); // passive event or empty tick — keep going
+      return;
     }
-    // Fire immediately on fresh session start only (events empty = new session)
-    if (events.length === 0) fire();
-    const id = setInterval(fire, GAME_CONFIG.exploration.tickIntervalSeconds * 1000);
-    return () => clearInterval(id);
-  }, [activeSession?.id, character.id, !!pendingEvent]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Tick progress bar ──────────────────────────────────────────────────────────────────
+    if (autoApproveRef.current) {
+      // Auto mode: resolve without ever showing a decision card
+      const pd = (ev.data ?? {}) as Record<string, unknown>;
+      let action: ExploreAction = 'fight';
+      if (ev.event_type === 'resource_found') {
+        const SKILL_LEVEL_REQ = [0, 15, 30, 50, 70];
+        const itemTier    = Number(pd.item_tier   ?? 1);
+        const reqToolTier = Number(pd.required_tool_tier  ?? Math.max(0, itemTier - 1));
+        const reqSkillLv  = Number(pd.required_skill_level ?? (SKILL_LEVEL_REQ[itemTier - 1] ?? 0));
+        const locked      = playerToolTier < reqToolTier ||
+          (characterSkills[String(pd.required_skill ?? '')] ?? 0) < reqSkillLv;
+        action = locked ? 'leave' : 'collect';
+      }
+      actOnExploreEvent(character.id, session.id, ev.id, action)
+        .then(result => {
+          if (ev.event_type === 'enemy_encountered' && result.combatResult) {
+            const cr = result.combatResult;
+            const d  = (ev.data ?? {}) as Record<string, unknown>;
+            setEvents(prev => [{
+              id: crypto.randomUUID(), session_id: session.id, character_id: character.id,
+              event_type: 'combat_result',
+              data: { enemy: d.enemy, level: d.level, victory: cr.victory,
+                      hpLost: cr.hpLost, xpGained: cr.xpGained, newHp: cr.newHp },
+              occurred_at: new Date().toISOString(), acknowledged_at: null,
+            } as DbExplorationEvent, ...prev].slice(0, 50));
+          }
+          if (result.autoRetreat) {
+            setEvents(prev => [{
+              id: crypto.randomUUID(), session_id: session.id, character_id: character.id,
+              event_type: 'session_ended', data: { reason: 'auto_retreat' },
+              occurred_at: new Date().toISOString(), acknowledged_at: null,
+            } as DbExplorationEvent, ...prev].slice(0, 50));
+            setActiveSession(null);
+            return; // session over — don't start next cycle
+          }
+          startCycleRef.current();
+        })
+        .catch(() => startCycleRef.current());
+    } else {
+      // Manual: show decision card; handleEventAction will call startCycleRef when done
+      setPendingEvent(ev);
+    }
+  };
+
+  startCycleRef.current = () => {
+    const session = sessionRef.current;
+    if (!session) return;
+
+    if (cycleTimerRef.current) clearTimeout(cycleTimerRef.current);
+    prefetchRef.current    = 'in-flight';
+    timeElapsedRef.current = false;
+    lastTickRef.current    = Date.now();
+    const intervalMs = GAME_CONFIG.exploration.tickIntervalSeconds * 1000;
+
+    // Schedule the reveal at the end of the countdown
+    cycleTimerRef.current = setTimeout(() => {
+      if (!sessionRef.current) return;
+      timeElapsedRef.current = true;
+      if (prefetchRef.current !== 'in-flight') {
+        revealRef.current(prefetchRef.current);
+      }
+      // else: fetch still in flight — bar stays at 100%, reveal fires when fetch returns
+    }, intervalMs);
+
+    // Fire the tick fetch immediately so it runs during the countdown
+    fetch('/api/tick', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ characterId: character.id }),
+    })
+      .then(r => r.json().catch(() => ({})))
+      .then((json: { ok?: boolean; event?: DbExplorationEvent }) => {
+        if (!sessionRef.current) return;
+        const ev = (json.ok && json.event) ? json.event : null;
+        prefetchRef.current = ev;
+        if (timeElapsedRef.current) revealRef.current(ev);
+        // else: wait for the countdown timer to call reveal
+      })
+      .catch(() => {
+        if (!sessionRef.current) return;
+        prefetchRef.current = null;
+        if (timeElapsedRef.current) revealRef.current(null);
+      });
+  };
+
+  // Start cycle when session is created or changes
   useEffect(() => {
-    if (!activeSession || pendingEvent) return; // frozen while waiting for player
+    if (!activeSession) {
+      if (cycleTimerRef.current) clearTimeout(cycleTimerRef.current);
+      return;
+    }
+    startCycleRef.current();
+    return () => { if (cycleTimerRef.current) clearTimeout(cycleTimerRef.current); };
+  }, [activeSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Progress bar — fills 0→100% over the tick interval
+  // Naturally stays at 100% when elapsed > interval (waiting for server)
+  // Frozen at 100% when a manual decision is pending
+  useEffect(() => {
+    if (!activeSession || pendingEvent) {
+      setTickProgress(pendingEvent ? 100 : 0);
+      return;
+    }
     const intervalMs = GAME_CONFIG.exploration.tickIntervalSeconds * 1000;
     const id = setInterval(() => {
-      const elapsed = Date.now() - lastTickRef.current;
-      setTickProgress(Math.min(100, (elapsed / intervalMs) * 100));
+      setTickProgress(Math.min(100, ((Date.now() - lastTickRef.current) / intervalMs) * 100));
     }, 100);
     return () => clearInterval(id);
-  }, [activeSession, !!pendingEvent]);
+  }, [activeSession?.id, !!pendingEvent]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // If the user switches to auto while a manual decision card is showing, resolve it
+  useEffect(() => {
+    if (!pendingEvent || !autoApprove) return;
+    const pd = (pendingEvent.data ?? {}) as Record<string, unknown>;
+    let action: ExploreAction = 'fight';
+    if (pendingEvent.event_type === 'resource_found') {
+      const SKILL_LEVEL_REQ = [0, 15, 30, 50, 70];
+      const itemTier    = Number(pd.item_tier   ?? 1);
+      const reqToolTier = Number(pd.required_tool_tier  ?? Math.max(0, itemTier - 1));
+      const reqSkillLv  = Number(pd.required_skill_level ?? (SKILL_LEVEL_REQ[itemTier - 1] ?? 0));
+      const locked      = playerToolTier < reqToolTier ||
+        (characterSkills[String(pd.required_skill ?? '')] ?? 0) < reqSkillLv;
+      action = locked ? 'leave' : 'collect';
+    }
+    handleEventAction(action);
+  }, [autoApprove]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const biomeTiersForSelected = biomeTiers.filter(bt => bt.biome_id === selectedBiome);
@@ -270,7 +377,6 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
         });
         // Clear events from previous sessions so the new session starts fresh
         setEvents([]);
-        lastTickRef.current = Date.now();
         setActiveSession({ id: sessionId, character_id: character.id, biome_tier_id: tier.id, focus_type: 'balanced', status: 'active', started_at: new Date().toISOString(), last_tick_at: new Date().toISOString(), ends_at: null, retreat_hp_threshold: retreatHp, collect_preferences: {} });
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Failed to start');
@@ -319,7 +425,6 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
         }
 
         if (result.autoRetreat) {
-          // Insert a synthetic session_ended card too
           const ended: DbExplorationEvent = {
             id: crypto.randomUUID(),
             session_id:   sessionId,
@@ -331,36 +436,16 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
           };
           setEvents(prev => [ended, ...prev].slice(0, 50));
           setActiveSession(null);
+          setPendingEvent(null);
+          return; // session over — don't start next cycle
         }
       } catch {
-        // ignore — event still clears so tick resumes
+        // ignore
       }
-      setPendingEvent(null); // always resume tick driver
+      setPendingEvent(null);
+      startCycleRef.current();
     });
   }
-
-  // Auto-approve: instantly trigger default action when a decision event arrives
-  useEffect(() => {
-    if (!pendingEvent || !autoApprove) return;
-    const pd = (pendingEvent.data ?? {}) as Record<string, unknown>;
-    const isResource = pendingEvent.event_type === 'resource_found';
-
-    // Don't auto-collect locked resources — auto-leave instead
-    if (isResource) {
-      const SKILL_LEVEL_REQ = [0, 15, 30, 50, 70];
-      const itemTier = Number(pd.item_tier ?? 1);
-      const reqToolTier = Number(pd.required_tool_tier ?? Math.max(0, itemTier - 1));
-      const reqSkillLevel = Number(pd.required_skill_level ?? SKILL_LEVEL_REQ[itemTier - 1] ?? 0);
-      const reqSkillName = String(pd.required_skill ?? '');
-      const playerSkillLv = characterSkills[reqSkillName] ?? 0;
-      const locked = playerToolTier < reqToolTier || playerSkillLv < reqSkillLevel;
-      const action: ExploreAction = locked ? 'leave' : 'collect';
-      handleEventAction(action);
-      return;
-    }
-
-    handleEventAction('fight');
-  }, [pendingEvent?.id, autoApprove]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Active session view ────────────────────────────────────────────────────
   if (activeSession) {
@@ -515,7 +600,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
               </div>
               {autoApprove && (
                 <p className="text-[10px] text-muted-foreground text-center">
-                  Auto-{isResource ? 'collecting' : 'fighting'} in 2 s…
+                  Auto-{isResource ? 'collecting' : 'fighting'}…
                 </p>
               )}
             </div>
