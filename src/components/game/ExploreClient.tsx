@@ -829,7 +829,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
                     key={bt.id}
                     onClick={() => access.canDo && setSelectedTier(bt.tier)}
                     disabled={!access.canDo}
-                    className={`rounded-md border p-2.5 text-center transition-colors text-xs min-h-[64px] ${`
+                    className={`rounded-md border p-2.5 text-center transition-colors text-xs min-h-[64px] ${
                       active
                         ? 'border-primary bg-primary/10 text-primary'
                         : access.canDo
