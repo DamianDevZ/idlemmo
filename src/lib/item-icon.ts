@@ -97,6 +97,9 @@ const ITEM_ICON_MAP: Record<string, string> = {
 
   // Tools   — drop PNGs into /icons/equipment/tools/
   // Armor   — drop PNGs into /icons/equipment/armor/
+
+  // ── Misc ─────────────────────────────────────────────────────────────────
+  coin:              '/icons/resources/misc/coin.png',
 };
 
 export function getResourceIconPath(itemName: string): string | null {

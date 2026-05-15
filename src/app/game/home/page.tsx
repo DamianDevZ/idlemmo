@@ -108,6 +108,13 @@ export default async function HomeBasePage() {
     ...stashAvailable.filter(s => !invAvailable.some(i => i.item_id === s.item_id)),
   ];
 
+  // Equipment that lives in inventory (equipped or just held) — shown in Stash tab
+  const inventoryEquip = inventory.filter(i => i.item_definitions && EQUIP_TYPES.has(i.item_definitions.type));
+  // Non-equipment items that show in the Inventory tab
+  const inventoryResources = inventory.filter(i => !i.item_definitions || !EQUIP_TYPES.has(i.item_definitions.type));
+  // Combined count for the Stash tab badge
+  const stashAndEquipCount = stash.length + inventoryEquip.length;
+
   type KnownRecipe = {
     id: string;
     display_name: string;
@@ -154,14 +161,14 @@ export default async function HomeBasePage() {
         <TabsList className="w-full grid grid-cols-4">
           <TabsTrigger value="inventory">
             Inventory
-            {inventory.length > 0 && (
-              <Badge variant="secondary" className="ml-2 text-xs">{inventory.length}</Badge>
+            {inventoryResources.length > 0 && (
+              <Badge variant="secondary" className="ml-2 text-xs">{inventoryResources.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="stash">
             Stash
-            {stash.length > 0 && (
-              <Badge variant="secondary" className="ml-2 text-xs">{stash.length}</Badge>
+            {stashAndEquipCount > 0 && (
+              <Badge variant="secondary" className="ml-2 text-xs">{stashAndEquipCount}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="refining">Refining</TabsTrigger>
@@ -170,7 +177,7 @@ export default async function HomeBasePage() {
 
         {/* ── Inventory ── */}
         <TabsContent value="inventory" className="mt-4">
-          {inventory.length === 0 ? (
+          {inventoryResources.length === 0 ? (
             <EmptyState icon="🎒" message="Your inventory is empty. Head to the Wilds to gather resources." />
           ) : (
             <div className="space-y-2">
@@ -182,7 +189,7 @@ export default async function HomeBasePage() {
                 />
                 <DepositAllButton characterId={character.id} />
               </div>
-              {inventory.map(item => {
+              {inventoryResources.map(item => {
                 const def = item.item_definitions;
                 const resInfo = getResourceInfo(def?.name ?? '');
                 const displayLabel = resInfo
@@ -231,47 +238,98 @@ export default async function HomeBasePage() {
 
         {/* ── Stash ── */}
         <TabsContent value="stash" className="mt-4">
-          {stash.length === 0 ? (
+          {stashAndEquipCount === 0 ? (
             <EmptyState icon="📦" message="Your stash is empty. Deposit items from your inventory to store them safely." />
           ) : (
             <div className="space-y-2">
-              {stash.map(item => {
-                const def = item.item_definitions;
-                const resInfo = getResourceInfo(def?.name ?? '');
-                const displayLabel = resInfo
-                  ? `${resInfo.type} · Tier ${resInfo.tier}`
-                  : (def?.display_name ?? 'Unknown item');
-                const subLabel = resInfo ? (def?.name?.includes('_block') || def?.name?.includes('_plank') || def?.name?.includes('_slab') || def?.name?.includes('_ingot') || def?.name?.includes('_cloth') || def?.name?.includes('_leather') || def?.name === 'leather' ? 'Refined' : 'Raw') : def?.type;
-                return (
-                  <div
-                    key={item.item_id}
-                    className="flex items-center justify-between px-4 py-3 rounded-lg border border-border bg-card"
-                  >
-                    <div className="flex-1 min-w-0 flex items-center gap-2.5">
-                      {(() => {
-                        const path = getResourceIconPath(def?.name ?? '');
-                        return path
-                          ? <Image src={path} alt="" width={28} height={28} className="w-7 h-7 object-contain shrink-0" />
-                          : null;
-                      })()}
-                      <div>
-                        <span className={`font-semibold text-sm ${RARITY_COLORS[def?.rarity ?? 'common']}`}>
-                          {displayLabel}
-                        </span>
-                        <span className="text-muted-foreground text-xs ml-2 capitalize">{subLabel}</span>
+              {/* Equipment from inventory (equipped or held) */}
+              {inventoryEquip.length > 0 && (
+                <>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold px-1">Equipment</p>
+                  {inventoryEquip.map(item => {
+                    const def = item.item_definitions;
+                    return (
+                      <div
+                        key={item.item_id}
+                        className="flex items-center justify-between px-4 py-3 rounded-lg border border-border bg-card"
+                      >
+                        <div className="flex-1 min-w-0 flex items-center gap-2.5">
+                          {(() => {
+                            const path = getResourceIconPath(def?.name ?? '');
+                            return path
+                              ? <Image src={path} alt="" width={28} height={28} className="w-7 h-7 object-contain shrink-0" />
+                              : <span className="text-lg shrink-0">{def?.type === 'tool' ? '⛏️' : def?.type === 'weapon' ? '⚔️' : '🛡️'}</span>;
+                          })()}
+                          <div>
+                            <span className={`font-semibold text-sm ${RARITY_COLORS[def?.rarity ?? 'common']}`}>
+                              {def?.display_name ?? 'Unknown'}
+                            </span>
+                            <span className="text-muted-foreground text-xs ml-2 capitalize">{def?.type}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {item.equipped_slot ? (
+                            <Badge className="text-xs capitalize bg-primary/15 text-primary border-primary/30 border">
+                              ✓ {item.equipped_slot}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs text-muted-foreground">In bag</Badge>
+                          )}
+                          <Badge variant="secondary" className={`text-xs capitalize ${RARITY_COLORS[def?.rarity ?? 'common']}`}>
+                            {def?.rarity}
+                          </Badge>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      {item.quantity > 1 && (
-                        <span className="text-sm text-muted-foreground tabular-nums">×{item.quantity}</span>
-                      )}
-                      <Badge variant="secondary" className={`text-xs capitalize ${RARITY_COLORS[def?.rarity ?? 'common']}`}>
-                        {def?.rarity}
-                      </Badge>
-                    </div>
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </>
+              )}
+
+              {/* Regular stash items */}
+              {stash.length > 0 && (
+                <>
+                  {inventoryEquip.length > 0 && (
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold px-1 pt-2">Stored</p>
+                  )}
+                  {stash.map(item => {
+                    const def = item.item_definitions;
+                    const resInfo = getResourceInfo(def?.name ?? '');
+                    const displayLabel = resInfo
+                      ? `${resInfo.type} · Tier ${resInfo.tier}`
+                      : (def?.display_name ?? 'Unknown item');
+                    const subLabel = resInfo ? (def?.name?.includes('_block') || def?.name?.includes('_plank') || def?.name?.includes('_slab') || def?.name?.includes('_ingot') || def?.name?.includes('_cloth') || def?.name?.includes('_leather') || def?.name === 'leather' ? 'Refined' : 'Raw') : def?.type;
+                    return (
+                      <div
+                        key={item.item_id}
+                        className="flex items-center justify-between px-4 py-3 rounded-lg border border-border bg-card"
+                      >
+                        <div className="flex-1 min-w-0 flex items-center gap-2.5">
+                          {(() => {
+                            const path = getResourceIconPath(def?.name ?? '');
+                            return path
+                              ? <Image src={path} alt="" width={28} height={28} className="w-7 h-7 object-contain shrink-0" />
+                              : null;
+                          })()}
+                          <div>
+                            <span className={`font-semibold text-sm ${RARITY_COLORS[def?.rarity ?? 'common']}`}>
+                              {displayLabel}
+                            </span>
+                            <span className="text-muted-foreground text-xs ml-2 capitalize">{subLabel}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          {item.quantity > 1 && (
+                            <span className="text-sm text-muted-foreground tabular-nums">×{item.quantity}</span>
+                          )}
+                          <Badge variant="secondary" className={`text-xs capitalize ${RARITY_COLORS[def?.rarity ?? 'common']}`}>
+                            {def?.rarity}
+                          </Badge>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
           )}
         </TabsContent>
