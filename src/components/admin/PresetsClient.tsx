@@ -4,6 +4,10 @@ import { useState, useTransition } from 'react';
 import { updatePresetResistances } from '@/features/admin/preset-actions';
 
 const DAMAGE_TYPES = ['slash','blunt','bleed','pierce','fire','ice','lightning','poison'];
+const DMG_EMOJI: Record<string, string> = {
+  slash: '🗡️', blunt: '🔨', bleed: '🩸', pierce: '🏹',
+  fire: '🔥', ice: '❄️', lightning: '⚡', poison: '☠️',
+};
 
 type Preset = {
   id: string;
@@ -18,10 +22,10 @@ export function PresetsClient({ presets: initial }: { presets: Preset[] }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isPending, startTransition] = useTransition();
 
-  function setResistance(presetId: string, dtype: string, value: string) {
+  function setResistance(presetId: string, dtype: string, value: number) {
     setPresets(prev => prev.map(p =>
       p.id === presetId
-        ? { ...p, resistances: { ...p.resistances, [dtype]: Number(value) } }
+        ? { ...p, resistances: { ...p.resistances, [dtype]: value } }
         : p
     ));
   }
@@ -65,33 +69,35 @@ export function PresetsClient({ presets: initial }: { presets: Preset[] }) {
             <p className="text-xs text-destructive">{errors[preset.id]}</p>
           )}
 
-          <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
+          <div className="flex gap-4 justify-around overflow-x-auto pb-1 pt-1">
             {DAMAGE_TYPES.map(dtype => {
               const val = preset.resistances[dtype] ?? 0;
-              const color = val > 0 ? 'text-green-400' : val < 0 ? 'text-red-400' : 'text-muted-foreground';
+              const valColor = val > 0 ? '#4ade80' : val < 0 ? '#f87171' : '#64748b';
               return (
-                <div key={dtype} className="flex flex-col gap-1">
-                  <span className="text-[10px] font-semibold uppercase text-muted-foreground">{dtype}</span>
+                <div key={dtype} className="flex flex-col items-center gap-1.5 shrink-0">
+                  <span className="text-xs font-mono font-bold" style={{ color: valColor }}>
+                    {val > 0 ? '+' : ''}{val}%
+                  </span>
                   <input
-                    type="number"
+                    type="range"
+                    min={-100}
+                    max={100}
+                    step={5}
                     value={val}
-                    onChange={e => setResistance(preset.id, dtype, e.target.value)}
-                    className={`w-full px-2 py-1 text-xs text-center bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-ring ${color} font-mono`}
+                    onChange={e => setResistance(preset.id, dtype, Number(e.target.value))}
+                    className="accent-primary cursor-pointer"
+                    style={{
+                      writingMode: 'vertical-lr',
+                      WebkitAppearance: 'slider-vertical',
+                      direction: 'rtl',
+                      height: '120px',
+                      width: '20px',
+                    }}
                   />
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Visual resistance bar */}
-          <div className="flex gap-1 h-2">
-            {DAMAGE_TYPES.map(dtype => {
-              const val = Math.max(-100, Math.min(100, preset.resistances[dtype] ?? 0));
-              const color = val > 0 ? 'bg-green-500' : val < 0 ? 'bg-red-500' : 'bg-border';
-              const width = Math.abs(val);
-              return (
-                <div key={dtype} className="flex-1 bg-accent rounded-full overflow-hidden" title={`${dtype}: ${val}%`}>
-                  <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${width}%` }} />
+                  <div className="flex flex-col items-center">
+                    <span className="text-base leading-none">{DMG_EMOJI[dtype]}</span>
+                    <span className="text-[9px] text-muted-foreground capitalize mt-0.5">{dtype}</span>
+                  </div>
                 </div>
               );
             })}

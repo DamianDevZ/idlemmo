@@ -7,7 +7,6 @@ const NAV = [
   { label: '── Game ──',     href: null },
   { href: '/admin/items',    label: '⚔️  Items' },
   { href: '/admin/enemies',  label: '👹 Enemies' },
-  { href: '/admin/presets',  label: '🛡️  Armor Presets' },
   { label: '── Players ──',  href: null },
   { href: '/admin/players',  label: '👥 Ledger' },
 ];
