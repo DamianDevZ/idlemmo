@@ -7,7 +7,7 @@ import { logoutAction } from '@/features/auth/actions';
 const LOCATIONS = [
   { href: '/game',           emoji: '🏕️', label: 'Hub',        sublabel: 'Overview'   },
   { href: '/game/home',      emoji: '🏠', label: 'Home Base',  sublabel: 'Crafting & Stash' },
-  { href: '/game/explore',   emoji: '🌲', label: 'The Wilds',  sublabel: 'Explore & Hunt' },
+  { href: '/game/explore',   emoji: '🌲', label: 'Explore',    sublabel: 'Explore & Hunt' },
   { href: '/game/town',      emoji: '🏘️', label: 'Town',       sublabel: 'Friends & Arena' },
   { href: '/game/character', emoji: '⚔️', label: 'Character',  sublabel: 'Stats & Skills' },
 ];
