@@ -339,7 +339,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
     });
   }
 
-  // Auto-approve: trigger default action 2 s after a decision event arrives
+  // Auto-approve: instantly trigger default action when a decision event arrives
   useEffect(() => {
     if (!pendingEvent || !autoApprove) return;
     const pd = (pendingEvent.data ?? {}) as Record<string, unknown>;
@@ -355,13 +355,11 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
       const playerSkillLv = characterSkills[reqSkillName] ?? 0;
       const locked = playerToolTier < reqToolTier || playerSkillLv < reqSkillLevel;
       const action: ExploreAction = locked ? 'leave' : 'collect';
-      const timer = setTimeout(() => handleEventAction(action), 2000);
-      return () => clearTimeout(timer);
+      handleEventAction(action);
+      return;
     }
 
-    const defaultAction: ExploreAction = 'fight';
-    const timer = setTimeout(() => handleEventAction(defaultAction), 2000);
-    return () => clearTimeout(timer);
+    handleEventAction('fight');
   }, [pendingEvent?.id, autoApprove]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Active session view ────────────────────────────────────────────────────

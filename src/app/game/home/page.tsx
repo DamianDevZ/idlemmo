@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DepositButton, DepositAllButton } from '@/components/game/DepositButton';
 import { CraftButton } from '@/components/game/CraftButton';
 import { RefineButton } from '@/components/game/RefineButton';
+import { EquipmentModal } from '@/components/game/EquipmentModal';
+import type { EquippedData, EquipItemData } from '@/components/game/EquipmentPanel';
 import type { DbInventoryItem, DbStashItem, DbItemDefinition } from '@/types/game';
 
 export const dynamic = 'force-dynamic';
@@ -81,6 +83,31 @@ export default async function HomeBasePage() {
   const inventory = (inventoryRows ?? []) as (DbInventoryItem & { item_definitions: DbItemDefinition })[];
   const stash = (stashRows ?? []) as (DbStashItem & { item_definitions: DbItemDefinition })[];
 
+  // ── Equipment data for modal ──────────────────────────────────────────────
+  const EQUIP_TYPES = new Set(['weapon', 'armor', 'tool']);
+  const equippedItems: EquippedData[] = inventory
+    .filter(i => i.equipped_slot && i.item_definitions)
+    .map(i => ({
+      slot:         i.equipped_slot!,
+      item_id:      i.item_id,
+      display_name: i.item_definitions.display_name,
+      name:         i.item_definitions.name,
+      type:         i.item_definitions.type,
+      rarity:       i.item_definitions.rarity,
+      stats:        i.item_definitions.stats,
+      tool_tier:    i.item_definitions.tool_tier,
+    }));
+  const invAvailable: EquipItemData[] = inventory
+    .filter(i => !i.equipped_slot && i.item_definitions && EQUIP_TYPES.has(i.item_definitions.type))
+    .map(i => ({ ...i.item_definitions, item_id: i.item_id, source: 'inventory' as const }));
+  const stashAvailable: EquipItemData[] = stash
+    .filter(s => s.item_definitions && EQUIP_TYPES.has(s.item_definitions.type))
+    .map(s => ({ ...s.item_definitions, item_id: s.item_id, source: 'stash' as const }));
+  const equipAvailable: EquipItemData[] = [
+    ...invAvailable,
+    ...stashAvailable.filter(s => !invAvailable.some(i => i.item_id === s.item_id)),
+  ];
+
   type KnownRecipe = {
     id: string;
     display_name: string;
@@ -147,7 +174,12 @@ export default async function HomeBasePage() {
             <EmptyState icon="🎒" message="Your inventory is empty. Head to the Wilds to gather resources." />
           ) : (
             <div className="space-y-2">
-              <div className="flex justify-end">
+              <div className="flex justify-between items-center">
+                <EquipmentModal
+                  characterId={character.id}
+                  equipped={equippedItems}
+                  available={equipAvailable}
+                />
                 <DepositAllButton characterId={character.id} />
               </div>
               {inventory.map(item => {
