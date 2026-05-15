@@ -124,7 +124,7 @@ export default async function HomeBasePage() {
     ingredients: unknown;
     tier: number;
     category: string;
-    item_definitions: { id: string; display_name: string; rarity: string } | null;
+    item_definitions: { id: string; name?: string; display_name: string; rarity: string } | null;
   };
   const recipeList = ((knownRecipeRows ?? [])
     .map((r: Record<string, unknown>) => r.recipes)
