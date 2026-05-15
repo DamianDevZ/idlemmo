@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { GAME_CONFIG } from '@/config/game.config';
 import GameNav from '@/components/game/GameNav';
+import { AnalyticsBeacon } from '@/components/game/AnalyticsBeacon';
 
 export default async function GameLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -57,6 +58,7 @@ export default async function GameLayout({ children }: { children: React.ReactNo
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto pb-20 md:pb-0" style={{ paddingBottom: 'max(5rem, calc(4rem + env(safe-area-inset-bottom)))' }}>
+          <AnalyticsBeacon />
           {children}
         </main>
       </div>
