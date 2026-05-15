@@ -172,6 +172,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
   // prefetchRef holds the tick result while the countdown runs:
   //   'in-flight' = fetch pending, null = no decision event, event = decision ready
   const cycleTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fetchTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prefetchRef    = useRef<DbExplorationEvent | null | 'in-flight'>('in-flight');
   const timeElapsedRef = useRef(false);
   const sessionRef     = useRef(activeSession);
@@ -277,6 +278,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
     if (!session) return;
 
     if (cycleTimerRef.current) clearTimeout(cycleTimerRef.current);
+    if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
     prefetchRef.current    = 'in-flight';
     timeElapsedRef.current = false;
     lastTickRef.current    = Date.now();
@@ -292,7 +294,10 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
       // else: fetch still in flight — bar stays at 100%, reveal fires when fetch returns
     }, intervalMs);
 
-    // Fire the tick fetch immediately so it runs during the countdown
+    // Fire the tick fetch 1.5 s before the countdown ends.
+    // This ensures server-side elapsed >= tickInterval - 2 s (grace period) on every cycle
+    // including the very first one after a new session starts.
+    fetchTimerRef.current = setTimeout(() => {
     fetch('/api/tick', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -311,16 +316,21 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
         prefetchRef.current = null;
         if (timeElapsedRef.current) revealRef.current(null);
       });
+    }, Math.max(0, intervalMs - 1500));
   };
 
   // Start cycle when session is created or changes
   useEffect(() => {
     if (!activeSession) {
       if (cycleTimerRef.current) clearTimeout(cycleTimerRef.current);
+      if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
       return;
     }
     startCycleRef.current();
-    return () => { if (cycleTimerRef.current) clearTimeout(cycleTimerRef.current); };
+    return () => {
+      if (cycleTimerRef.current) clearTimeout(cycleTimerRef.current);
+      if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
+    };
   }, [activeSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Progress bar — fills 0→100% over the tick interval
@@ -465,46 +475,41 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
     return (
       <div className="p-4 md:p-6 space-y-4 max-w-xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-primary">Exploring</h2>
-            <p className="text-muted-foreground text-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-xl md:text-2xl font-bold text-primary leading-tight">Exploring</h2>
+            <p className="text-muted-foreground text-sm truncate">
               {activeBiome?.icon} {activeBiome?.display_name} — {activeTier?.display_name}
-
             </p>
           </div>
-          <Button variant="outline" onClick={handleReturn} disabled={pending}>
-            {pending ? 'Returning…' : '🏠 Return Home'}
+          <Button variant="outline" size="sm" onClick={handleReturn} disabled={pending} className="shrink-0">
+            {pending ? '…' : '🏠 Return'}
           </Button>
         </div>
 
-        {/* Auto-approve toggle */}
-        <label className="flex items-center gap-2 cursor-pointer w-fit">
-          <input
-            type="checkbox"
-            checked={autoApprove}
-            onChange={e => setAutoApprove(e.target.checked)}
-            className="w-3.5 h-3.5 accent-primary"
-          />
-          <span className="text-xs text-muted-foreground">Auto-approve (collect &amp; fight)</span>
-        </label>
-
-        {/* HP bar */}
-        <Card>
-          <CardContent className="pt-4 space-y-1.5">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">HP</span>
-              <span className="font-semibold">{character.current_hp} / {maxHp}</span>
+        {/* HP + controls row */}
+        <div className="rounded-xl border border-border bg-card px-4 py-3 space-y-2.5">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xs text-muted-foreground shrink-0">HP</span>
+              <span className="text-sm font-semibold tabular-nums">{character.current_hp}<span className="text-muted-foreground font-normal">/{maxHp}</span></span>
+              <span className="text-[10px] text-muted-foreground/60 hidden sm:inline">(retreat at {activeSession.retreat_hp_threshold}%)</span>
             </div>
-            <Progress
-              value={Math.min(100, (character.current_hp / maxHp) * 100)}
-              className="h-2"
-            />
-            <p className="text-xs text-muted-foreground">
-              Auto-retreat at {activeSession.retreat_hp_threshold}% HP
-            </p>
-          </CardContent>
-        </Card>
+            <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
+              <input
+                type="checkbox"
+                checked={autoApprove}
+                onChange={e => setAutoApprove(e.target.checked)}
+                className="w-3.5 h-3.5 accent-primary"
+              />
+              <span className="text-xs text-muted-foreground">Auto</span>
+            </label>
+          </div>
+          <Progress
+            value={Math.min(100, (character.current_hp / maxHp) * 100)}
+            className="h-1.5"
+          />
+        </div>
 
         {/* ── Tick progress (hidden while waiting for decision) ── */}
         {!pendingEvent && (
@@ -576,23 +581,22 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
                 {isResource ? (
                   <>
                     <Button
-                      size="sm"
                       onClick={() => handleEventAction('collect')}
                       disabled={pending || collectLocked}
-                      className={`flex-1 ${collectLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
+                      className={`flex-1 h-11 text-base ${collectLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
                     >
                       ✓ Collect
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleEventAction('leave')} disabled={pending} className="flex-1">
+                    <Button variant="outline" onClick={() => handleEventAction('leave')} disabled={pending} className="flex-1 h-11 text-base">
                       ✗ Leave
                     </Button>
                   </>
                 ) : (
                   <>
-                    <Button size="sm" onClick={() => handleEventAction('fight')} disabled={pending} className="flex-1">
+                    <Button onClick={() => handleEventAction('fight')} disabled={pending} className="flex-1 h-11 text-base">
                       ⚔️ Fight
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleEventAction('flee')} disabled={pending} className="flex-1">
+                    <Button variant="outline" onClick={() => handleEventAction('flee')} disabled={pending} className="flex-1 h-11 text-base">
                       🏃 Flee <span className="text-xs opacity-60 ml-1">(50%)</span>
                     </Button>
                   </>
@@ -708,7 +712,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
                     key={bt.id}
                     onClick={() => access.canDo && setSelectedTier(bt.tier)}
                     disabled={!access.canDo}
-                    className={`rounded-md border p-2 text-center transition-colors text-xs ${
+                    className={`rounded-md border p-2.5 text-center transition-colors text-xs min-h-[56px] ${
                       active
                         ? 'border-primary bg-primary/10 text-primary'
                         : access.canDo

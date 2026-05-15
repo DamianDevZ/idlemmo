@@ -38,19 +38,19 @@ export default async function GameLayout({ children }: { children: React.ReactNo
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
-        <header className="md:hidden flex items-center justify-between px-4 h-12 border-b border-border bg-card shrink-0">
+        <header className="md:hidden flex items-center justify-between px-4 h-13 border-b border-border bg-card shrink-0">
           <span className="text-primary font-black text-xs tracking-[0.2em] uppercase">⚔ Idle MMO</span>
           <span className="text-xs text-muted-foreground">{character!.name} · Lv {character!.main_level}</span>
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
+        <main className="flex-1 overflow-y-auto pb-20 md:pb-0" style={{ paddingBottom: 'max(5rem, calc(4rem + env(safe-area-inset-bottom)))' }}>
           {children}
         </main>
       </div>
 
       {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 border-t border-border bg-card z-40">
+      <nav className="md:hidden fixed bottom-0 inset-x-0 border-t border-border bg-card/95 backdrop-blur-sm z-40">
         <GameNav character={{ ...character!, maxHp }} mobile />
       </nav>
     </div>

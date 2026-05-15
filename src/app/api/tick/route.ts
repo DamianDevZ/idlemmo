@@ -110,11 +110,12 @@ export async function POST(req: NextRequest) {
       .single();
     if (!session) return NextResponse.json({ error: 'No active session' }, { status: 404 });
 
-    // Enforce cooldown — ignore calls that arrive too early (500 ms grace)
+    // Enforce cooldown — ignore calls that arrive too early (2 s grace allows the
+    // client to pre-fire 1.5 s before the countdown ends and still be accepted).
     const lastTick = new Date(session.last_tick_at).getTime();
     const minInterval = EXP.tickIntervalSeconds * 1000;
     const elapsed = Date.now() - lastTick;
-    if (elapsed < minInterval - 500) {
+    if (elapsed < minInterval - 2000) {
       return NextResponse.json({ skipped: true, nextInMs: minInterval - elapsed });
     }
 

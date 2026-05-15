@@ -28,21 +28,26 @@ export default function GameNav({ character, mobile }: Props) {
   /* ── Mobile bottom bar ── */
   if (mobile) {
     return (
-      <div className="flex h-14">
+      <div className="flex h-16 pb-[env(safe-area-inset-bottom)]">
         {LOCATIONS.map(({ href, emoji, label }) => {
           const active = isActive(href);
           return (
             <Link
               key={href}
               href={href}
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${
+              className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors relative ${
                 active ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <span className={`text-xl leading-none ${active ? 'drop-shadow-[0_0_6px_var(--primary)]' : ''}`}>
+              {active && (
+                <span className="absolute top-0 inset-x-3 h-0.5 rounded-full bg-primary" />
+              )}
+              <span className={`text-[22px] leading-none ${active ? 'drop-shadow-[0_0_6px_var(--primary)]' : ''}`}>
                 {emoji}
               </span>
-              <span className="text-[9px] leading-none font-medium">{label.split(' ')[0]}</span>
+              <span className={`text-[10px] leading-none font-medium ${active ? 'font-semibold' : ''}`}>
+                {label.split(' ')[0]}
+              </span>
             </Link>
           );
         })}
