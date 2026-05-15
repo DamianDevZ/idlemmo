@@ -1,0 +1,58 @@
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import { GAME_CONFIG } from '@/config/game.config';
+import GameNav from '@/components/game/GameNav';
+
+export default async function GameLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) redirect('/login');
+
+  // Check if character exists; if not, send to creation
+  const { data: character } = await supabase
+    .from('characters')
+    .select('id, name, main_level, current_hp')
+    .eq('user_id', user.id)
+    .single();
+
+  // Allow through to create-character even without one
+  if (!character) redirect('/create-character');
+
+  // Get vigor for HP display in the nav
+  const { data: attrs } = await supabase
+    .from('character_attributes')
+    .select('vigor')
+    .eq('character_id', character!.id)
+    .single();
+
+  const maxHp = GAME_CONFIG.attributes.baseHp +
+    (attrs?.vigor ?? GAME_CONFIG.character.startingAttributeValue) * GAME_CONFIG.attributes.hpPerVigor;
+
+  return (
+    <div className="flex h-screen overflow-hidden">
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex w-44 flex-col shrink-0 border-r border-border bg-card">
+        <GameNav character={{ ...character!, maxHp }} />
+      </aside>
+
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Mobile top bar */}
+        <header className="md:hidden flex items-center justify-between px-4 h-12 border-b border-border bg-card shrink-0">
+          <span className="text-primary font-black text-xs tracking-[0.2em] uppercase">⚔ Idle MMO</span>
+          <span className="text-xs text-muted-foreground">{character!.name} · Lv {character!.main_level}</span>
+        </header>
+
+        {/* Page content */}
+        <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
+          {children}
+        </main>
+      </div>
+
+      {/* Mobile bottom nav */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 border-t border-border bg-card z-40">
+        <GameNav character={{ ...character!, maxHp }} mobile />
+      </nav>
+    </div>
+  );
+}
