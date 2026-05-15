@@ -95,7 +95,7 @@ export default async function HomeBasePage() {
       type:         i.item_definitions.type,
       rarity:       i.item_definitions.rarity,
       stats:        i.item_definitions.stats,
-      tool_tier:    i.item_definitions.tool_tier,
+      equipment_tier: i.item_definitions.equipment_tier,
     }));
   const invAvailable: EquipItemData[] = inventory
     .filter(i => !i.equipped_slot && i.item_definitions && EQUIP_TYPES.has(i.item_definitions.type))

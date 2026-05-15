@@ -13,7 +13,7 @@ export interface EquipItemData {
   type: string;
   rarity: string;
   stats: Record<string, number>;
-  tool_tier: number | null;
+  equipment_tier: number | null;
   source: 'inventory' | 'stash';
 }
 
@@ -25,7 +25,7 @@ export interface EquippedData {
   type: string;
   rarity: string;
   stats: Record<string, number>;
-  tool_tier: number | null;
+  equipment_tier: number | null;
 }
 
 interface Props {
@@ -67,10 +67,10 @@ function itemFitsSlot(name: string, type: string, slot: string): boolean {
   return false;
 }
 
-function statLine(item: { type: string; stats: Record<string, number>; tool_tier: number | null }): string {
+function statLine(item: { type: string; stats: Record<string, number>; equipment_tier: number | null }): string {
   if (item.type === 'weapon' && item.stats.weapon_damage) return `${item.stats.weapon_damage} dmg`;
   if (item.type === 'armor'  && item.stats.armor_rating)  return `${item.stats.armor_rating} armor`;
-  if (item.tool_tier)                                      return `Tier ${item.tool_tier}`;
+  if (item.equipment_tier)                                 return `Tier ${item.equipment_tier}`;
   return '';
 }
 

@@ -30,7 +30,7 @@ export default async function ExplorePage() {
     supabase.from('skills').select('id, name'),
     supabase
       .from('character_inventory')
-      .select('item_definitions(tool_tier)')
+      .select('item_definitions(equipment_tier)')
       .eq('character_id', character.id)
       .not('equipped_slot', 'is', null),
   ]);
@@ -47,8 +47,8 @@ export default async function ExplorePage() {
   const playerToolTier = Math.max(
     0,
     ...((equippedTools ?? []).map(row => {
-      const def = row.item_definitions as { tool_tier?: number | null } | null;
-      return def?.tool_tier ?? 0;
+      const def = row.item_definitions as { equipment_tier?: number | null } | null;
+      return def?.equipment_tier ?? 0;
     }))
   );
 

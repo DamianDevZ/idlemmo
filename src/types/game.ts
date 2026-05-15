@@ -22,9 +22,19 @@ export type BiomeName =
 
 export type FocusType = 'resources' | 'enemies' | 'balanced' | 'treasure';
 
-export type ItemType = 'material' | 'tool' | 'weapon' | 'armor' | 'consumable' | 'misc';
+export type ItemType = 'material' | 'tool' | 'weapon' | 'armor' | 'consumable' | 'misc' | 'special_attack';
+
+export type DamageType = 'slash' | 'blunt' | 'bleed' | 'pierce' | 'fire' | 'ice' | 'lightning' | 'poison' | 'true';
+
+export type ScalingAttr = 'str' | 'dex' | 'int';
+
+export type ItemRating = 'S' | 'A' | 'B' | 'C' | 'D' | 'F';
 
 export type ItemRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+
+export type ArmorPresetId =
+  | 'unarmored' | 'leather' | 'plate' | 'chainmail' | 'cloth'
+  | 'stone_hide' | 'beast_fur' | 'scaled' | 'undead' | 'arcane_shell';
 
 export type EquipmentSlot =
   | 'weapon'
@@ -152,24 +162,45 @@ export interface DbItemDefinition {
   type: ItemType;
   rarity: ItemRarity;
   description: string;
-  /** JSON blob: weapon_damage, armor_rating, tool_tier, req_strength, etc. */
+  /** Legacy JSON blob. New fields use dedicated columns below. */
   stats: Record<string, number>;
-  tool_tier: number | null;
+  equipment_tier: number | null;
   stackable: boolean;
   image_url: string | null;
+  // Combat fields (weapons)
+  primary_damage_type: DamageType | null;
+  base_damage: number | null;
+  primary_scaling_attr: ScalingAttr | null;
+  primary_scaling_grade: ItemRating | null;
+  secondary_scaling_attr: ScalingAttr | null;
+  secondary_scaling_grade: ItemRating | null;
+  // Defense fields (armor)
+  base_defense: number | null;
+  material_type: 'metal' | 'leather' | 'cloth' | null;
 }
 
 export interface DbInventoryItem {
+  instance_id: string;
   character_id: string;
   item_id: string;
   quantity: number;
   equipped_slot: EquipmentSlot | null;
+  item_rating: ItemRating | null;
 }
 
 export interface DbStashItem {
+  instance_id: string;
   character_id: string;
   item_id: string;
   quantity: number;
+  item_rating: ItemRating | null;
+}
+
+export interface DbArmorPreset {
+  id: ArmorPresetId;
+  display_name: string;
+  material_type: 'metal' | 'leather' | 'cloth' | 'none';
+  resistances: Record<DamageType, number>;
 }
 
 export interface DbExplorationSession {
