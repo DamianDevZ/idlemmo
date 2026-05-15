@@ -128,19 +128,29 @@ export default async function SkillsPage() {
       <Tabs defaultValue="attributes">
         <TabsList className="w-full grid grid-cols-5 p-0.5 mb-4">
           <TabsTrigger value="attributes" className="gap-1 text-[11px] data-[state=active]:text-primary">
-            <span>⚡</span><span>Attributes</span>
+            <span>⚡</span>
+            <span className="hidden sm:inline">Attributes</span>
+            <span className="sm:hidden">Stats</span>
           </TabsTrigger>
           <TabsTrigger value="gathering" className="gap-1 text-[11px] data-[state=active]:text-primary">
-            <span>🪓</span><span>Gathering</span>
+            <span>🪓</span>
+            <span className="hidden sm:inline">Gathering</span>
+            <span className="sm:hidden">Gather</span>
           </TabsTrigger>
           <TabsTrigger value="refining" className="gap-1 text-[11px] data-[state=active]:text-primary">
-            <span>🔥</span><span>Refining</span>
+            <span>🔥</span>
+            <span className="hidden sm:inline">Refining</span>
+            <span className="sm:hidden">Refine</span>
           </TabsTrigger>
           <TabsTrigger value="crafting" className="gap-1 text-[11px] data-[state=active]:text-primary">
-            <span>🔨</span><span>Crafting</span>
+            <span>🔨</span>
+            <span className="hidden sm:inline">Crafting</span>
+            <span className="sm:hidden">Craft</span>
           </TabsTrigger>
           <TabsTrigger value="usage" className="gap-1 text-[11px] data-[state=active]:text-primary">
-            <span>⚔️</span><span>Usage</span>
+            <span>⚔️</span>
+            <span className="hidden sm:inline">Usage</span>
+            <span className="sm:hidden">Use</span>
           </TabsTrigger>
         </TabsList>
 

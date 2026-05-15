@@ -145,7 +145,7 @@ export default async function CharacterPage() {
           <CardTitle className="text-base">Derived Stats</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+          <div className="grid grid-cols-2 gap-x-4 sm:gap-x-8 gap-y-2 text-sm">
             <DerivedRow label="Max HP"          value={derived.maxHp} />
             <DerivedRow label="Max Stamina"     value={derived.maxStamina} />
             <DerivedRow label="Carry Slots"     value={derived.carrySlots} />

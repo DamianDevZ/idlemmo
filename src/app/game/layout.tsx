@@ -38,9 +38,21 @@ export default async function GameLayout({ children }: { children: React.ReactNo
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
-        <header className="md:hidden flex items-center justify-between px-4 h-13 border-b border-border bg-card shrink-0">
+        <header className="md:hidden flex items-center justify-between px-4 py-2.5 border-b border-border bg-card shrink-0">
           <span className="text-primary font-black text-xs tracking-[0.2em] uppercase">⚔ Idle MMO</span>
-          <span className="text-xs text-muted-foreground">{character!.name} · Lv {character!.main_level}</span>
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-xs text-muted-foreground">{character!.name} · Lv {character!.main_level}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] leading-none">❤️</span>
+              <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-red-500/70"
+                  style={{ width: `${Math.round((character!.current_hp / maxHp) * 100)}%` }}
+                />
+              </div>
+              <span className="text-[10px] text-muted-foreground tabular-nums">{character!.current_hp}/{maxHp}</span>
+            </div>
+          </div>
         </header>
 
         {/* Page content */}

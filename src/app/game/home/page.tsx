@@ -170,20 +170,21 @@ export default async function HomeBasePage() {
 
       <Tabs defaultValue="inventory">
         <TabsList className="w-full grid grid-cols-4">
-          <TabsTrigger value="inventory">
-            Inventory
+          <TabsTrigger value="inventory" className="gap-1">
+            <span className="hidden sm:inline">Inventory</span>
+            <span className="sm:hidden">Bag</span>
             {inventoryResources.length > 0 && (
-              <Badge variant="secondary" className="ml-2 text-xs">{inventoryResources.length}</Badge>
+              <Badge variant="secondary" className="ml-1 text-xs">{inventoryResources.length}</Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="stash">
+          <TabsTrigger value="stash" className="gap-1">
             Stash
             {stashAndEquipCount > 0 && (
-              <Badge variant="secondary" className="ml-2 text-xs">{stashAndEquipCount}</Badge>
+              <Badge variant="secondary" className="ml-1 text-xs">{stashAndEquipCount}</Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="refining">Refining</TabsTrigger>
-          <TabsTrigger value="crafting">Crafting</TabsTrigger>
+          <TabsTrigger value="refining">Refine</TabsTrigger>
+          <TabsTrigger value="crafting">Craft</TabsTrigger>
         </TabsList>
 
         {/* ── Inventory ── */}

@@ -108,7 +108,9 @@ export default async function TownPage() {
             )}
           </TabsTrigger>
           <TabsTrigger value="arena">Arena</TabsTrigger>
-          <TabsTrigger value="worldboss">World Boss</TabsTrigger>
+          <TabsTrigger value="worldboss">
+            <span className="hidden sm:inline">World </span>Boss
+          </TabsTrigger>
         </TabsList>
 
         {/* ── Friends ── */}
