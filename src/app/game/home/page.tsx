@@ -6,8 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DepositButton, DepositAllButton } from '@/components/game/DepositButton';
-import { CraftButton } from '@/components/game/CraftButton';
-import { RefineButton } from '@/components/game/RefineButton';
+import HomeRefiningPanel from '@/components/game/HomeRefiningPanel';
+import HomeCraftingPanel from '@/components/game/HomeCraftingPanel';
 import { EquipmentModal } from '@/components/game/EquipmentModal';
 import type { EquippedData, EquipItemData } from '@/components/game/EquipmentPanel';
 import type { DbInventoryItem, DbStashItem, DbItemDefinition } from '@/types/game';
@@ -131,6 +131,17 @@ export default async function HomeBasePage() {
     .filter(Boolean)) as KnownRecipe[];
 
   const refineList = (refiningRows ?? []) as KnownRecipe[];
+
+  // Combined quantity map (inventory + stash) for client components to check ingredient availability
+  const qtyMap: Record<string, number> = {};
+  for (const item of inventory) {
+    const name = (item.item_definitions as DbItemDefinition | null)?.name;
+    if (name) qtyMap[name] = (qtyMap[name] ?? 0) + (item.quantity ?? 0);
+  }
+  for (const item of stash) {
+    const name = (item.item_definitions as DbItemDefinition | null)?.name;
+    if (name) qtyMap[name] = (qtyMap[name] ?? 0) + (item.quantity ?? 0);
+  }
 
   // Group refining recipes by resource type (derived from skill name)
   const SKILL_TO_RESOURCE: Record<string, { label: string; icon: string }> = {
@@ -336,107 +347,20 @@ export default async function HomeBasePage() {
 
         {/* ── Refining ── */}
         <TabsContent value="refining" className="mt-4">
-          <p className="text-xs text-muted-foreground mb-4">Always available — no discovery needed. 3 raw → 2 refined.</p>
-          <div className="space-y-6">
-            {refineGroups.map(group => (
-              <div key={group.skillName}>
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  {group.icon} {group.label}
-                </h3>
-                <div className="space-y-1.5">
-                  {group.recipes.map(recipe => {
-                    type Ingredient = { name: string; label: string; qty: number };
-                    const ingredients = (recipe.ingredients as Ingredient[]) ?? [];
-                    const outputDef = recipe.item_definitions as { name?: string; display_name?: string } | null;
-                    const outputIcon = getResourceIconPath(outputDef?.name ?? '');
-                    const inputIcon  = getResourceIconPath(ingredients[0]?.name ?? '');
-                    const canRefine  = ingredients.every(ing => {
-                      const inInv   = inventory.find(i => (i.item_definitions as DbItemDefinition | null)?.name === ing.name)?.quantity ?? 0;
-                      const inStash = stash.find(i => (i.item_definitions as DbItemDefinition | null)?.name === ing.name)?.quantity ?? 0;
-                      return (inInv + inStash) >= ing.qty;
-                    });
-                    return (
-                      <div key={recipe.id} className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 ${
-                        canRefine ? 'border-amber-500/20 bg-amber-500/5' : 'border-border/40'
-                      }`}>
-                        <div className="flex items-center gap-2 min-w-0">
-                          {inputIcon && <Image src={inputIcon} alt="" width={20} height={20} className="w-5 h-5 object-contain shrink-0 opacity-70" />}
-                          <span className="text-xs text-muted-foreground shrink-0">×{ingredients[0]?.qty ?? 3}</span>
-                          <span className="text-muted-foreground text-xs">→</span>
-                          {outputIcon && <Image src={outputIcon} alt="" width={20} height={20} className="w-5 h-5 object-contain shrink-0" />}
-                          <span className="text-xs font-medium">Tier {recipe.tier}</span>
-                        </div>
-                        <RefineButton characterId={character.id} recipeId={recipe.id} canRefine={canRefine} />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
+          <HomeRefiningPanel
+            refineGroups={refineGroups}
+            qtyMap={qtyMap}
+            characterId={character.id}
+          />
         </TabsContent>
 
         {/* ── Crafting ── */}
         <TabsContent value="crafting" className="mt-4">
-          {recipeList.filter(r => r.category !== 'refining').length === 0 ? (
-            <EmptyState icon="🔨" message="No recipes discovered yet. Explore the world to find crafting knowledge." />
-          ) : (
-            <div className="space-y-3">
-              {recipeList.filter(r => r.category !== 'refining').map(recipe => {
-                const outputDef = recipe.item_definitions;
-                const rarity = outputDef?.rarity ?? 'common';
-                type Ingredient = { name: string; label: string; qty: number };
-                const ingredients = (recipe.ingredients as Ingredient[]) ?? [];
-                const canCraft = ingredients.every(ing => {
-                  const inInv   = inventory.find(i => (i.item_definitions as DbItemDefinition | null)?.name === ing.name)?.quantity ?? 0;
-                  const inStash = stash.find(i => (i.item_definitions as DbItemDefinition | null)?.name === ing.name)?.quantity ?? 0;
-                  return (inInv + inStash) >= ing.qty;
-                });
-                return (
-                  <Card key={recipe.id} className="border-border/60">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className={`text-sm ${RARITY_COLORS[rarity]}`}>
-                          {stripMaterialPrefix(recipe.display_name)} · Tier {recipe.tier}
-                        </CardTitle>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-muted-foreground">{recipe.display_name}</span>
-                          <span className="text-xs text-muted-foreground">×{recipe.output_quantity}</span>
-                        </div>
-                      </div>
-                      <CardDescription className="text-xs">
-                        Skill lv {recipe.required_skill_level}+
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex flex-wrap gap-2">
-                        {ingredients.map((ing) => {
-                          const ingInfo  = getResourceInfo(ing.name);
-                          const ingLabel = ingInfo ? `${ingInfo.type} T${ingInfo.tier}` : ing.label;
-                          const inInv    = inventory.find(i => (i.item_definitions as DbItemDefinition | null)?.name === ing.name)?.quantity ?? 0;
-                          const inStash2 = stash.find(i => (i.item_definitions as DbItemDefinition | null)?.name === ing.name)?.quantity ?? 0;
-                          const hasEnough = (inInv + inStash2) >= ing.qty;
-                          return (
-                            <span
-                              key={ing.name}
-                              className={`text-xs px-2 py-0.5 rounded-full border ${
-                                hasEnough
-                                  ? 'border-green-500/30 text-green-400 bg-green-500/5'
-                                  : 'border-border text-muted-foreground'
-                              }`}
-                            >
-                              {ingLabel} ×{ing.qty}
-                            </span>
-                          );
-                        })}
-                      </div>
-                      <CraftButton characterId={character.id} recipeId={recipe.id} canCraft={canCraft} />
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
+          <HomeCraftingPanel
+            recipeList={recipeList}
+            qtyMap={qtyMap}
+            characterId={character.id}
+          />
         </TabsContent>
       </Tabs>
     </div>
