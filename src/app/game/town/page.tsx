@@ -4,7 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GAME_CONFIG } from '@/config/game.config';
-import type { DbFriend, DbArenaMatch } from '@/types/game';
+import { FriendRequestCard } from '@/components/game/FriendRequestCard';
+import { AddFriendForm } from '@/components/game/AddFriendForm';
+import { ArenaQueueButton } from '@/components/game/ArenaQueueButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +29,7 @@ export default async function TownPage() {
     { data: arenaRating },
     { data: recentMatches },
     { data: worldBosses },
+    { data: queueEntry },
   ] = await Promise.all([
     supabase
       .from('friends')
@@ -39,21 +42,27 @@ export default async function TownPage() {
       .eq('status', 'pending'),
     supabase
       .from('arena_ratings')
-      .select('rating, wins, losses, streak')
+      .select('rating, wins, losses')
       .eq('character_id', character.id)
       .single(),
     supabase
       .from('arena_matches')
-      .select('winner_id, loser_id, winner_rating_change, loser_rating_change, ended_at')
-      .or(`winner_id.eq.${character.id},loser_id.eq.${character.id}`)
-      .order('ended_at', { ascending: false })
+      .select('winner_id, player1_id, player2_id, player1_rating_delta, player2_rating_delta, completed_at')
+      .or(`player1_id.eq.${character.id},player2_id.eq.${character.id}`)
+      .order('completed_at', { ascending: false })
       .limit(5),
     supabase
       .from('world_bosses')
-      .select('id, name, hp_remaining, max_hp, status, spawns_at')
-      .in('status', ['spawning', 'active'])
+      .select('id, name, current_hp, max_hp, status, spawns_at')
+      .in('status', ['queuing', 'in_progress'])
       .order('spawns_at')
       .limit(3),
+    supabase
+      .from('arena_queue')
+      .select('character_id')
+      .eq('character_id', character.id)
+      .gt('expires_at', new Date().toISOString())
+      .single(),
   ]);
 
   return (
@@ -77,6 +86,12 @@ export default async function TownPage() {
 
         {/* ── Friends ── */}
         <TabsContent value="friends" className="mt-4 space-y-4">
+          {/* Add friend */}
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Add Friend</p>
+            <AddFriendForm />
+          </div>
+
           {/* Pending requests */}
           {(pendingRequests?.length ?? 0) > 0 && (
             <div className="space-y-2">
@@ -86,10 +101,11 @@ export default async function TownPage() {
               {pendingRequests!.map((req) => {
                 const fromChar = req.characters as unknown as { name: string } | null;
                 return (
-                  <div key={req.id} className="flex items-center justify-between px-4 py-3 rounded-lg border border-primary/30 bg-primary/5">
-                    <span className="text-sm font-medium">{fromChar?.name ?? 'Unknown'}</span>
-                    <span className="text-xs text-muted-foreground">Pending acceptance</span>
-                  </div>
+                  <FriendRequestCard
+                    key={req.id}
+                    requestId={req.id}
+                    fromName={fromChar?.name ?? 'Unknown'}
+                  />
                 );
               })}
             </div>
@@ -97,7 +113,7 @@ export default async function TownPage() {
 
           {/* Friends list */}
           {(friends?.length ?? 0) === 0 ? (
-            <EmptyState icon="🤝" message="No friends yet. You can send friend requests to other adventurers by name." />
+            <EmptyState icon="🤝" message="No friends yet. Search for an adventurer by name above." />
           ) : (
             <div className="space-y-2">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -111,7 +127,6 @@ export default async function TownPage() {
                       <p className="text-sm font-semibold">{friendChar?.name ?? 'Unknown'}</p>
                       <p className="text-xs text-muted-foreground">Level {friendChar?.main_level ?? '?'}</p>
                     </div>
-                    <Badge variant="outline" className="text-xs">Online</Badge>
                   </div>
                 );
               })}
@@ -157,17 +172,19 @@ export default async function TownPage() {
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Recent Matches</p>
               {recentMatches!.map((match, i) => {
                 const won = match.winner_id === character.id;
-                const ratingChange = won ? match.winner_rating_change : match.loser_rating_change;
+                // Determine which delta belongs to us
+                const isPlayer1 = match.player1_id === character.id;
+                const ratingChange = isPlayer1 ? match.player1_rating_delta : match.player2_rating_delta;
                 return (
                   <div key={i} className="flex items-center justify-between px-4 py-2.5 rounded-lg border border-border bg-card">
                     <Badge variant={won ? 'default' : 'secondary'} className="text-xs">
                       {won ? 'Victory' : 'Defeat'}
                     </Badge>
-                    <span className={`text-sm font-bold tabular-nums ${ratingChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {ratingChange > 0 ? '+' : ''}{ratingChange} pts
+                    <span className={`text-sm font-bold tabular-nums ${(ratingChange ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {(ratingChange ?? 0) > 0 ? '+' : ''}{ratingChange ?? 0} pts
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(match.ended_at).toLocaleDateString()}
+                      {match.completed_at ? new Date(match.completed_at).toLocaleDateString() : '—'}
                     </span>
                   </div>
                 );
@@ -175,13 +192,12 @@ export default async function TownPage() {
             </div>
           )}
 
+          <ArenaQueueButton characterId={character.id} isQueued={!!queueEntry} />
+
           <div className="rounded-lg border border-border/50 bg-card/50 p-4 text-center space-y-1">
-            <p className="text-sm text-muted-foreground">
-              Queue opens automatically. Matchmaking finds an opponent within level ±{GAME_CONFIG.arena.matchmakingLevelRange}.
-              Times out after {GAME_CONFIG.arena.queueTimeoutSeconds}s.
-            </p>
             <p className="text-xs text-muted-foreground">
-              Win: +{GAME_CONFIG.arena.pointsPerWin} pts · Loss: −{GAME_CONFIG.arena.pointsPerLoss} pts
+              Win: +{GAME_CONFIG.arena.pointsPerWin} pts · Loss: −{GAME_CONFIG.arena.pointsPerLoss} pts ·
+              Timeout: {GAME_CONFIG.arena.queueTimeoutSeconds}s · Level range ±{GAME_CONFIG.arena.matchmakingLevelRange}
             </p>
           </div>
         </TabsContent>
@@ -205,7 +221,7 @@ export default async function TownPage() {
           ) : (
             <div className="space-y-3">
               {worldBosses!.map(boss => {
-                const hpPct = Math.round((boss.hp_remaining / boss.max_hp) * 100);
+                const hpPct = Math.round((boss.current_hp / boss.max_hp) * 100);
                 return (
                   <Card key={boss.id} className="border-red-500/20">
                     <CardContent className="pt-4 space-y-2">
@@ -216,7 +232,7 @@ export default async function TownPage() {
                       <div className="space-y-1">
                         <div className="flex justify-between text-xs text-muted-foreground">
                           <span>HP</span>
-                          <span className="tabular-nums">{boss.hp_remaining.toLocaleString()} / {boss.max_hp.toLocaleString()}</span>
+                          <span className="tabular-nums">{boss.current_hp.toLocaleString()} / {boss.max_hp.toLocaleString()}</span>
                         </div>
                         <div className="h-2 rounded-full bg-muted overflow-hidden">
                           <div className="h-full bg-red-500/70 transition-all" style={{ width: `${hpPct}%` }} />

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { GAME_CONFIG } from '@/config/game.config';
 import { awardMainXp, awardCategoryXp } from '@/lib/game/xp';
+import { calcMeleeDamage, applyDefense } from '@/lib/game/formulas';
 import type { CollectPreference } from '@/types/game';
 
 const { attributes: ATTR } = GAME_CONFIG;
@@ -144,6 +145,20 @@ export async function actOnExploreEvent(
     .single();
   if (!character) throw new Error('Character not found');
 
+  // Fetch equipped weapon and armor for stat-based combat
+  const { data: equippedItems } = await supabase
+    .from('character_inventory')
+    .select('equipped_slot, item_definitions(type, stats)')
+    .eq('character_id', characterId)
+    .not('equipped_slot', 'is', null);
+
+  type EquippedItem = { equipped_slot: string | null; item_definitions: { type: string; stats: Record<string, number> } | null };
+  const equipped = (equippedItems ?? []) as unknown as EquippedItem[];
+  const weaponStats = equipped.find(e => e.item_definitions?.type === 'weapon')?.item_definitions?.stats ?? {};
+  const armorStats  = equipped.find(e => e.item_definitions?.type === 'armor')?.item_definitions?.stats ?? {};
+  const weaponDmgBase = Number(weaponStats.weapon_damage ?? 5);
+  const armorRating   = Number(armorStats.armor_rating   ?? 0);
+
   const { data: event } = await supabase
     .from('exploration_events')
     .select('*')
@@ -199,10 +214,17 @@ export async function actOnExploreEvent(
       hpLost = Math.max(1, Math.floor(level * 2));
     }
   } else {
-    // fight
+    // fight — use equipped weapon + strength via formulas.ts
+    const attrs = character.character_attributes as unknown as { strength: number; vigor: number } | null;
+    const strength = attrs?.strength ?? 5;
+
     const enemyHp   = 10 + level * 4;
-    const playerDmg = Math.max(1, 5 + Math.floor(Math.random() * 5));
-    const enemyDmg  = Math.max(1, 2 + Math.floor(level * 1.5 * Math.random()));
+    // calcMeleeDamage(base, strength, skillLevel=0) — apply a random ±20% swing each round
+    const playerDmgBase = calcMeleeDamage(weaponDmgBase, strength, 0);
+    const playerDmg = Math.max(1, playerDmgBase * (0.8 + Math.random() * 0.4));
+    // Enemy deals raw damage reduced by player armor
+    const enemyDmgRaw  = Math.max(1, 2 + level * 1.5 * Math.random());
+    const enemyDmg     = applyDefense(enemyDmgRaw, armorRating);
     const rounds    = Math.ceil(enemyHp / playerDmg);
     hpLost  = Math.min(character.current_hp - 1, Math.floor(rounds * enemyDmg * 0.4));
     victory = playerDmg * rounds >= enemyHp;

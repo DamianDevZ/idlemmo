@@ -32,8 +32,16 @@ export default async function CharacterPage() {
 
   if (!attributes) redirect('/game');
 
-  // Get equipped weapon for armor calculation (simplified: 0 for now)
-  const derived = calcDerivedStats(attributes, 0);
+  // Get equipped armor's armor_rating stat for defense calculation
+  const { data: equippedArmor } = await supabase
+    .from('character_inventory')
+    .select('item_definitions(stats)')
+    .eq('character_id', character.id)
+    .eq('equipped_slot', 'armor')
+    .single() as { data: { item_definitions: { stats: Record<string, number> } | null } | null };
+
+  const armorRating = Number((equippedArmor?.item_definitions?.stats?.armor_rating) ?? 0);
+  const derived = calcDerivedStats(attributes, armorRating);
 
   // ── Equipment data ──────────────────────────────────────────────────────────
   const EQUIP_TYPES = ['weapon', 'armor', 'tool'];
