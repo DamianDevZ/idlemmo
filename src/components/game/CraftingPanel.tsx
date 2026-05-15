@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import {
   CRAFT_CATEGORIES,
   REFINED_RESOURCES,
@@ -8,8 +9,249 @@ import {
   TIER_BORDER,
 } from '@/config/crafting.config';
 import AllocatePointButton from '@/components/game/AllocatePointButton';
-import { skillLevelUpCost } from '@/lib/game/formulas';
-import { GAME_CONFIG } from '@/config/game.config';
+
+/** Icon image paths for craft categories (falls back to emoji if absent). */
+const CAT_ICON: Record<string, string> = {
+  weapons: '/icons/equipment/weapons/sword.png',
+  // armor and tools have no icons yet — emoji fallback used
+};
+
+/** Icon image paths for individual recipes. */
+const RECIPE_ICON: Record<string, string> = {
+  sword: '/icons/equipment/weapons/sword.png',
+  bow:   '/icons/equipment/weapons/bow.png',
+  staff: '/icons/equipment/weapons/staff.png',
+};
+
+interface AllocProps {
+  characterId: string;
+  categoryId: string;
+  skillId: string;
+  cost: number;
+  canAllocate: boolean;
+}
+
+interface Props {
+  /** skill.name → current level */
+  skillLevels: Record<string, number>;
+  /** skill.name → pre-computed allocate props from server */
+  allocBySkill: Record<string, AllocProps>;
+}
+
+export default function CraftingPanel({ skillLevels, allocBySkill }: Props) {
+  const [catKey, setCatKey]       = useState(CRAFT_CATEGORIES[0].key);
+  const [recipeKey, setRecipeKey] = useState(CRAFT_CATEGORIES[0].recipes[0].key);
+  const [tier, setTier]           = useState(0);
+  const [qty, setQty]             = useState(1);
+
+  const cat       = CRAFT_CATEGORIES.find(c => c.key === catKey) ?? CRAFT_CATEGORIES[0];
+  const recipe    = cat.recipes.find(r => r.key === recipeKey) ?? cat.recipes[0];
+  const tierData  = recipe.tiers[tier];
+  const skillLevel = skillLevels[recipe.skillName] ?? 0;
+  const canCraft  = skillLevel >= tierData.reqSkill;
+
+  function handleCatChange(key: string) {
+    const newCat = CRAFT_CATEGORIES.find(c => c.key === key) ?? CRAFT_CATEGORIES[0];
+    setCatKey(key);
+    setRecipeKey(newCat.recipes[0].key);
+    setTier(0);
+  }
+
+  function handleRecipeChange(key: string) {
+    setRecipeKey(key);
+    setTier(0);
+  }
+
+  return (
+    <div className="space-y-5">
+
+      {/* ── Category cards ─────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-3 gap-3">
+        {CRAFT_CATEGORIES.map(c => {
+          const active   = catKey === c.key;
+          const iconPath = CAT_ICON[c.key];
+          // Highest skill level across all recipes in this category
+          const maxLvl   = Math.max(...c.recipes.map(r => skillLevels[r.skillName] ?? 0));
+          return (
+            <button
+              key={c.key}
+              onClick={() => handleCatChange(c.key)}
+              className={`flex flex-col items-center gap-2 py-5 px-3 rounded-xl border text-center transition-colors ${
+                active
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border bg-card hover:border-primary/40'
+              }`}
+            >
+              {iconPath ? (
+                <Image src={iconPath} alt={c.label} width={36} height={36} className="object-contain" />
+              ) : (
+                <span className="text-3xl">{c.icon}</span>
+              )}
+              <span className={`text-sm font-semibold ${active ? 'text-primary' : 'text-foreground'}`}>
+                {c.label}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {c.recipes.length} {c.recipes.length === 1 ? 'type' : 'types'} · max {maxLvl}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Recipe cards for the selected category ─────────────────────────── */}
+      <div className={`grid gap-3 ${cat.recipes.length <= 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
+        {cat.recipes.map(r => {
+          const lvl       = skillLevels[r.skillName] ?? 0;
+          const ap        = allocBySkill[r.skillName];
+          const active    = recipeKey === r.key;
+          const iconPath  = RECIPE_ICON[r.key];
+          return (
+            <button
+              key={r.key}
+              onClick={() => handleRecipeChange(r.key)}
+              className={`flex flex-col items-center gap-2 py-4 px-2 rounded-xl border text-center transition-colors ${
+                active
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border bg-card hover:border-primary/40'
+              }`}
+            >
+              {iconPath ? (
+                <Image src={iconPath} alt={r.label} width={32} height={32} className="object-contain" />
+              ) : (
+                <span className="text-2xl">{r.icon}</span>
+              )}
+              <span className={`text-xs font-semibold ${active ? 'text-primary' : 'text-foreground'}`}>
+                {r.label}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-primary font-bold tabular-nums">{lvl}</span>
+                {ap && (
+                  <span onClick={e => e.stopPropagation()}>
+                    <AllocatePointButton {...ap} />
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Tier grid ──────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-5 gap-2">
+        {recipe.tiers.map((t, i) => {
+          const locked = skillLevel < t.reqSkill;
+          const active = tier === i && !locked;
+          const iconPath = RECIPE_ICON[recipe.key];
+          return (
+            <button
+              key={i}
+              onClick={() => !locked && setTier(i)}
+              disabled={locked}
+              className={`flex flex-col items-center gap-1 py-3 px-1 rounded-xl border text-center transition-all ${
+                locked
+                  ? 'border-border opacity-40 cursor-not-allowed'
+                  : active
+                  ? `${TIER_BORDER[i]} bg-card shadow-sm`
+                  : 'border-border hover:bg-card/60 cursor-pointer'
+              }`}
+            >
+              {locked ? (
+                <span className="text-xl">🔒</span>
+              ) : iconPath ? (
+                <Image src={iconPath} alt={t.name} width={24} height={24} className="object-contain" />
+              ) : (
+                <span className="text-xl">{recipe.icon}</span>
+              )}
+              <span className={`text-[11px] font-bold ${active ? TIER_COLORS[i] : ''}`}>T{i + 1}</span>
+              <span className={`text-[9px] leading-tight ${active ? TIER_COLORS[i] : 'text-muted-foreground'}`}>
+                {t.name.split(' ').slice(0, 2).join(' ')}
+              </span>
+              {locked && <span className="text-[9px] text-muted-foreground/60">Lv {t.reqSkill}</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Item detail + ingredients ───────────────────────────────────────── */}
+      <div className={`rounded-xl border ${TIER_BORDER[tier]} bg-card p-5 space-y-4`}>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className={`text-xl font-bold ${TIER_COLORS[tier]}`}>{tierData.name}</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Skill:{' '}
+              <span className="text-foreground capitalize">
+                {recipe.skillName.replace(/_/g, ' ')}
+              </span>{' '}
+              — requires Lv{' '}
+              <span className="text-foreground font-semibold">{tierData.reqSkill}</span>{' '}
+              (yours:{' '}
+              <span className={canCraft ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}>
+                {skillLevel}
+              </span>
+              )
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <label className="text-xs text-muted-foreground">Qty</label>
+            <input
+              type="number"
+              min={1}
+              max={999}
+              value={qty}
+              onChange={e => setQty(Math.max(1, Math.min(999, Number(e.target.value) || 1)))}
+              className="w-16 text-center text-sm border border-border rounded-lg bg-background px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        </div>
+
+        <div>
+          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest mb-2">
+            Ingredients{qty > 1 ? ` × ${qty}` : ''}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {tierData.ingredients.map(ing => {
+              const refined  = REFINED_RESOURCES.find(r => r.key === ing.refinedKey);
+              const itemName = refined?.tierNames[tier] ?? ing.refinedKey;
+              const total    = ing.qty * qty;
+              return (
+                <div
+                  key={ing.refinedKey}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${TIER_BORDER[tier]} bg-background/60`}
+                >
+                  <span className="text-lg">{refined?.icon ?? '📦'}</span>
+                  <div className="leading-tight">
+                    <p className={`text-xs font-semibold ${TIER_COLORS[tier]}`}>{itemName}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      ×{total}{qty > 1 && <span className="opacity-50"> ({ing.qty} ea)</span>}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-yellow-500/30 bg-background/60">
+              <Image src="/icons/resources/misc/coin.png" alt="Gold" width={20} height={20} className="object-contain" />
+              <div className="leading-tight">
+                <p className="text-xs font-semibold text-yellow-400">Gold</p>
+                <p className="text-[11px] text-muted-foreground">
+                  ×{tierData.goldCost * qty}{qty > 1 && <span className="opacity-50"> ({tierData.goldCost} ea)</span>}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {!canCraft && (
+          <p className="text-xs text-red-400/80 border border-red-500/20 rounded-lg px-3 py-2 bg-red-500/5">
+            ⚠ Requires{' '}
+            <span className="capitalize">{recipe.skillName.replace(/_/g, ' ')}</span>{' '}
+            Lv {tierData.reqSkill} to craft this tier.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 interface AllocProps {
   characterId: string;

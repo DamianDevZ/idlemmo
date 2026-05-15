@@ -570,17 +570,53 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
               <p className="text-sm font-semibold text-yellow-400">⏳ While you were away ({offlineSummary.ticksProcessed} ticks)</p>
               <button onClick={() => setOfflineSummary(null)} className="text-xs text-muted-foreground hover:text-foreground leading-none">✕</button>
             </div>
-            <div className="text-xs text-muted-foreground space-y-0.5">
-              {offlineSummary.resourcesGained.map(r => (
-                <p key={r.item}>🌿 {r.quantity}× {r.displayName}</p>
-              ))}
-              {offlineSummary.lootGained.map(l => (
-                <p key={l.item}>💎 {l.quantity}× {l.item.replace(/_/g, ' ')}</p>
-              ))}
-              {offlineSummary.enemiesKilled > 0 && <p>⚔️ {offlineSummary.enemiesKilled} {offlineSummary.enemiesKilled === 1 ? 'enemy' : 'enemies'} defeated</p>}
-              {offlineSummary.coinsGained > 0 && <p>🪙 {offlineSummary.coinsGained} coins found</p>}
-              {offlineSummary.xpGained > 0 && <p>✨ +{offlineSummary.xpGained} XP</p>}
-              {offlineSummary.hpLost > 0 && <p className="text-red-400">❤️ −{offlineSummary.hpLost} HP taken</p>}
+            <div className="text-xs text-muted-foreground space-y-1">
+              {offlineSummary.resourcesGained.map(r => {
+                const iconPath = getResourceIconPath(r.item);
+                return (
+                  <div key={r.item} className="flex items-center gap-2">
+                    {iconPath
+                      ? <Image src={iconPath} alt={r.displayName} width={16} height={16} className="object-contain shrink-0" />
+                      : <span className="text-sm shrink-0">🌿</span>}
+                    <span>{r.quantity}× {r.displayName}</span>
+                  </div>
+                );
+              })}
+              {offlineSummary.lootGained.map(l => {
+                const iconPath = getResourceIconPath(l.item);
+                return (
+                  <div key={l.item} className="flex items-center gap-2">
+                    {iconPath
+                      ? <Image src={iconPath} alt={l.item} width={16} height={16} className="object-contain shrink-0" />
+                      : <span className="text-sm shrink-0">💎</span>}
+                    <span>{l.quantity}× {l.item.replace(/_/g, ' ')}</span>
+                  </div>
+                );
+              })}
+              {offlineSummary.enemiesKilled > 0 && (
+                <div className="flex items-center gap-2">
+                  <Image src="/icons/equipment/weapons/sword.png" alt="enemies" width={16} height={16} className="object-contain shrink-0" />
+                  <span>{offlineSummary.enemiesKilled} {offlineSummary.enemiesKilled === 1 ? 'enemy' : 'enemies'} defeated</span>
+                </div>
+              )}
+              {offlineSummary.coinsGained > 0 && (
+                <div className="flex items-center gap-2">
+                  <Image src="/icons/resources/misc/coin.png" alt="coins" width={16} height={16} className="object-contain shrink-0" />
+                  <span>{offlineSummary.coinsGained} coins found</span>
+                </div>
+              )}
+              {offlineSummary.xpGained > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm shrink-0">✨</span>
+                  <span>+{offlineSummary.xpGained} XP</span>
+                </div>
+              )}
+              {offlineSummary.hpLost > 0 && (
+                <div className="flex items-center gap-2 text-red-400">
+                  <span className="text-sm shrink-0">❤️</span>
+                  <span>−{offlineSummary.hpLost} HP taken</span>
+                </div>
+              )}
             </div>
           </div>
         )}

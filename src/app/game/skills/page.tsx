@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AllocatePointButton from '@/components/game/AllocatePointButton';
 import AttributeSpendButton from '@/components/game/AttributeSpendButton';
 import CraftingPanel from '@/components/game/CraftingPanel';
+import RefiningPanel from '@/components/game/RefiningPanel';
 import type {
   DbCharacter,
   DbCharacterAttributes,
@@ -277,58 +278,18 @@ export default async function SkillsPage() {
               </div>
             );
           })()}
-          {REFINED_RESOURCES.map(ref => {
-            const level  = skillLevelByName.get(ref.skillName) ?? 0;
-            const skill  = skillByName.get(ref.skillName);
-            const ap     = getAllocProps(ref.skillName);
-            const rawRes = RAW_RESOURCES.find(r => r.key === ref.rawKey);
-            return (
-              <Card key={ref.key}>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <span className="text-2xl">{ref.icon}</span>{ref.label}
-                    </CardTitle>
-                    <div className="flex items-center gap-2">
-                      <span className="text-primary font-bold text-xl tabular-nums">{level}</span>
-                      {ap && <AllocatePointButton {...ap} />}
-                    </div>
-                  </div>
-                  <CardDescription className="text-xs">
-                    {rawRes && `${rawRes.label} → ${ref.label}`}
-                    {skill && ` · ${skill.description}`}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {ref.tierNames.map((name, i) => {
-                      const locked    = level < TIER_REQ_SKILL[i];
-                      const rawNeeded = ref.rawPerUnit[i];
-                      const rawName   = rawRes?.tierNames[i] ?? '?';
-                      return (
-                        <div
-                          key={i}
-                          className={`flex flex-col items-center gap-0.5 py-2.5 px-1 rounded-lg border text-center transition-colors ${
-                            locked ? 'border-border opacity-40' : TIER_BORDER[i]
-                          }`}
-                        >
-                          <span className="text-lg">{locked ? '🔒' : ref.icon}</span>
-                          <span className={`text-[10px] font-bold ${locked ? 'text-muted-foreground' : TIER_COLORS[i]}`}>T{i + 1}</span>
-                          <span className={`text-[8px] leading-tight text-center ${locked ? 'text-muted-foreground' : TIER_COLORS[i]}`}>{name}</span>
-                          {!locked && (
-                            <span className="text-[7px] text-muted-foreground/70">{rawNeeded}× {rawName.split(' ')[0]}</span>
-                          )}
-                          {locked && <span className="text-[8px] text-muted-foreground/60">Lv {TIER_REQ_SKILL[i]}</span>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+          <RefiningPanel
+            skillLevels={skillLevelsObj}
+            allocBySkill={(() => {
+              const out: Record<string, { characterId: string; categoryId: string; skillId: string; cost: number; canAllocate: boolean }> = {};
+              for (const ref of REFINED_RESOURCES) {
+                const ap = getAllocProps(ref.skillName);
+                if (ap) out[ref.skillName] = ap;
+              }
+              return out;
+            })()}
+          />
         </TabsContent>
-
         {/* ─── Crafting ─── */}
         <TabsContent value="crafting" className="space-y-6">
           {(() => {
