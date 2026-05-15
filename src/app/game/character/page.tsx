@@ -58,8 +58,8 @@ export default async function CharacterPage() {
     item_definitions: { id: string; name: string; display_name: string; type: string; rarity: string; stats: Record<string, number>; tool_tier: number | null } | null;
   };
 
-  const invRows   = (rawInv   ?? []) as RawInvRow[];
-  const stashRows = (rawStash ?? []) as RawStashRow[];
+  const invRows   = (rawInv   ?? []) as unknown as RawInvRow[];
+  const stashRows = (rawStash ?? []) as unknown as RawStashRow[];
 
   // Currently equipped items
   const equippedItems: EquippedData[] = invRows

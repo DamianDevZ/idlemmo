@@ -50,8 +50,10 @@ export type EventType =
   | 'resource_found'
   | 'enemy_encountered'
   | 'combat_result'
+  | 'flee_result'
   | 'player_encountered'
   | 'treasure_found'
+  | 'recipe_found'
   | 'level_up'
   | 'collect_prompt'
   | 'session_ended';

@@ -114,7 +114,7 @@ export async function craftItem(characterId: string, recipeId: string) {
   }
 
   // Add crafted item to inventory
-  const outputItemName = (recipe.item_definitions as { name: string } | null)?.name;
+  const outputItemName = (recipe.item_definitions as unknown as { name: string } | null)?.name;
   if (!outputItemName) throw new Error('Output item not found');
 
   await supabase.rpc('add_to_inventory', {

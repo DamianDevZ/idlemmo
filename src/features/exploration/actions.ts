@@ -183,7 +183,7 @@ export async function actOnExploreEvent(
     .single();
   if (!session) throw new Error('No active session');
 
-  const vigor  = (character.character_attributes as { vigor: number } | null)?.vigor ?? 5;
+  const vigor  = (character.character_attributes as unknown as { vigor: number } | null)?.vigor ?? 5;
   const maxHp  = ATTR.baseHp + vigor * ATTR.hpPerVigor;
   const level  = Number(d.level ?? 1);
 

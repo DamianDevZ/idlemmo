@@ -179,7 +179,7 @@ export async function POST(req: NextRequest) {
           const toolPool = unknownRecipes.filter(r => r.category === 'tools' && r.display_name.toLowerCase().includes(toolKw));
           const catFallback = unknownRecipes.filter(r => r.category === 'tools');
           const pool = toolPool.length > 0 ? toolPool : catFallback.length > 0 ? catFallback : unknownRecipes;
-          pickedRecipe = pool[Math.floor(Math.random() * pool.length)] as typeof pickedRecipe;
+          pickedRecipe = pool[Math.floor(Math.random() * pool.length)];
         } else {
           // Weapon or Armor (50/50), then 1/3 per combat style (melee/archer/mage)
           const isWeapon = Math.random() < 0.5;
@@ -191,7 +191,7 @@ export async function POST(req: NextRequest) {
           const styledPool = unknownRecipes.filter(r => r.category === targetCat && matchKw(r.display_name, kws));
           const catFallback = unknownRecipes.filter(r => r.category === targetCat);
           const pool = styledPool.length > 0 ? styledPool : catFallback.length > 0 ? catFallback : unknownRecipes;
-          pickedRecipe = pool[Math.floor(Math.random() * pool.length)] as typeof pickedRecipe;
+          pickedRecipe = pool[Math.floor(Math.random() * pool.length)];
         }
       }
     }

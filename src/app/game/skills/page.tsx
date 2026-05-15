@@ -65,7 +65,7 @@ export default async function SkillsPage() {
     { data: charSkills },
     { data: catPoints },
   ] = await Promise.all([
-    supabase.from('character_attributes').select('*').eq('character_id', character.id).single() as Promise<{ data: DbCharacterAttributes | null }>,
+    supabase.from('character_attributes').select('*').eq('character_id', character.id).single() as unknown as Promise<{ data: DbCharacterAttributes | null }>,
     supabase.from('skill_categories').select('*').order('name'),
     supabase.from('skills').select('*').order('display_name'),
     supabase.from('character_skills').select('*').eq('character_id', character.id),
@@ -90,7 +90,7 @@ export default async function SkillsPage() {
   );
 
   function getCatPoints(catName: string) {
-    const cat = catByName.get(catName);
+    const cat = catByName.get(catName as never);
     if (!cat) return { available: 0, xpCurrent: 0 };
     const pts = pointsByCat.get(cat.id);
     return { available: pts?.points_available ?? 0, xpCurrent: pts?.xp_current ?? 0 };
@@ -106,7 +106,7 @@ export default async function SkillsPage() {
     const avail = pts?.points_available ?? 0;
     const cost  = skillLevelUpCost(level);
     return {
-      characterId: character.id,
+      characterId: character!.id,
       categoryId:  cat.id,
       skillId:     skill.id,
       cost,
