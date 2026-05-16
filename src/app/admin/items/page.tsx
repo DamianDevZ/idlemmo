@@ -18,8 +18,8 @@ const RARITY_HEX: Record<string,string> = {
   common:'#64748b', uncommon:'#22c55e', rare:'#3b82f6', epic:'#a855f7', legendary:'#f59e0b',
 };
 const SCALING_HEX: Record<string,string> = {
-  strength:'#ef4444', dexterity:'#22c55e', intelligence:'#3b82f6',
-  faith:'#f59e0b', arcane:'#a855f7', vigor:'#ec4899', endurance:'#06b6d4',
+  str:'#ef4444', dex:'#22c55e', int:'#3b82f6',
+  fth:'#f59e0b', arc:'#a855f7', vig:'#ec4899', end:'#06b6d4',
 };
 const TYPE_TEXT: Record<string,string> = {
   weapon:'text-red-400', armor:'text-blue-400', tool:'text-amber-400',
