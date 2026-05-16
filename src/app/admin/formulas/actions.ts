@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidateTag } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin-auth';
 
@@ -53,6 +54,9 @@ export async function saveConfigValues(
     if (error) return { error: error.message };
   }
 
+  // Bust the getGameConfig cache so live gameplay picks up the new values
+  revalidateTag('game-config', {});
+
   return {};
 }
 
@@ -85,5 +89,6 @@ export async function resetConfigToDefaults(
     }
   }
 
+  revalidateTag('game-config', {});
   return {};
 }
