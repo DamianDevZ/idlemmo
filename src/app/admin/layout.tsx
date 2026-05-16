@@ -3,12 +3,13 @@ import Link from 'next/link';
 import { ReactNode } from 'react';
 
 const NAV = [
-  { href: '/admin',          label: '📊 Dashboard' },
-  { label: '── Game ──',     href: null },
-  { href: '/admin/items',    label: '⚔️  Items' },
-  { href: '/admin/enemies',  label: '👹 Enemies' },
-  { label: '── Players ──',  href: null },
-  { href: '/admin/players',  label: '👥 Ledger' },
+  { href: '/admin',             label: '📊 Dashboard' },
+  { label: '── Game ──',        href: null },
+  { href: '/admin/items',       label: '⚔️  Items' },
+  { href: '/admin/enemies',     label: '👹 Enemies' },
+  { href: '/admin/formulas',    label: '⚙️  Formulas & Config' },
+  { label: '── Players ──',     href: null },
+  { href: '/admin/players',     label: '👥 Ledger' },
 ];
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
