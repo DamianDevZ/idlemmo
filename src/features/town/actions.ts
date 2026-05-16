@@ -155,9 +155,13 @@ export async function checkArenaMatch(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthenticated');
 
+  // Fetch stored max HPs so both players see the exact same combat values —
+  // the simulation ran once; we never re-derive stats from character_attributes here.
   const { data: match, error } = await supabase
     .from('arena_matches')
-    .select('winner_id, player1_id, player2_id, player1_rating_delta, player2_rating_delta, combat_log')
+    .select(
+      'winner_id, player1_id, player2_id, player1_rating_delta, player2_rating_delta, player1_max_hp, player2_max_hp, combat_log',
+    )
     .or(`player1_id.eq.${characterId},player2_id.eq.${characterId}`)
     .gt('completed_at', since)
     .order('completed_at', { ascending: false })
@@ -167,33 +171,25 @@ export async function checkArenaMatch(
   if (error) throw new Error(error.message);
   if (!match) return { matched: false };
 
-  const opponentId = match.player1_id === characterId ? match.player2_id : match.player1_id;
-  const ratingDelta = match.player1_id === characterId
-    ? match.player1_rating_delta
-    : match.player2_rating_delta;
+  const isPlayer1 = match.player1_id === characterId;
+  const opponentId = isPlayer1 ? match.player2_id : match.player1_id;
+  const ratingDelta = isPlayer1 ? match.player1_rating_delta : match.player2_rating_delta;
+  const yourMaxHp = isPlayer1 ? match.player1_max_hp : match.player2_max_hp;
+  const opponentMaxHp = isPlayer1 ? match.player2_max_hp : match.player1_max_hp;
 
-  // Fetch both names and vigor (for max HP) in parallel
+  // Only need the two character names — everything else comes from the stored match
   const [charResult, oppResult] = await Promise.all([
     supabase.from('characters').select('name').eq('id', characterId).single(),
     supabase.from('characters').select('name').eq('id', opponentId).single(),
   ]);
-  const [attrResult, oppAttrResult] = await Promise.all([
-    supabase.from('character_attributes').select('vigor').eq('character_id', characterId).single(),
-    supabase.from('character_attributes').select('vigor').eq('character_id', opponentId).single(),
-  ]);
-
-  const yourName = charResult.data?.name ?? 'You';
-  const opponentName = oppResult.data?.name ?? 'Opponent';
-  const yourMaxHp = 50 + (attrResult.data?.vigor ?? 5) * 15;
-  const opponentMaxHp = 50 + (oppAttrResult.data?.vigor ?? 5) * 15;
 
   return {
     matched: true,
     won: match.winner_id === characterId,
-    yourName,
-    opponentName,
-    yourMaxHp,
-    opponentMaxHp,
+    yourName: charResult.data?.name ?? 'You',
+    opponentName: oppResult.data?.name ?? 'Opponent',
+    yourMaxHp: yourMaxHp ?? 125,
+    opponentMaxHp: opponentMaxHp ?? 125,
     ratingDelta: ratingDelta ?? (match.winner_id === characterId ? 30 : -10),
     combatLog: (match.combat_log ?? []) as CombatStrike[],
   };
