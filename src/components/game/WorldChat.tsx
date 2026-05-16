@@ -30,35 +30,36 @@ export function WorldChat({
   const [cooldownLeft, setCooldownLeft] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to the newest message whenever the list changes
+  // Shared refs so both the realtime/poll effect and handleSend
+  // can deduplicate and track the latest timestamp without conflicts.
+  const knownIds = useRef(new Set(initialMessages.map((m) => m.id)));
+  const latestAt = useRef(
+    initialMessages.length > 0
+      ? initialMessages[initialMessages.length - 1].created_at
+      : new Date(0).toISOString(),
+  );
+
+  // Auto-scroll anchor to bottom whenever messages change
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Supabase Realtime subscription — listen for new inserts.
-  // A unique channel name per mount avoids conflicts when React StrictMode
-  // unmounts and remounts the component during development.
+  // Stable helper — refs mean this never needs to be recreated
+  const addMessage = useCallback((msg: ChatMessage) => {
+    if (knownIds.current.has(msg.id)) return;
+    knownIds.current.add(msg.id);
+    if (msg.created_at > latestAt.current) latestAt.current = msg.created_at;
+    setMessages((prev) => {
+      const next = [...prev, msg];
+      return next.length > 50 ? next.slice(next.length - 50) : next;
+    });
+  }, []);
+
+  // Realtime subscription + 5 s polling fallback.
+  // Unique channel name per mount avoids React StrictMode double-subscribe conflicts.
   useEffect(() => {
     const supabase = createClient();
 
-    // Track known IDs so both realtime and poll paths can deduplicate safely
-    const knownIds = new Set(initialMessages.map((m) => m.id));
-    let latestAt =
-      initialMessages.length > 0
-        ? initialMessages[initialMessages.length - 1].created_at
-        : new Date(0).toISOString();
-
-    const addMessage = (msg: ChatMessage) => {
-      if (knownIds.has(msg.id)) return;
-      knownIds.add(msg.id);
-      if (msg.created_at > latestAt) latestAt = msg.created_at;
-      setMessages((prev) => {
-        const next = [...prev, msg];
-        return next.length > 50 ? next.slice(next.length - 50) : next;
-      });
-    };
-
-    // Realtime: postgres_changes on world_chat_messages
     const channel = supabase
       .channel(`world-chat-${Math.random().toString(36).slice(2, 9)}`)
       .on(
@@ -68,13 +69,11 @@ export function WorldChat({
       )
       .subscribe();
 
-    // Polling fallback every 5 s — catches messages if the WebSocket is not
-    // delivering (e.g. Realtime disabled on the project or network issues)
     const poll = setInterval(async () => {
       const { data } = await supabase
         .from('world_chat_messages')
         .select('id, character_id, character_name, message, created_at')
-        .gt('created_at', latestAt)
+        .gt('created_at', latestAt.current)
         .order('created_at', { ascending: true })
         .limit(20);
       (data ?? []).forEach((row) => addMessage(row as ChatMessage));
@@ -84,18 +83,14 @@ export function WorldChat({
       supabase.removeChannel(channel);
       clearInterval(poll);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [addMessage]);
 
-  // Cooldown countdown displayed on the Send button
+  // Cooldown countdown on the Send button
   useEffect(() => {
     if (cooldownLeft <= 0) return;
     const timer = setInterval(() => {
       const remaining = COOLDOWN_MS - (Date.now() - lastSentAt);
-      if (remaining <= 0) {
-        setCooldownLeft(0);
-      } else {
-        setCooldownLeft(remaining);
-      }
+      setCooldownLeft(remaining <= 0 ? 0 : remaining);
     }, 100);
     return () => clearInterval(timer);
   }, [lastSentAt, cooldownLeft]);
@@ -106,18 +101,23 @@ export function WorldChat({
 
     setSending(true);
     const supabase = createClient();
-    const { error } = await supabase
+    // Request the inserted row back so we can show it optimistically
+    // using the real DB id — dedup prevents realtime/poll from doubling it.
+    const { data, error } = await supabase
       .from('world_chat_messages')
-      .insert({ character_id: characterId, character_name: characterName, message: text });
+      .insert({ character_id: characterId, character_name: characterName, message: text })
+      .select('id, character_id, character_name, message, created_at')
+      .single();
     setSending(false);
 
-    if (!error) {
+    if (!error && data) {
+      addMessage(data as ChatMessage); // appears immediately, not after cooldown
       setInput('');
       const now = Date.now();
       setLastSentAt(now);
       setCooldownLeft(COOLDOWN_MS);
     }
-  }, [input, sending, cooldownLeft, characterId, characterName]);
+  }, [input, sending, cooldownLeft, characterId, characterName, addMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -128,42 +128,47 @@ export function WorldChat({
 
   return (
     <div className="flex flex-col h-[420px] rounded-lg border border-border bg-card overflow-hidden">
-      {/* Message list */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
-        {messages.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-12">
-            No messages yet. Be the first to say hello! 👋
-          </p>
-        ) : (
-          messages.map((msg) => (
-            <div key={msg.id}>
-              <div className="flex items-baseline gap-1.5">
-                <span
-                  className={
-                    msg.character_id === characterId
-                      ? 'text-sm font-bold text-primary'
-                      : 'text-sm font-semibold text-heading'
-                  }
-                >
-                  {msg.character_name}
-                </span>
-                <span className="text-[10px] text-muted-foreground">
-                  {new Date(msg.created_at).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </span>
+      {/* Message list.
+          A flex-1 spacer div above the messages anchors them to the bottom
+          so the chat always looks "full" and new messages push old ones up. */}
+      <div className="flex-1 overflow-y-auto flex flex-col p-3">
+        <div className="flex-1" />
+        <div className="space-y-3">
+          {messages.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-4">
+              No messages yet. Be the first to say hello! 👋
+            </p>
+          ) : (
+            messages.map((msg) => (
+              <div key={msg.id}>
+                <div className="flex items-baseline gap-1.5">
+                  <span
+                    className={
+                      msg.character_id === characterId
+                        ? 'text-sm font-bold text-primary'
+                        : 'text-sm font-semibold text-heading'
+                    }
+                  >
+                    {msg.character_name}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {new Date(msg.created_at).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+                <p className="text-sm text-body leading-snug">{msg.message}</p>
               </div>
-              <p className="text-sm text-body leading-snug">{msg.message}</p>
-            </div>
-          ))
-        )}
-        {/* Invisible anchor — scrolled into view on new messages */}
-        <div ref={scrollRef} />
+            ))
+          )}
+          {/* Scroll anchor */}
+          <div ref={scrollRef} />
+        </div>
       </div>
 
-      {/* Input row */}
-      <div className="border-t border-border bg-card px-3 py-2 space-y-1">
+      {/* Input area — always fixed height, char counter reserves space even when empty */}
+      <div className="border-t border-border bg-card px-3 pt-2 pb-2">
         <div className="flex gap-2">
           <input
             value={input}
@@ -181,11 +186,10 @@ export function WorldChat({
             {cooldownLeft > 0 ? `${(cooldownLeft / 1000).toFixed(1)}s` : 'Send'}
           </button>
         </div>
-        {input.length > 0 && (
-          <p className="text-right text-[10px] text-muted-foreground">
-            {input.length} / {MAX_LENGTH}
-          </p>
-        )}
+        {/* Always reserve the same height — avoids layout shift when typing */}
+        <p className="text-right text-[10px] text-muted-foreground mt-1 h-3 leading-none">
+          {input.length > 0 ? `${input.length} / ${MAX_LENGTH}` : ''}
+        </p>
       </div>
     </div>
   );
