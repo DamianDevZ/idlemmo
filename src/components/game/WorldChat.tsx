@@ -3,6 +3,21 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
+const EMOJI_GROUPS = [
+  {
+    label: 'Faces',
+    emojis: ['😀','😂','🥹','😍','😎','😅','😭','😤','🤔','😏','😊','😴','🤩','😈','🥲','🫡'],
+  },
+  {
+    label: 'Vibes',
+    emojis: ['👋','👍','👎','❤️','🔥','💀','🎉','✨','💯','🤝','🫶','💪','🫠','🤌','💅','🫂'],
+  },
+  {
+    label: 'Game',
+    emojis: ['⚔️','🛡️','🏆','💎','🗡️','🧙','🐉','🌟','💰','🎮','🪄','🏹','🔮','👑','🦾','🪙'],
+  },
+];
+
 export type ChatMessage = {
   id: string;
   character_id: string;
@@ -28,7 +43,10 @@ export function WorldChat({
   const [sending, setSending] = useState(false);
   const [lastSentAt, setLastSentAt] = useState(0);
   const [cooldownLeft, setCooldownLeft] = useState(0);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Shared refs so both the realtime/poll effect and handleSend
   // can deduplicate and track the latest timestamp without conflicts.
@@ -95,6 +113,27 @@ export function WorldChat({
     return () => clearInterval(timer);
   }, [lastSentAt, cooldownLeft]);
 
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    if (!emojiOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setEmojiOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [emojiOpen]);
+
+  const insertEmoji = useCallback((emoji: string) => {
+    setInput((prev) => {
+      const next = (prev + emoji).slice(0, MAX_LENGTH);
+      return next;
+    });
+    setEmojiOpen(false);
+    inputRef.current?.focus();
+  }, []);
+
   const handleSend = useCallback(async () => {
     const text = input.trim();
     if (!text || sending || cooldownLeft > 0) return;
@@ -127,11 +166,16 @@ export function WorldChat({
   };
 
   return (
-    <div className="flex flex-col h-[420px] rounded-lg border border-border bg-card overflow-hidden">
-      {/* Message list.
-          A flex-1 spacer div above the messages anchors them to the bottom
-          so the chat always looks "full" and new messages push old ones up. */}
-      <div className="flex-1 overflow-y-auto flex flex-col p-3">
+    <div className="flex flex-col h-[620px] rounded-lg border border-border bg-card overflow-hidden">
+      {/* Message list — flex-1 spacer above pins messages to the bottom */}
+      <div
+        className="flex-1 overflow-y-auto flex flex-col p-3
+          [&::-webkit-scrollbar]:w-1.5
+          [&::-webkit-scrollbar-track]:bg-transparent
+          [&::-webkit-scrollbar-thumb]:rounded-full
+          [&::-webkit-scrollbar-thumb]:bg-border
+          [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground"
+      >
         <div className="flex-1" />
         <div className="space-y-3">
           {messages.length === 0 ? (
@@ -167,10 +211,46 @@ export function WorldChat({
         </div>
       </div>
 
-      {/* Input area — always fixed height, char counter reserves space even when empty */}
+      {/* Input area */}
       <div className="border-t border-border bg-card px-3 pt-2 pb-2">
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center relative">
+          {/* Emoji picker */}
+          <div ref={emojiPickerRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setEmojiOpen((o) => !o)}
+              className="text-lg leading-none px-1.5 py-1 rounded-md hover:bg-accent transition-colors"
+              title="Insert emoji"
+            >
+              😊
+            </button>
+            {emojiOpen && (
+              <div className="absolute bottom-full left-0 mb-2 z-50 w-64 rounded-lg border border-border bg-card shadow-lg p-2">
+                {EMOJI_GROUPS.map((group) => (
+                  <div key={group.label} className="mb-2 last:mb-0">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 px-0.5">
+                      {group.label}
+                    </p>
+                    <div className="flex flex-wrap gap-0.5">
+                      {group.emojis.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => insertEmoji(emoji)}
+                          className="text-base w-8 h-8 flex items-center justify-center rounded hover:bg-accent transition-colors"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <input
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value.slice(0, MAX_LENGTH))}
             onKeyDown={handleKeyDown}
