@@ -21,8 +21,6 @@ const ATTRIBUTE_META: { name: AttributeName; label: string; icon: string }[] = [
   { name: 'arcane',       label: 'Arcane',       icon: '🔮'  },
 ];
 
-export const dynamic = 'force-dynamic';
-
 export default async function CharacterPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

@@ -527,6 +527,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
   }
 
   function handleReturn() {
+    if (!activeSession) return;
     startTransition(async () => {
       try {
         await returnHome(character.id, activeSession.id);

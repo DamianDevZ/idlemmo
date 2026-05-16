@@ -81,9 +81,9 @@ export default async function ExplorePage() {
   const consumables = ((consumableInventory ?? []) as unknown as RawConsumable[])
     .filter(row => row.item_definitions?.type === 'consumable' && (row.item_definitions.stats?.heal_amount ?? 0) > 0)
     .map(row => ({
-      instance_id: row.instance_id,
-      quantity:    row.quantity,
-      item:        row.item_definitions!,
+      instance_id:      row.instance_id,
+      quantity:         row.quantity,
+      item_definitions: row.item_definitions!,
     }));
 
   return (

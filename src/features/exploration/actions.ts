@@ -367,7 +367,7 @@ export async function useCampsiteItem(
     .single();
   if (!invItem) throw new Error('Item not found in inventory');
 
-  const itemDef = invItem.item_definitions as { type: string; stats: Record<string, number> } | null;
+  const itemDef = (invItem.item_definitions as unknown) as { type: string; stats: Record<string, number> } | null;
   if (itemDef?.type !== 'consumable') throw new Error('Item is not a consumable');
 
   const healAmount = Number(itemDef.stats?.heal_amount ?? 0);
@@ -421,7 +421,7 @@ export async function getExploreInventory(characterId: string) {
     .eq('character_id', characterId)
     .order('item_definitions(type)');
 
-  return (items ?? []) as Array<{
+  return (items ?? []) as unknown as Array<{
     instance_id: string;
     quantity: number;
     equipped_slot: string | null;
