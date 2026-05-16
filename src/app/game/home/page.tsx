@@ -44,6 +44,14 @@ const RARITY_COLORS: Record<string, string> = {
   legendary: 'text-yellow-400',
 };
 
+const RARITY_BORDERS: Record<string, string> = {
+  common:    'border-border',
+  uncommon:  'border-green-500/40',
+  rare:      'border-blue-500/40',
+  epic:      'border-purple-500/40',
+  legendary: 'border-yellow-500/40',
+};
+
 export default async function HomeBasePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -258,94 +266,82 @@ export default async function HomeBasePage() {
           {stashAndEquipCount === 0 ? (
             <EmptyState icon="📦" message="Your stash is empty. Deposit items from your inventory to store them safely." />
           ) : (
-            <div className="space-y-2">
-              {/* Equipment from inventory (equipped or held) */}
+            <div className="space-y-4">
+
+              {/* Equipment from inventory (equipped or held) — compact 2-col cards */}
               {inventoryEquip.length > 0 && (
-                <>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold px-1">Equipment</p>
-                  {inventoryEquip.map(item => {
-                    const def = item.item_definitions;
-                    return (
-                      <div
-                        key={item.item_id}
-                        className="flex items-center justify-between px-4 py-3 rounded-lg border border-border bg-card"
-                      >
-                        <div className="flex-1 min-w-0 flex items-center gap-2.5">
-                          {(() => {
-                            const path = getResourceIconPath(def?.name ?? '');
-                            return path
-                              ? <Image src={path} alt="" width={28} height={28} className="w-7 h-7 object-contain shrink-0" />
-                              : <span className="text-lg shrink-0">{def?.type === 'tool' ? '⛏️' : def?.type === 'weapon' ? '⚔️' : '🛡️'}</span>;
-                          })()}
-                          <div>
-                            <span className={`font-semibold text-sm ${RARITY_COLORS[def?.rarity ?? 'common']}`}>
+                <div className="space-y-1.5">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold px-0.5">Equipment</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {inventoryEquip.map(item => {
+                      const def = item.item_definitions;
+                      return (
+                        <div
+                          key={item.item_id}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-lg border bg-card ${RARITY_BORDERS[def?.rarity ?? 'common']}`}
+                        >
+                          <span className="text-base shrink-0">
+                            {def?.type === 'tool' ? '⛏️' : def?.type === 'weapon' ? '⚔️' : '🛡️'}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-semibold truncate ${RARITY_COLORS[def?.rarity ?? 'common']}`}>
                               {def?.display_name ?? 'Unknown'}
-                            </span>
-                            <span className="text-muted-foreground text-xs ml-2 capitalize">{def?.type}</span>
+                            </p>
+                            <p className="text-[10px] text-muted-foreground capitalize">{def?.type}</p>
                           </div>
+                          <span className={`text-[9px] font-bold shrink-0 ${
+                            item.equipped_slot ? 'text-primary' : 'text-muted-foreground'
+                          }`}>
+                            {item.equipped_slot ? '✓' : 'bag'}
+                          </span>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {item.equipped_slot ? (
-                            <Badge className="text-xs bg-primary/15 text-primary border-primary/30 border">
-                              ✓ {formatSlot(item.equipped_slot!)}
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-xs text-muted-foreground">In bag</Badge>
-                          )}
-                          <Badge variant="secondary" className={`text-xs capitalize ${RARITY_COLORS[def?.rarity ?? 'common']}`}>
-                            {def?.rarity}
-                          </Badge>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
 
-              {/* Regular stash items */}
+              {/* Stored resources — square grid */}
               {stash.length > 0 && (
-                <>
+                <div className="space-y-1.5">
                   {inventoryEquip.length > 0 && (
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold px-1 pt-2">Stored</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold px-0.5">Stored</p>
                   )}
-                  {stash.map(item => {
-                    const def = item.item_definitions;
-                    const resInfo = getResourceInfo(def?.name ?? '');
-                    const displayLabel = resInfo
-                      ? `${resInfo.type} · Tier ${resInfo.tier}`
-                      : (def?.display_name ?? 'Unknown item');
-                    const subLabel = resInfo ? (def?.name?.includes('_block') || def?.name?.includes('_plank') || def?.name?.includes('_slab') || def?.name?.includes('_ingot') || def?.name?.includes('_cloth') || def?.name?.includes('_leather') || def?.name === 'leather' ? 'Refined' : 'Raw') : def?.type;
-                    return (
-                      <div
-                        key={item.item_id}
-                        className="flex items-center justify-between px-4 py-3 rounded-lg border border-border bg-card"
-                      >
-                        <div className="flex-1 min-w-0 flex items-center gap-2.5">
-                          {(() => {
-                            const path = getResourceIconPath(def?.name ?? '');
-                            return path
-                              ? <Image src={path} alt="" width={28} height={28} className="w-7 h-7 object-contain shrink-0" />
-                              : null;
-                          })()}
-                          <div>
-                            <span className={`font-semibold text-sm ${RARITY_COLORS[def?.rarity ?? 'common']}`}>
-                              {displayLabel}
-                            </span>
-                            <span className="text-muted-foreground text-xs ml-2 capitalize">{subLabel}</span>
+                  <div className="grid grid-cols-5 sm:grid-cols-6 gap-1.5">
+                    {stash.map(item => {
+                      const def = item.item_definitions;
+                      const resInfo = getResourceInfo(def?.name ?? '');
+                      const label = resInfo
+                        ? `${resInfo.type} T${resInfo.tier}`
+                        : (def?.display_name ?? '?');
+                      const iconPath = getResourceIconPath(def?.name ?? '');
+                      const typeIcon = def?.type === 'weapon' ? '⚔️'
+                        : def?.type === 'armor' ? '🛡️'
+                        : def?.type === 'tool'  ? '⛏️' : '📦';
+                      return (
+                        <div
+                          key={item.item_id}
+                          title={def?.display_name ?? ''}
+                          className={`relative flex flex-col items-center gap-0.5 p-1 rounded-lg border bg-card ${
+                            RARITY_BORDERS[def?.rarity ?? 'common']
+                          }`}
+                        >
+                          <div className="w-full aspect-square flex items-center justify-center">
+                            {iconPath
+                              ? <Image src={iconPath} alt="" width={32} height={32} className="w-8 h-8 object-contain" />
+                              : <span className="text-xl">{typeIcon}</span>}
                           </div>
-                        </div>
-                        <div className="flex items-center gap-3 shrink-0">
                           {item.quantity > 1 && (
-                            <span className="text-sm text-muted-foreground tabular-nums">×{item.quantity}</span>
+                            <span className="absolute top-0.5 right-1 text-[9px] tabular-nums text-muted-foreground font-bold leading-none">
+                              ×{item.quantity}
+                            </span>
                           )}
-                          <Badge variant="secondary" className={`text-xs capitalize ${RARITY_COLORS[def?.rarity ?? 'common']}`}>
-                            {def?.rarity}
-                          </Badge>
+                          <p className="text-[8px] text-muted-foreground text-center leading-tight truncate w-full px-0.5">{label}</p>
                         </div>
-                      </div>
-                    );
-                  })}
-                </>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </div>
           )}
