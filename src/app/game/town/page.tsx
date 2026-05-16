@@ -8,6 +8,7 @@ import { FriendRequestCard } from '@/components/game/FriendRequestCard';
 import { AddFriendForm } from '@/components/game/AddFriendForm';
 import { ArenaQueueButton } from '@/components/game/ArenaQueueButton';
 import { WorldBossPanel } from '@/components/game/WorldBossPanel';
+import { WorldChat, type ChatMessage } from '@/components/game/WorldChat';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +36,7 @@ export default async function TownPage() {
     { data: recentMatches },
     { data: worldBosses },
     { data: queueEntry },
+    { data: recentChatMessages },
   ] = await Promise.all([
     supabase
       .from('friends')
@@ -68,6 +70,11 @@ export default async function TownPage() {
       .eq('character_id', character.id)
       .gt('expires_at', new Date().toISOString())
       .single(),
+    supabase
+      .from('world_chat_messages')
+      .select('id, character_id, character_name, message, created_at')
+      .order('created_at', { ascending: false })
+      .limit(50),
   ]);
 
   // For the active boss (if any): check if the character has joined and get their last attack time
@@ -100,7 +107,7 @@ export default async function TownPage() {
       </div>
 
       <Tabs defaultValue="friends">
-        <TabsList className="w-full grid grid-cols-3">
+        <TabsList className="w-full grid grid-cols-4">
           <TabsTrigger value="friends">
             Friends
             {(pendingRequests?.length ?? 0) > 0 && (
@@ -111,6 +118,7 @@ export default async function TownPage() {
           <TabsTrigger value="worldboss">
             <span className="hidden sm:inline">World </span>Boss
           </TabsTrigger>
+          <TabsTrigger value="chat">Chat</TabsTrigger>
         </TabsList>
 
         {/* ── Friends ── */}
@@ -229,6 +237,15 @@ export default async function TownPage() {
               Timeout: {GAME_CONFIG.arena.queueTimeoutSeconds}s · Level range ±{GAME_CONFIG.arena.matchmakingLevelRange}
             </p>
           </div>
+        </TabsContent>
+
+        {/* ── Chat ── */}
+        <TabsContent value="chat" className="mt-4">
+          <WorldChat
+            characterId={character.id}
+            characterName={character.name}
+            initialMessages={(recentChatMessages ?? []).slice().reverse() as ChatMessage[]}
+          />
         </TabsContent>
 
         {/* ── World Boss ── */}
