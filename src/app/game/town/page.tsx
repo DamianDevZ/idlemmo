@@ -204,6 +204,15 @@ export default async function TownPage() {
             </CardContent>
           </Card>
 
+          <ArenaQueueButton characterId={character.id} isQueued={!!queueEntry} />
+
+          <div className="rounded-lg border border-border/50 bg-card/50 p-4 text-center space-y-1">
+            <p className="text-xs text-muted-foreground">
+              Win: +{GAME_CONFIG.arena.pointsPerWin} pts · Loss: −{GAME_CONFIG.arena.pointsPerLoss} pts ·
+              Timeout: {GAME_CONFIG.arena.queueTimeoutSeconds}s · Level range ±{GAME_CONFIG.arena.matchmakingLevelRange}
+            </p>
+          </div>
+
           {/* Recent matches */}
           {(recentMatches?.length ?? 0) > 0 && (
             <div className="space-y-2">
@@ -229,15 +238,6 @@ export default async function TownPage() {
               })}
             </div>
           )}
-
-          <ArenaQueueButton characterId={character.id} isQueued={!!queueEntry} />
-
-          <div className="rounded-lg border border-border/50 bg-card/50 p-4 text-center space-y-1">
-            <p className="text-xs text-muted-foreground">
-              Win: +{GAME_CONFIG.arena.pointsPerWin} pts · Loss: −{GAME_CONFIG.arena.pointsPerLoss} pts ·
-              Timeout: {GAME_CONFIG.arena.queueTimeoutSeconds}s · Level range ±{GAME_CONFIG.arena.matchmakingLevelRange}
-            </p>
-          </div>
         </TabsContent>
 
         {/* ── Chat ── */}

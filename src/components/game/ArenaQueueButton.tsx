@@ -59,20 +59,38 @@ function FighterPanel({
   );
 }
 
-function StrikeRow({ strike, isLatest }: { strike: CombatStrike; isLatest: boolean }) {
+function RoundRow({
+  strikes, yourName, isLatest,
+}: {
+  strikes: CombatStrike[]; yourName: string; isLatest: boolean;
+}) {
+  const yourStrike = strikes.find(s => s.attacker === yourName);
+  const oppStrike  = strikes.find(s => s.attacker !== yourName);
   return (
-    <div className={`rounded px-3 py-2 text-xs transition-all duration-300 ${isLatest ? 'bg-primary/15 border border-primary/30' : 'opacity-55'}`}>
-      <div>
-        <span className="font-semibold text-body">{strike.attacker}</span>
-        <span className="text-muted-foreground"> strikes </span>
-        <span className="font-semibold text-body">{strike.defender}</span>
+    <div className={`grid grid-cols-2 gap-2 rounded px-2 py-2 text-xs transition-all duration-300 ${isLatest ? 'bg-primary/15 border border-primary/30' : 'opacity-55'}`}>
+      <div className="border-r border-border/40 pr-2 space-y-0.5">
+        {yourStrike ? (
+          <>
+            <p className="text-green-400 font-semibold">You hit</p>
+            <p className="text-muted-foreground tabular-nums">
+              <span className="text-body">{yourStrike.rawDamage}</span> raw
+              {' · '}<span className="text-yellow-400">{yourStrike.deflected}</span> blk
+              {' · '}<span className="font-bold text-green-400">{yourStrike.netDamage}</span> {cap(yourStrike.type)}
+            </p>
+          </>
+        ) : <p className="text-muted-foreground">—</p>}
       </div>
-      <div className="mt-0.5 text-muted-foreground">
-        <span>Raw <span className="text-body">{strike.rawDamage}</span></span>
-        <span className="mx-1.5">·</span>
-        <span>Blocked <span className="text-yellow-400">{strike.deflected}</span></span>
-        <span className="mx-1.5">·</span>
-        <span className="font-semibold text-red-400">{strike.netDamage} {cap(strike.type)}</span>
+      <div className="pl-2 space-y-0.5">
+        {oppStrike ? (
+          <>
+            <p className="text-red-400 font-semibold">They hit</p>
+            <p className="text-muted-foreground tabular-nums">
+              <span className="text-body">{oppStrike.rawDamage}</span> raw
+              {' · '}<span className="text-yellow-400">{oppStrike.deflected}</span> blk
+              {' · '}<span className="font-bold text-red-400">{oppStrike.netDamage}</span> {cap(oppStrike.type)}
+            </p>
+          </>
+        ) : <p className="text-muted-foreground">—</p>}
       </div>
     </div>
   );
@@ -113,9 +131,10 @@ export function ArenaQueueButton({ characterId, isQueued: initialQueued }: Props
       const elapsed = Date.now() - startMs;
       if (elapsed < 0) { setCountdown(Math.ceil(-elapsed / 1000)); return; }
       setCountdown(null);
-      const should = Math.min(Math.floor(elapsed / STRIKE_DELAY_MS) + 1, combatData.combatLog.length);
+      const roundCount = Math.ceil(combatData.combatLog.length / 2);
+      const should = Math.min((Math.floor(elapsed / STRIKE_DELAY_MS) + 1) * 2, combatData.combatLog.length);
       setRevealedCount(should);
-      if (elapsed > (combatData.combatLog.length - 1) * STRIKE_DELAY_MS + 900) {
+      if (elapsed > (roundCount - 1) * STRIKE_DELAY_MS + 900) {
         setPhase('result'); clearInterval(id);
       }
     }, 100);
@@ -177,10 +196,18 @@ export function ArenaQueueButton({ characterId, isQueued: initialQueued }: Props
           <FighterPanel name={combatData.yourName} fd={combatData.yourFighterData} isYou currentHp={yourHp} maxHp={combatData.yourMaxHp} />
           <FighterPanel name={combatData.opponentName} fd={combatData.opponentFighterData} isYou={false} currentHp={oppHp} maxHp={combatData.opponentMaxHp} />
         </div>
-        <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
-          {[...shownStrikes].reverse().map((s, i) => (
-            <StrikeRow key={s.n} strike={s} isLatest={i === 0} />
-          ))}
+        <div className="max-h-52 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
+          <div className="grid grid-cols-2 gap-2 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider sticky top-0 bg-card border-b border-border/40 mb-1">
+            <div className="text-green-400 border-r border-border/40 pr-2">You</div>
+            <div className="text-red-400 pl-2">{combatData.opponentName}</div>
+          </div>
+          {(() => {
+            const rounds: CombatStrike[][] = [];
+            for (let i = 0; i < shownStrikes.length; i += 2) rounds.push(shownStrikes.slice(i, i + 2));
+            return [...rounds].reverse().map((round, i) => (
+              <RoundRow key={round[0].n} strikes={round} yourName={combatData.yourName} isLatest={i === 0} />
+            ));
+          })()}
         </div>
       </div>
     );
