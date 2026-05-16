@@ -46,3 +46,34 @@ export async function getBossParticipantCount(bossId: string): Promise<number> {
   if (error) throw new Error(error.message);
   return count ?? 0;
 }
+
+/**
+ * Returns live boss HP and status along with participant count.
+ * Used to poll for updates when the realtime subscription is unavailable
+ * (world_bosses may not yet be in the supabase_realtime publication).
+ */
+export async function getBossCurrentState(bossId: string): Promise<{
+  current_hp: number;
+  status: string;
+  participantCount: number;
+}> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Unauthenticated');
+
+  const admin = createAdminClient();
+  const [{ data: boss, error: bossErr }, { count }] = await Promise.all([
+    supabase
+      .from('world_bosses')
+      .select('current_hp, status')
+      .eq('id', bossId)
+      .single(),
+    admin
+      .from('world_boss_participants')
+      .select('*', { count: 'exact', head: true })
+      .eq('boss_id', bossId),
+  ]);
+
+  if (bossErr || !boss) throw new Error('Boss not found');
+  return { current_hp: boss.current_hp, status: boss.status, participantCount: count ?? 0 };
+}

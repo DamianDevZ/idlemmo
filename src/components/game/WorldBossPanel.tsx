@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { joinWorldBoss, attackWorldBoss, getBossParticipantCount } from '@/features/world-boss/actions';
-import { createClient } from '@/lib/supabase/client';
+import { joinWorldBoss, attackWorldBoss, getBossCurrentState } from '@/features/world-boss/actions';
 
 interface Boss {
   id: string;
@@ -25,7 +24,6 @@ interface Props {
 }
 
 const ATTACK_COOLDOWN_SECS = 30;
-const PARTICIPANT_POLL_MS = 15_000;
 
 export function WorldBossPanel({
   boss: initialBoss,
@@ -42,7 +40,6 @@ export function WorldBossPanel({
   const [error, setError] = useState('');
   const [lastResult, setLastResult] = useState<{ damage: number; isKill: boolean } | null>(null);
   const [cooldownSecs, setCooldownSecs] = useState(0);
-  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
 
   // Countdown timer for attack cooldown
   useEffect(() => {
@@ -59,58 +56,30 @@ export function WorldBossPanel({
     return () => clearInterval(id);
   }, [lastAttackAt]);
 
-  // Realtime subscription: keep boss HP/status in sync as other players attack.
-  // world_bosses has a public SELECT RLS policy so any authenticated user can subscribe.
+  // Poll boss HP and participant count every 4 seconds.
+  // This is the primary sync mechanism — world_bosses may not be in the
+  // supabase_realtime publication, so we poll instead of subscribing.
   useEffect(() => {
     if (boss.status === 'completed') return;
 
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`world_boss:${boss.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'world_bosses',
-          filter: `id=eq.${boss.id}`,
-        },
-        (payload) => {
-          const updated = payload.new as Partial<Boss>;
-          setBoss(prev => ({
-            ...prev,
-            current_hp: updated.current_hp ?? prev.current_hp,
-            status: updated.status ?? prev.status,
-          }));
-        },
-      )
-      .subscribe();
-
-    channelRef.current = channel;
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boss.id]);
-
-  // Poll participant count every 15 s.
-  // The RLS on world_boss_participants restricts SELECT to own character, so we
-  // use a server action with the admin client to get the real count.
-  useEffect(() => {
-    if (boss.status === 'completed') return;
-
-    async function fetchCount() {
+    async function poll() {
       try {
-        const count = await getBossParticipantCount(boss.id);
-        setParticipantCount(count);
+        const state = await getBossCurrentState(boss.id);
+        setBoss(prev => ({
+          ...prev,
+          current_hp: state.current_hp,
+          status: state.status,
+        }));
+        setParticipantCount(state.participantCount);
       } catch {
-        // ignore — stale count is acceptable
+        // ignore transient errors — stale data is acceptable
       }
     }
 
-    fetchCount();
-    const id = setInterval(fetchCount, PARTICIPANT_POLL_MS);
+    poll();
+    const id = setInterval(poll, 4_000);
     return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boss.id, boss.status]);
 
   async function handleJoin() {

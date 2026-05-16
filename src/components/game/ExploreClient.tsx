@@ -282,14 +282,9 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
     }
 
     if (ev.event_type === 'campsite_reached') {
-      if (autoApproveRef.current) {
-        // Auto mode: just continue
-        actOnExploreEvent(character.id, session.id, ev.id, 'campsite_continue')
-          .then(() => startCycleRef.current())
-          .catch(() => startCycleRef.current());
-      } else {
-        setPendingEvent(ev);
-      }
+      // Always pause at campsite — player must decide to continue, heal, or leave.
+      // Auto mode does not skip campsites.
+      setPendingEvent(ev);
       return;
     }
 
@@ -448,8 +443,10 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
   }, [activeSession?.id, !!pendingEvent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // If the user switches to auto while a manual decision card is showing, resolve it
+  // (but never auto-resolve campsites — they always require a player decision)
   useEffect(() => {
     if (!pendingEvent || !autoApprove) return;
+    if (pendingEvent.event_type === 'campsite_reached') return;
     const pd = (pendingEvent.data ?? {}) as Record<string, unknown>;
     let action: ExploreAction = 'fight';
     if (pendingEvent.event_type === 'resource_found') {

@@ -1,7 +1,6 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { revalidatePath } from 'next/cache';
 
 // ── Friends ───────────────────────────────────────────────────────────────────
 
@@ -22,8 +21,6 @@ export async function acceptFriendRequest(requestId: string) {
     p_to_character_id:  character.id,
   });
   if (error) throw new Error(error.message);
-
-  revalidatePath('/game/town');
 }
 
 export async function declineFriendRequest(requestId: string) {
@@ -43,8 +40,6 @@ export async function declineFriendRequest(requestId: string) {
     p_to_character_id:  character.id,
   });
   if (error) throw new Error(error.message);
-
-  revalidatePath('/game/town');
 }
 
 export async function sendFriendRequest(targetName: string) {
@@ -78,8 +73,6 @@ export async function sendFriendRequest(targetName: string) {
     if (error.code === '23505') throw new Error('Friend request already sent');
     throw new Error(error.message);
   }
-
-  revalidatePath('/game/town');
 }
 
 // ── Arena ────────────────────────────────────────────────────────────────────
@@ -94,7 +87,6 @@ export async function joinArenaQueue(characterId: string): Promise<{ matched: bo
   });
   if (error) throw new Error(error.message);
 
-  revalidatePath('/game/town');
   return data as { matched: boolean; won?: boolean };
 }
 
@@ -107,8 +99,6 @@ export async function leaveArenaQueue(characterId: string) {
     p_character_id: characterId,
   });
   if (error) throw new Error(error.message);
-
-  revalidatePath('/game/town');
 }
 
 /**

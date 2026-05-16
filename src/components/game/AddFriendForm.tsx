@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { sendFriendRequest } from '@/features/town/actions';
 
 export function AddFriendForm() {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState('');
   const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -18,6 +20,7 @@ export function AddFriendForm() {
         await sendFriendRequest(name);
         setStatus({ ok: true, msg: 'Friend request sent!' });
         setName('');
+        router.refresh();
       } catch (err) {
         setStatus({ ok: false, msg: err instanceof Error ? err.message : 'Something went wrong' });
       }

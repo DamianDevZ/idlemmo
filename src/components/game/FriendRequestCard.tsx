@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { acceptFriendRequest, declineFriendRequest } from '@/features/town/actions';
 
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function FriendRequestCard({ requestId, fromName }: Props) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +23,7 @@ export function FriendRequestCard({ requestId, fromName }: Props) {
         if (action === 'accept') await acceptFriendRequest(requestId);
         else await declineFriendRequest(requestId);
         setDone(true);
+        router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Something went wrong');
       }
