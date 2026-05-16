@@ -25,14 +25,18 @@ const TYPE_TEXT: Record<string,string> = {
   weapon:'text-red-400', armor:'text-blue-400', tool:'text-amber-400',
   material:'text-green-400', consumable:'text-purple-400', misc:'text-muted-foreground', special_attack:'text-orange-400',
 };
-const PHYSICAL = new Set(['slash','blunt','bleed','pierce']);
-const ELEMENTAL = new Set(['fire','ice','lightning','poison']);
+const DMG_COLORS: Record<string, string> = {
+  slash: '#ef4444', pierce: '#f97316', blunt: '#f59e0b', bleed: '#ec4899',
+  fire: '#fb923c', ice: '#06b6d4', lightning: '#facc15', poison: '#4ade80',
+  physical: '#f87171', magical: '#a78bfa', holy: '#fde68a', dark: '#7c3aed',
+};
+const DMG_FALLBACK = ['#94a3b8','#64748b','#475569','#334155'];
 
 // ── SVG Donut (pure, server-renderable) ────────────────────────────────────
 type Seg = { label: string; value: number; color: string };
 
 function DonutChart({ segs, title, center }: { segs: Seg[]; title: string; center: string }) {
-  const r = 35, sw = 12, circ = 2 * Math.PI * r;
+  const r = 36, sw = 13, circ = 2 * Math.PI * r;
   const sum = segs.reduce((a, s) => a + s.value, 0);
   let cum = 0;
   const arcs = segs.filter(s => s.value > 0).map(s => {
@@ -42,9 +46,9 @@ function DonutChart({ segs, title, center }: { segs: Seg[]; title: string; cente
     return { ...s, dashLen, startAngle };
   });
   return (
-    <div className="flex flex-col items-center gap-1.5 min-w-[86px]">
-      <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground text-center">{title}</p>
-      <div className="relative w-[68px] h-[68px] shrink-0">
+    <div className="flex flex-col items-center gap-2 min-w-[120px]">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-center">{title}</p>
+      <div className="relative w-[88px] h-[88px] shrink-0">
         <svg viewBox="0 0 100 100" className="w-full h-full">
           {sum === 0 ? (
             <circle cx={50} cy={50} r={r} fill="none" strokeWidth={sw} className="stroke-border" />
@@ -56,14 +60,14 @@ function DonutChart({ segs, title, center }: { segs: Seg[]; title: string; cente
           ))}
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-sm font-bold text-heading leading-none">{center}</span>
+          <span className="text-lg font-bold text-heading leading-none">{center}</span>
         </div>
       </div>
-      <div className="flex flex-col gap-0.5 w-full">
+      <div className="flex flex-col gap-1 w-full">
         {segs.map(s => (
-          <span key={s.label} className="flex items-center gap-1 text-[9px]">
-            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: s.color }} />
-            <span className="text-muted-foreground truncate capitalize">{s.label}</span>
+          <span key={s.label} className="flex items-center gap-1.5 text-[11px]">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: s.color }} />
+            <span className="text-muted-foreground capitalize">{s.label}</span>
             <span className="ml-auto font-mono text-body">{s.value}</span>
           </span>
         ))}
@@ -111,14 +115,22 @@ export default async function AdminItemsPage({
 
     // Pre-compute weapon aggregations
     const weapons = byType['weapon'] ?? [];
-    const weaponDmgSegs: Seg[] = [
-      { label: 'Physical', value: weapons.filter(w => w.primary_damage_type && PHYSICAL.has(w.primary_damage_type)).length, color: '#f87171' },
-      { label: 'Elemental', value: weapons.filter(w => w.primary_damage_type && ELEMENTAL.has(w.primary_damage_type)).length, color: '#60a5fa' },
-    ];
+
+    // Damage type: tally the actual primary_damage_type values from data
+    const dmgTally: Record<string, number> = {};
+    for (const w of weapons) {
+      if (w.primary_damage_type) dmgTally[w.primary_damage_type] = (dmgTally[w.primary_damage_type] ?? 0) + 1;
+    }
+    const weaponDmgSegs: Seg[] = Object.entries(dmgTally)
+      .sort((a, b) => b[1] - a[1])
+      .map(([t, v], i) => ({ label: t, value: v, color: DMG_COLORS[t] ?? DMG_FALLBACK[i % DMG_FALLBACK.length] }));
+
+    // Attr scaling: count weapons that use each attr (primary or secondary), no weighting
     const scalingTally: Record<string, number> = {};
     for (const w of weapons) {
-      if (w.primary_scaling_attr) scalingTally[w.primary_scaling_attr] = (scalingTally[w.primary_scaling_attr] ?? 0) + 2;
-      if (w.secondary_scaling_attr) scalingTally[w.secondary_scaling_attr] = (scalingTally[w.secondary_scaling_attr] ?? 0) + 1;
+      if (w.primary_scaling_attr) scalingTally[w.primary_scaling_attr] = (scalingTally[w.primary_scaling_attr] ?? 0) + 1;
+      if (w.secondary_scaling_attr && w.secondary_scaling_attr !== w.primary_scaling_attr)
+        scalingTally[w.secondary_scaling_attr] = (scalingTally[w.secondary_scaling_attr] ?? 0) + 1;
     }
     const scalingSegs: Seg[] = Object.entries(scalingTally)
       .map(([a, v]) => ({ label: a, value: v, color: SCALING_HEX[a] ?? '#94a3b8' }))
@@ -169,7 +181,7 @@ export default async function AdminItemsPage({
                 {tc.key === 'weapon' ? (
                   <div className="flex gap-3 justify-center flex-wrap">
                     <DonutChart segs={weaponDmgSegs} title="Damage Type" center={`${count}`} />
-                    <DonutChart segs={scalingSegs} title="Attr Scaling" center="pts" />
+                    <DonutChart segs={scalingSegs} title="Attr Scaling" center={`${count}`} />
                   </div>
                 ) : tc.key === 'armor' ? (
                   <div className="flex justify-center">
