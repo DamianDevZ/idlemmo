@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
     const updatedPrefs = { ...prefs, tick_count: newTickCount };
 
     if (isCampsite) {
-      const { data: campsiteEvent } = await supabase
+      const { data: campsiteEvent, error: campsiteErr } = await supabase
         .from('exploration_events')
         .insert({
           session_id:   session.id,
@@ -149,6 +149,7 @@ export async function POST(req: NextRequest) {
         })
         .select('*')
         .single();
+      if (campsiteErr) console.error('[tick] campsite insert failed:', campsiteErr);
 
       const adminClient = createAdminClient();
       const { error: sesErr1 } = await adminClient
