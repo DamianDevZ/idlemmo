@@ -16,7 +16,7 @@ const STRIKE_DELAY_MS  = 1_100;
 
 type Phase = 'idle' | 'queued' | 'fighting' | 'result';
 
-function cap(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
+function cap(s: string | null | undefined) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Strike'; }
 
 function FighterPanel({
   name, fd, isYou, currentHp, maxHp,
