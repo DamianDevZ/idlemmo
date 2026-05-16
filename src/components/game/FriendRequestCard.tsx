@@ -18,9 +18,14 @@ export function FriendRequestCard({ requestId, fromName }: Props) {
     setError(null);
     setPending(true);
     try {
-      if (action === 'accept') await acceptFriendRequest(requestId);
-      else await declineFriendRequest(requestId);
-      setDone(true);
+      const result = action === 'accept'
+        ? await acceptFriendRequest(requestId)
+        : await declineFriendRequest(requestId);
+      if (result?.error) {
+        setError(result.error);
+      } else {
+        setDone(true);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
     } finally {

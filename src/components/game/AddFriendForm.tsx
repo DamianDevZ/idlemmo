@@ -15,9 +15,13 @@ export function AddFriendForm() {
     setStatus(null);
     setPending(true);
     try {
-      await sendFriendRequest(name);
-      setStatus({ ok: true, msg: 'Friend request sent!' });
-      setName('');
+      const result = await sendFriendRequest(name);
+      if (result?.error) {
+        setStatus({ ok: false, msg: result.error });
+      } else {
+        setStatus({ ok: true, msg: 'Friend request sent!' });
+        setName('');
+      }
     } catch (err) {
       setStatus({ ok: false, msg: err instanceof Error ? err.message : 'Something went wrong' });
     } finally {
