@@ -248,7 +248,7 @@ export default async function AdminItemsPage({
 
   let query = db
     .from('item_definitions')
-    .select('id, name, display_name, type, rarity, equipment_tier, base_damage, base_defense, primary_damage_type, stackable, image_url, primary_scaling_attr, secondary_scaling_attr, material_type')
+    .select('id, name, display_name, type, rarity, equipment_tier, base_damage, base_defense, primary_damage_type, primary_scaling_attr, primary_scaling_grade, secondary_scaling_attr, secondary_scaling_grade, material_type, stackable, image_url')
     .eq('type', typeKey!);
   if (q) query = query.ilike('display_name', `%${q}%`);
   if (rarity) query = query.eq('rarity', rarity);
@@ -309,7 +309,10 @@ export default async function AdminItemsPage({
               <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name</th>
               <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Rarity</th>
               <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tier</th>
-              <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stats</th>
+              {typeKey === 'weapon' && <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Damage Type</th>}
+              {typeKey === 'weapon' && <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Scaling</th>}
+              {typeKey === 'armor'  && <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Material</th>}
+              {typeKey !== 'weapon' && typeKey !== 'armor' && <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stats</th>}
               <th className="px-4 py-2 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Edit</th>
             </tr>
           </thead>
@@ -327,11 +330,44 @@ export default async function AdminItemsPage({
                 </td>
                 <td className="px-4 py-2"><span style={{ color: RARITY_HEX[item.rarity] }}>{item.rarity}</span></td>
                 <td className="px-4 py-2 text-muted-foreground">{item.equipment_tier ? `T${item.equipment_tier}` : '—'}</td>
-                <td className="px-4 py-2 text-xs text-muted-foreground">
-                  {item.base_damage != null && `⚔ ${item.base_damage}${item.primary_damage_type ? ` (${item.primary_damage_type})` : ''}`}
-                  {item.base_defense != null && `🛡 ${item.base_defense} def`}
-                  {item.primary_scaling_attr && ` · ${item.primary_scaling_attr}${item.secondary_scaling_attr ? `/${item.secondary_scaling_attr}` : ''}`}
-                </td>
+                {typeKey === 'weapon' && (
+                  <td className="px-4 py-2">
+                    {item.primary_damage_type
+                      ? <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize"
+                          style={{ background: (DMG_COLORS[item.primary_damage_type] ?? '#94a3b8') + '22', color: DMG_COLORS[item.primary_damage_type] ?? '#94a3b8' }}>
+                          {item.primary_damage_type}
+                        </span>
+                      : <span className="text-muted-foreground text-xs">—</span>}
+                  </td>
+                )}
+                {typeKey === 'weapon' && (
+                  <td className="px-4 py-2 text-xs">
+                    {item.primary_scaling_attr
+                      ? <span className="font-mono">
+                          <span style={{ color: SCALING_HEX[item.primary_scaling_attr] ?? '#94a3b8' }}>
+                            {item.primary_scaling_attr.toUpperCase()}
+                          </span>
+                          {item.primary_scaling_grade && <span className="text-muted-foreground">({item.primary_scaling_grade})</span>}
+                          {item.secondary_scaling_attr && (
+                            <> / <span style={{ color: SCALING_HEX[item.secondary_scaling_attr] ?? '#94a3b8' }}>
+                              {item.secondary_scaling_attr.toUpperCase()}
+                            </span>
+                            {item.secondary_scaling_grade && <span className="text-muted-foreground">({item.secondary_scaling_grade})</span>}
+                            </>
+                          )}
+                        </span>
+                      : <span className="text-muted-foreground">—</span>}
+                  </td>
+                )}
+                {typeKey === 'armor' && (
+                  <td className="px-4 py-2 text-xs text-muted-foreground capitalize">{item.material_type ?? '—'}</td>
+                )}
+                {typeKey !== 'weapon' && typeKey !== 'armor' && (
+                  <td className="px-4 py-2 text-xs text-muted-foreground">
+                    {item.base_damage != null && `${item.base_damage} dmg`}
+                    {item.base_defense != null && `${item.base_defense} def`}
+                  </td>
+                )}
                 <td className="px-4 py-2 text-right">
                   <Link href={`/admin/items/${item.id}`} className="text-xs text-primary hover:underline">Edit</Link>
                 </td>
