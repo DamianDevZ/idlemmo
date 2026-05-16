@@ -5,11 +5,13 @@ import { revalidatePath } from 'next/cache';
 import type { AttributeName } from '@/types/game';
 import { GAME_CONFIG } from '@/config/game.config';
 
-/** Spend one skill point to raise an attribute by 1. */
-export async function spendSkillPoint(characterId: string, attribute: AttributeName) {
+/** Spend one or more skill points to raise an attribute. */
+export async function spendSkillPoint(characterId: string, attribute: AttributeName, count = 1) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthenticated');
+
+  if (count < 1 || count > 100) throw new Error('Invalid count');
 
   // Verify ownership
   const { data: character, error: charErr } = await supabase
@@ -20,7 +22,7 @@ export async function spendSkillPoint(characterId: string, attribute: AttributeN
     .single();
 
   if (charErr || !character) throw new Error('Character not found');
-  if (character.skill_points_available < 1) throw new Error('No skill points available');
+  if (character.skill_points_available < count) throw new Error('Not enough skill points');
 
   const { data: attrs } = await supabase
     .from('character_attributes')
@@ -29,20 +31,20 @@ export async function spendSkillPoint(characterId: string, attribute: AttributeN
     .single();
 
   const current = (attrs as Record<string, number>)?.[attribute] ?? 0;
-  if (current >= GAME_CONFIG.attributes.maxValue) throw new Error('Attribute already at max');
+  const maxVal = GAME_CONFIG.attributes.maxValue;
+  const toAdd = Math.min(count, maxVal - current);
+  if (toAdd <= 0) throw new Error('Attribute already at max');
 
-  // Decrement skill_points, increment attribute — both in same transaction via RPC ideally,
-  // but we use sequential updates here since game logic runs server-side.
   const { error: attrErr } = await supabase
     .from('character_attributes')
-    .update({ [attribute]: current + 1 })
+    .update({ [attribute]: current + toAdd })
     .eq('character_id', characterId);
 
   if (attrErr) throw new Error(attrErr.message);
 
   const { error: spErr } = await supabase
     .from('characters')
-    .update({ skill_points_available: character.skill_points_available - 1 })
+    .update({ skill_points_available: character.skill_points_available - toAdd })
     .eq('id', characterId);
 
   if (spErr) throw new Error(spErr.message);

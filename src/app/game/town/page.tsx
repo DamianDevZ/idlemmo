@@ -28,7 +28,7 @@ export default async function TownPage() {
 
   // Lazily transition boss states and spawn a new boss if none is active.
   // This runs on every page load — the function is idempotent and fast.
-  await supabase.rpc('ensure_world_boss');
+  try { await supabase.rpc('ensure_world_boss'); } catch { /* non-critical */ }
 
   const [
     { data: friends },

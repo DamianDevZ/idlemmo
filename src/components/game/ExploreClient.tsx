@@ -615,13 +615,8 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
               {activeBiome?.icon} {activeBiome?.display_name} — {activeTier?.display_name}
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button variant="outline" size="sm" onClick={handleOpenInventory} className="shrink-0">
-              🎒 Inventory
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleReturn} disabled={pending} className="shrink-0">
-              {pending ? '…' : '🏠 Return'}
-            </Button>
+          <div className="text-xs text-muted-foreground shrink-0">
+            {activeSession && <span>🟢 Active</span>}
           </div>
         </div>
 
@@ -640,10 +635,10 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
                   <div
                     key={bt.id}
                     title={bt.display_name}
-                    className={`flex-1 h-2 rounded-full transition-colors ${
-                      i < currentTierIndex ? 'bg-primary/35' :
-                      i === currentTierIndex ? 'bg-primary' :
-                      'bg-muted'
+                    className={`flex-1 h-2 rounded-full transition-colors border ${
+                      i < currentTierIndex ? 'bg-primary/35 border-primary/30' :
+                      i === currentTierIndex ? 'bg-primary border-primary' :
+                      'bg-muted/30 border-border'
                     }`}
                   />
                 ))}
@@ -792,11 +787,14 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
                 })}
               </div>
             )}
-            <div className="flex gap-2">
-              <Button onClick={handleCampsiteContinue} disabled={pending} className="flex-1">
+            <div className="flex gap-2 flex-wrap">
+              <Button onClick={handleCampsiteContinue} disabled={pending} className="flex-1 min-w-[120px]">
                 Continue Exploring
               </Button>
-              <Button variant="outline" onClick={handleReturn} disabled={pending} className="flex-1">
+              <Button variant="outline" size="sm" onClick={handleOpenInventory} disabled={pending}>
+                🎒 Inventory
+              </Button>
+              <Button variant="outline" onClick={handleReturn} disabled={pending} className="flex-1 min-w-[120px]">
                 🏠 Return Home
               </Button>
             </div>

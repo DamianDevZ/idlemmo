@@ -51,6 +51,12 @@ export function calcDerivedStats(attrs: DbCharacterAttributes, armorRating: numb
     maxStamina: attrs.endurance * 10,
     carrySlots: calcCarrySlots(attrs.endurance),
     hpRegenPerMin: calcHpRegenPerMin(attrs.faith),
+    // Endurance also drives how many offline ticks are allowed (base 10 + 1 per 2 endurance)
+    offlineTicks: 10 + Math.floor(attrs.endurance / 2),
+    // Faith multiplies consumable effects (1.0 at faith=0, +2% per point)
+    faithConsumableMult: 1 + attrs.faith * 0.02,
+    // Arcane adds bonus rare/quality find % while exploring
+    arcaneExploreLuck: attrs.arcane * A.arcaneRareFactor,
 
     // Gather — divisor: tickMs = base / gatherSpeedDivisor
     gatherSpeedDivisor:

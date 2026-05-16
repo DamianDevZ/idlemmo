@@ -309,6 +309,12 @@ export interface DerivedStats {
   maxStamina: number;
   carrySlots: number;
   hpRegenPerMin: number;
+  /** Offline exploration tick multiplier (how many ticks per session can run offline). */
+  offlineTicks: number;
+  /** Faith multiplier on consumable effects (e.g. heal_amount × this). */
+  faithConsumableMult: number;
+  /** Arcane bonus to rare/quality find % while exploring. */
+  arcaneExploreLuck: number;
   // Gather
   gatherSpeedDivisor: number;  // tick duration divided by this
   gatherYieldMult: number;

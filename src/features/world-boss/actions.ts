@@ -27,7 +27,7 @@ export async function attackWorldBoss(bossId: string, characterId: string) {
     p_character_id: characterId,
   });
   if (error) throw new Error(error.message);
-  revalidatePath('/game/town');
+  // Don't revalidate — WorldBossPanel manages HP state client-side via realtime
   return data as { damage: number; new_hp: number; max_hp: number; is_kill: boolean };
 }
 

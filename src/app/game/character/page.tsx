@@ -187,47 +187,48 @@ export default async function CharacterPage() {
           <CardDescription className="text-xs">Derived from your attributes and equipment</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          {/* ── Combat ── */}
+          {/* ── Vitals ── */}
           <div className="space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">⚔️ Combat</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">❤️ Vitals (Vigor)</p>
             <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-              <StatRow label="Max HP"      value={derived.maxHp} />
-              <StatRow label="Defense"     value={`${(derived.defenseReduction * 100).toFixed(0)}% reduction`} />
-              <StatRow label="Melee Dmg"   value={`×${derived.meleeDamageMult.toFixed(2)}`} />
-              <StatRow label="Ranged Dmg"  value={`×${derived.rangedDamageMult.toFixed(2)}`} />
-              <StatRow label="Magic Dmg"   value={`×${derived.magicDamageMult.toFixed(2)}`} />
-              <StatRow label="Attack Spd"  value={`×${derived.attackSpeedMult.toFixed(2)}`} />
-              <StatRow label="Crit Chance" value={`${derived.critChance.toFixed(1)}%`} />
-              <StatRow label="Crit Damage" value={`×${derived.critDamageMult.toFixed(2)}`} />
+              <StatRow label="Max HP"    value={derived.maxHp} />
+              <StatRow label="HP Regen"  value={`${derived.hpRegenPerMin.toFixed(1)} hp/min`} />
             </div>
           </div>
 
-          {/* ── Gathering ── */}
+          {/* ── Endurance ── */}
           <div className="space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">🌿 Gathering</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">🛡️ Endurance</p>
             <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-              <StatRow label="Speed"     value={`+${((derived.gatherSpeedDivisor - 1) * 100).toFixed(1)}%`} />
-              <StatRow label="Yield"     value={`×${derived.gatherYieldMult.toFixed(2)}`} />
-              <StatRow label="Rare Find" value={`+${derived.rareChanceBonus.toFixed(1)}%`} />
+              <StatRow label="Carry Slots"    value={derived.carrySlots} />
+              <StatRow label="Offline Ticks"  value={derived.offlineTicks} />
             </div>
           </div>
 
-          {/* ── Crafting & Refining ── */}
+          {/* ── Damage Scalers ── */}
           <div className="space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">⚗️ Crafting & Refining</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">⚔️ Damage (Str / Dex / Int)</p>
             <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-              <StatRow label="Craft Success" value={`+${derived.craftSuccessBonus.toFixed(1)}%`} />
-              <StatRow label="Refine Eff."   value={`×${derived.refineEfficiencyMult.toFixed(2)}`} />
+              <StatRow label="Melee (Str)"   value={`×${derived.meleeDamageMult.toFixed(2)}`} />
+              <StatRow label="Ranged (Dex)"  value={`×${derived.rangedDamageMult.toFixed(2)}`} />
+              <StatRow label="Magic (Int)"   value={`×${derived.magicDamageMult.toFixed(2)}`} />
+              <StatRow label="Defense"       value={`${(derived.defenseReduction * 100).toFixed(0)}% reduction`} />
             </div>
           </div>
 
-          {/* ── Survival ── */}
+          {/* ── Faith ── */}
           <div className="space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">🎒 Survival</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">✨ Faith</p>
             <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-              <StatRow label="Max Stamina" value={derived.maxStamina} />
-              <StatRow label="Carry Slots" value={derived.carrySlots} />
-              <StatRow label="HP Regen"    value={`${derived.hpRegenPerMin.toFixed(1)} hp/min`} />
+              <StatRow label="Consumable Mult" value={`×${derived.faithConsumableMult.toFixed(2)}`} />
+            </div>
+          </div>
+
+          {/* ── Arcane ── */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">🔮 Arcane</p>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+              <StatRow label="Explore Luck" value={`+${derived.arcaneExploreLuck.toFixed(1)}%`} />
             </div>
           </div>
         </CardContent>
