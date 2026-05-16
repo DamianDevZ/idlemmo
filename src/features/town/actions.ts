@@ -113,6 +113,8 @@ export type ArenaCombatResult = {
   yourMaxHp: number;
   opponentMaxHp: number;
   ratingDelta: number;
+  /** ISO timestamp: when the fight animation begins. Both players anchor to this. */
+  combatStartsAt: string;
   combatLog: CombatStrike[];
 };
 
@@ -160,7 +162,7 @@ export async function checkArenaMatch(
   const { data: match, error } = await supabase
     .from('arena_matches')
     .select(
-      'winner_id, player1_id, player2_id, player1_rating_delta, player2_rating_delta, player1_max_hp, player2_max_hp, combat_log',
+      'winner_id, player1_id, player2_id, player1_rating_delta, player2_rating_delta, player1_max_hp, player2_max_hp, combat_starts_at, combat_log',
     )
     .or(`player1_id.eq.${characterId},player2_id.eq.${characterId}`)
     .gt('completed_at', since)
@@ -191,6 +193,7 @@ export async function checkArenaMatch(
     yourMaxHp: yourMaxHp ?? 125,
     opponentMaxHp: opponentMaxHp ?? 125,
     ratingDelta: ratingDelta ?? (match.winner_id === characterId ? 30 : -10),
+    combatStartsAt: match.combat_starts_at ?? new Date(Date.now() + 5000).toISOString(),
     combatLog: (match.combat_log ?? []) as CombatStrike[],
   };
 }
