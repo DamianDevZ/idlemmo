@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { GAME_CONFIG } from '@/config/game.config';
 
 // item_name → generic display name (resource type, not material variant).
@@ -149,10 +150,12 @@ export async function POST(req: NextRequest) {
         .select('*')
         .single();
 
-      await supabase
+      const adminClient = createAdminClient();
+      const { error: sesErr1 } = await adminClient
         .from('exploration_sessions')
         .update({ last_tick_at: new Date().toISOString(), collect_preferences: updatedPrefs })
         .eq('id', session.id);
+      if (sesErr1) console.error('[tick] campsite session update failed:', sesErr1);
 
       return NextResponse.json({ ok: true, event: campsiteEvent });
     }
@@ -348,11 +351,13 @@ export async function POST(req: NextRequest) {
       .select('*')
       .single();
 
-    // Update last_tick_at and tick_count
-    await supabase
+    // Update last_tick_at and tick_count via admin client to guarantee persistence.
+    const adminClient = createAdminClient();
+    const { error: sesErr } = await adminClient
       .from('exploration_sessions')
       .update({ last_tick_at: new Date().toISOString(), collect_preferences: updatedPrefs })
       .eq('id', session.id);
+    if (sesErr) console.error('[tick] session update failed:', sesErr);
 
     return NextResponse.json({ ok: true, event: insertedEvent });
   } catch (err: unknown) {

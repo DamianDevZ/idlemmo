@@ -1,30 +1,28 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { sendFriendRequest } from '@/features/town/actions';
 
 export function AddFriendForm() {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
   const [name, setName] = useState('');
   const [status, setStatus] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setStatus(null);
-    startTransition(async () => {
-      try {
-        await sendFriendRequest(name);
-        setStatus({ ok: true, msg: 'Friend request sent!' });
-        setName('');
-        router.refresh();
-      } catch (err) {
-        setStatus({ ok: false, msg: err instanceof Error ? err.message : 'Something went wrong' });
-      }
-    });
+    setPending(true);
+    try {
+      await sendFriendRequest(name);
+      setStatus({ ok: true, msg: 'Friend request sent!' });
+      setName('');
+    } catch (err) {
+      setStatus({ ok: false, msg: err instanceof Error ? err.message : 'Something went wrong' });
+    } finally {
+      setPending(false);
+    }
   }
 
   return (

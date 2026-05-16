@@ -166,7 +166,7 @@ export function WorldChat({
   };
 
   return (
-    <div className="flex flex-col h-[calc(100svh-26rem)] md:h-[calc(100svh-12rem)] rounded-lg border border-border bg-card overflow-hidden">
+    <div className="flex flex-col h-[360px] md:h-[520px] rounded-lg border border-border bg-card overflow-hidden">
       {/* Message list — flex-1 spacer above pins messages to the bottom */}
       <div
         className="flex-1 overflow-y-auto flex flex-col p-3

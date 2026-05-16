@@ -77,7 +77,7 @@ export function WorldBossPanel({
     }
 
     poll();
-    const id = setInterval(poll, 4_000);
+    const id = setInterval(poll, 2_000);
     return () => clearInterval(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boss.id, boss.status]);
