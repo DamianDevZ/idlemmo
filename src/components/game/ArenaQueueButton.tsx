@@ -12,7 +12,7 @@ import {
 } from '@/features/town/actions';
 
 const POLL_INTERVAL_MS = 2_000;
-const STRIKE_DELAY_MS  = 1_100;
+const STRIKE_DELAY_MS  = 3_000;
 
 type Phase = 'idle' | 'queued' | 'fighting' | 'result';
 
@@ -107,6 +107,7 @@ export function ArenaQueueButton({ characterId, isQueued: initialQueued }: Props
   const [combatData, setCombatData] = useState<ArenaCombatResult | null>(null);
   const [countdown, setCountdown]   = useState<number | null>(null);
   const [revealedCount, setRevealedCount] = useState(0);
+  const [barProgress, setBarProgress] = useState(0);
 
   useEffect(() => {
     if (!queued || !joinedAt) return;
@@ -132,10 +133,14 @@ export function ArenaQueueButton({ characterId, isQueued: initialQueued }: Props
       if (elapsed < 0) { setCountdown(Math.ceil(-elapsed / 1000)); return; }
       setCountdown(null);
       const roundCount = Math.ceil(combatData.combatLog.length / 2);
-      const should = Math.min((Math.floor(elapsed / STRIKE_DELAY_MS) + 1) * 2, combatData.combatLog.length);
+      const roundsFired = Math.floor(elapsed / STRIKE_DELAY_MS);
+      const should = Math.min(roundsFired * 2, combatData.combatLog.length);
       setRevealedCount(should);
-      if (elapsed > (roundCount - 1) * STRIKE_DELAY_MS + 900) {
-        setPhase('result'); clearInterval(id);
+      if (roundsFired >= roundCount) {
+        setBarProgress(1);
+        if (elapsed > roundCount * STRIKE_DELAY_MS + 600) { setPhase('result'); clearInterval(id); }
+      } else {
+        setBarProgress((elapsed % STRIKE_DELAY_MS) / STRIKE_DELAY_MS);
       }
     }, 100);
     return () => clearInterval(id);
@@ -196,6 +201,27 @@ export function ArenaQueueButton({ characterId, isQueued: initialQueued }: Props
           <FighterPanel name={combatData.yourName} fd={combatData.yourFighterData} isYou currentHp={yourHp} maxHp={combatData.yourMaxHp} />
           <FighterPanel name={combatData.opponentName} fd={combatData.opponentFighterData} isYou={false} currentHp={oppHp} maxHp={combatData.opponentMaxHp} />
         </div>
+        {(() => {
+          const roundCount = Math.ceil(combatData.combatLog.length / 2);
+          const roundsFired = Math.floor(revealedCount / 2);
+          const allDone = roundsFired >= roundCount;
+          return (
+            <div className="space-y-1">
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>Round {Math.min(roundsFired + 1, roundCount)} / {roundCount}</span>
+                {allDone
+                  ? <span className="text-primary">Combat over</span>
+                  : <span className="text-primary animate-pulse">Charging…</span>}
+              </div>
+              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-[width] duration-100 ease-linear"
+                  style={{ width: `${barProgress * 100}%` }}
+                />
+              </div>
+            </div>
+          );
+        })()}
         <div className="max-h-52 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
           <div className="grid grid-cols-2 gap-2 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider sticky top-0 bg-card border-b border-border/40 mb-1">
             <div className="text-green-400 border-r border-border/40 pr-2">You</div>
