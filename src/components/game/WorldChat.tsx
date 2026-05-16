@@ -166,7 +166,7 @@ export function WorldChat({
   };
 
   return (
-    <div className="flex flex-col h-[620px] rounded-lg border border-border bg-card overflow-hidden">
+    <div className="flex flex-col h-[calc(100svh-13rem)] sm:h-[800px] rounded-lg border border-border bg-card overflow-hidden">
       {/* Message list — flex-1 spacer above pins messages to the bottom */}
       <div
         className="flex-1 overflow-y-auto flex flex-col p-3
@@ -225,7 +225,7 @@ export function WorldChat({
               😊
             </button>
             {emojiOpen && (
-              <div className="absolute bottom-full left-0 mb-2 z-50 w-64 rounded-lg border border-border bg-card shadow-lg p-2">
+              <div className="absolute bottom-full left-0 mb-2 z-50 w-52 sm:w-64 rounded-lg border border-border bg-card shadow-lg p-2">
                 {EMOJI_GROUPS.map((group) => (
                   <div key={group.label} className="mb-2 last:mb-0">
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 px-0.5">
