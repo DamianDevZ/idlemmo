@@ -92,7 +92,33 @@ export async function sendFriendRequest(targetName: string): Promise<{ error?: s
 
 // ── Arena ────────────────────────────────────────────────────────────────────
 
-export async function joinArenaQueue(characterId: string): Promise<{ matched: boolean; won?: boolean }> {
+export type CombatStrike = {
+  n: number;
+  attacker: string;
+  defender: string;
+  rawDamage: number;
+  deflected: number;
+  netDamage: number;
+  type: string;
+  atkHp: number;
+  defHpBefore: number;
+  defHpAfter: number;
+};
+
+export type ArenaCombatResult = {
+  matched: true;
+  won: boolean;
+  yourName: string;
+  opponentName: string;
+  yourMaxHp: number;
+  opponentMaxHp: number;
+  ratingDelta: number;
+  combatLog: CombatStrike[];
+};
+
+export async function joinArenaQueue(
+  characterId: string,
+): Promise<{ matched: false } | ArenaCombatResult> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthenticated');
@@ -102,7 +128,7 @@ export async function joinArenaQueue(characterId: string): Promise<{ matched: bo
   });
   if (error) throw new Error(error.message);
 
-  return data as { matched: boolean; won?: boolean };
+  return data as { matched: false } | ArenaCombatResult;
 }
 
 export async function leaveArenaQueue(characterId: string) {
@@ -118,20 +144,20 @@ export async function leaveArenaQueue(characterId: string) {
 
 /**
  * Polls for a completed arena match since the player joined the queue.
- * Does NOT call revalidatePath to avoid triggering a full page re-render on
- * every poll interval — we only update local client state on match found.
+ * Fetches the full combat log so the waiting player gets the same dramatic
+ * replay as the player who triggered the match via joinArenaQueue.
  */
 export async function checkArenaMatch(
   characterId: string,
   since: string,
-): Promise<{ matched: true; won: boolean } | { matched: false }> {
+): Promise<{ matched: false } | ArenaCombatResult> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthenticated');
 
-  const { data, error } = await supabase
+  const { data: match, error } = await supabase
     .from('arena_matches')
-    .select('winner_id, player1_id, player2_id')
+    .select('winner_id, player1_id, player2_id, player1_rating_delta, player2_rating_delta, combat_log')
     .or(`player1_id.eq.${characterId},player2_id.eq.${characterId}`)
     .gt('completed_at', since)
     .order('completed_at', { ascending: false })
@@ -139,7 +165,36 @@ export async function checkArenaMatch(
     .maybeSingle();
 
   if (error) throw new Error(error.message);
-  if (!data) return { matched: false };
+  if (!match) return { matched: false };
 
-  return { matched: true, won: data.winner_id === characterId };
+  const opponentId = match.player1_id === characterId ? match.player2_id : match.player1_id;
+  const ratingDelta = match.player1_id === characterId
+    ? match.player1_rating_delta
+    : match.player2_rating_delta;
+
+  // Fetch both names and vigor (for max HP) in parallel
+  const [charResult, oppResult] = await Promise.all([
+    supabase.from('characters').select('name').eq('id', characterId).single(),
+    supabase.from('characters').select('name').eq('id', opponentId).single(),
+  ]);
+  const [attrResult, oppAttrResult] = await Promise.all([
+    supabase.from('character_attributes').select('vigor').eq('character_id', characterId).single(),
+    supabase.from('character_attributes').select('vigor').eq('character_id', opponentId).single(),
+  ]);
+
+  const yourName = charResult.data?.name ?? 'You';
+  const opponentName = oppResult.data?.name ?? 'Opponent';
+  const yourMaxHp = 50 + (attrResult.data?.vigor ?? 5) * 15;
+  const opponentMaxHp = 50 + (oppAttrResult.data?.vigor ?? 5) * 15;
+
+  return {
+    matched: true,
+    won: match.winner_id === characterId,
+    yourName,
+    opponentName,
+    yourMaxHp,
+    opponentMaxHp,
+    ratingDelta: ratingDelta ?? (match.winner_id === characterId ? 30 : -10),
+    combatLog: (match.combat_log ?? []) as CombatStrike[],
+  };
 }
