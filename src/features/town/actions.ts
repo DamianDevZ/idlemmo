@@ -105,6 +105,18 @@ export type CombatStrike = {
   defHpAfter: number;
 };
 
+export type FighterData = {
+  str: number;
+  end: number;
+  dex: number;
+  vig: number;
+  weaponName: string | null;
+  damageType: string;
+  weaponBase: number;
+  armorName: string | null;
+  armorBonus: number;
+};
+
 export type ArenaCombatResult = {
   matched: true;
   won: boolean;
@@ -115,6 +127,8 @@ export type ArenaCombatResult = {
   ratingDelta: number;
   /** ISO timestamp: when the fight animation begins. Both players anchor to this. */
   combatStartsAt: string;
+  yourFighterData: FighterData;
+  opponentFighterData: FighterData;
   combatLog: CombatStrike[];
 };
 
@@ -162,7 +176,7 @@ export async function checkArenaMatch(
   const { data: match, error } = await supabase
     .from('arena_matches')
     .select(
-      'winner_id, player1_id, player2_id, player1_rating_delta, player2_rating_delta, player1_max_hp, player2_max_hp, combat_starts_at, combat_log',
+      'winner_id, player1_id, player2_id, player1_rating_delta, player2_rating_delta, player1_max_hp, player2_max_hp, combat_starts_at, player1_fighter_data, player2_fighter_data, combat_log',
     )
     .or(`player1_id.eq.${characterId},player2_id.eq.${characterId}`)
     .gt('completed_at', since)
@@ -178,12 +192,16 @@ export async function checkArenaMatch(
   const ratingDelta = isPlayer1 ? match.player1_rating_delta : match.player2_rating_delta;
   const yourMaxHp = isPlayer1 ? match.player1_max_hp : match.player2_max_hp;
   const opponentMaxHp = isPlayer1 ? match.player2_max_hp : match.player1_max_hp;
+  const yourFighterData = isPlayer1 ? match.player1_fighter_data : match.player2_fighter_data;
+  const opponentFighterData = isPlayer1 ? match.player2_fighter_data : match.player1_fighter_data;
 
   // Only need the two character names — everything else comes from the stored match
   const [charResult, oppResult] = await Promise.all([
     supabase.from('characters').select('name').eq('id', characterId).single(),
     supabase.from('characters').select('name').eq('id', opponentId).single(),
   ]);
+
+  const defaultFighter: FighterData = { str: 5, end: 5, dex: 5, vig: 5, weaponName: null, damageType: 'strike', weaponBase: 25, armorName: null, armorBonus: 0 };
 
   return {
     matched: true,
@@ -194,6 +212,8 @@ export async function checkArenaMatch(
     opponentMaxHp: opponentMaxHp ?? 125,
     ratingDelta: ratingDelta ?? (match.winner_id === characterId ? 30 : -10),
     combatStartsAt: match.combat_starts_at ?? new Date(Date.now() + 5000).toISOString(),
+    yourFighterData: (yourFighterData ?? defaultFighter) as FighterData,
+    opponentFighterData: (opponentFighterData ?? defaultFighter) as FighterData,
     combatLog: (match.combat_log ?? []) as CombatStrike[],
   };
 }
