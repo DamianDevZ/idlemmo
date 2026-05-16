@@ -5,13 +5,15 @@ const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABA
 const gradeByRarity = { common: 'D', uncommon: 'C', rare: 'B', epic: 'A', legendary: 'S' };
 
 const weapons = [
-  // one per damage type — the canonical weapon for each
-  { name: 'crude_knife',      damage: 'pierce',    pri: 'str', sec: null,  mat: 'metal', rarity: 'common'    },
-  { name: 'iron_sword',       damage: 'slash',     pri: 'str', sec: null,  mat: 'metal', rarity: 'uncommon'  },
-  { name: 'apprentice_staff', damage: 'fire',      pri: 'int', sec: null,  mat: null,    rarity: 'common'    },
-  { name: 'crystal_staff',    damage: 'ice',       pri: 'int', sec: null,  mat: null,    rarity: 'rare'      },
-  { name: 'mithril_staff',    damage: 'lightning', pri: 'int', sec: null,  mat: null,    rarity: 'epic'      },
-  { name: 'void_staff',       damage: 'true',      pri: 'int', sec: null,  mat: null,    rarity: 'legendary' },
+  // one weapon per damage type (true damage reserved for special_attack scrolls)
+  { name: 'crude_knife',      damage: 'pierce',    pri: 'str', sec: null,  sec_grade: null, mat: 'metal', rarity: 'common'    },
+  { name: 'iron_sword',       damage: 'slash',     pri: 'str', sec: null,  sec_grade: null, mat: 'metal', rarity: 'uncommon'  },
+  { name: 'iron_mace',        damage: 'blunt',     pri: 'str', sec: null,  sec_grade: null, mat: 'metal', rarity: 'common'    },
+  { name: 'serrated_blade',   damage: 'bleed',     pri: 'str', sec: 'dex', sec_grade: 'D',  mat: 'metal', rarity: 'uncommon'  },
+  { name: 'apprentice_staff', damage: 'fire',      pri: 'int', sec: null,  sec_grade: null, mat: null,    rarity: 'common'    },
+  { name: 'crystal_staff',    damage: 'ice',       pri: 'int', sec: null,  sec_grade: null, mat: null,    rarity: 'rare'      },
+  { name: 'mithril_staff',    damage: 'lightning', pri: 'int', sec: null,  sec_grade: null, mat: null,    rarity: 'epic'      },
+  { name: 'void_staff',       damage: 'poison',    pri: 'int', sec: null,  sec_grade: null, mat: null,    rarity: 'legendary' },
 ];
 
 const toolTiers = [
