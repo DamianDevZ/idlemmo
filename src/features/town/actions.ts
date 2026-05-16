@@ -110,3 +110,31 @@ export async function leaveArenaQueue(characterId: string) {
 
   revalidatePath('/game/town');
 }
+
+/**
+ * Polls for a completed arena match since the player joined the queue.
+ * Does NOT call revalidatePath to avoid triggering a full page re-render on
+ * every poll interval — we only update local client state on match found.
+ */
+export async function checkArenaMatch(
+  characterId: string,
+  since: string,
+): Promise<{ matched: true; won: boolean } | { matched: false }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Unauthenticated');
+
+  const { data, error } = await supabase
+    .from('arena_matches')
+    .select('winner_id, player1_id, player2_id')
+    .or(`player1_id.eq.${characterId},player2_id.eq.${characterId}`)
+    .gt('completed_at', since)
+    .order('completed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) return { matched: false };
+
+  return { matched: true, won: data.winner_id === characterId };
+}

@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
     // Verify ownership
     const { data: character } = await supabase
       .from('characters')
-      .select('id')
+      .select('id, current_hp')
       .eq('id', characterId)
       .eq('user_id', user.id)
       .single();
@@ -124,6 +124,38 @@ export async function POST(req: NextRequest) {
       .from('biome_tier_resources')
       .select('item_name, item_tier, base_yield_min, base_yield_max, required_skill_name, spawn_weight')
       .eq('biome_tier_id', session.biome_tier_id);
+
+    // ── Campsite check ───────────────────────────────────────────────────────
+    // Track how many ticks have happened in this session via collect_preferences.
+    // Every campsiteEveryTicks ticks, fire a campsite_reached event instead of
+    // a regular tick so the player can heal, swap gear, or retreat.
+    const prefs = (session.collect_preferences ?? {}) as Record<string, unknown>;
+    const prevTickCount = (prefs.tick_count as number | undefined) ?? 0;
+    const newTickCount  = prevTickCount + 1;
+    const isCampsite    = newTickCount % EXP.campsiteEveryTicks === 0;
+
+    // Always update tick_count (done at end, before return)
+    const updatedPrefs = { ...prefs, tick_count: newTickCount };
+
+    if (isCampsite) {
+      const { data: campsiteEvent } = await supabase
+        .from('exploration_events')
+        .insert({
+          session_id:   session.id,
+          character_id: characterId,
+          event_type:   'campsite_reached',
+          data:         { currentHp: character.current_hp },
+        })
+        .select('*')
+        .single();
+
+      await supabase
+        .from('exploration_sessions')
+        .update({ last_tick_at: new Date().toISOString(), collect_preferences: updatedPrefs })
+        .eq('id', session.id);
+
+      return NextResponse.json({ ok: true, event: campsiteEvent });
+    }
 
     // ── Event selection ──────────────────────────────────────────────────────
     const biomeTier = session.biome_tiers as {
@@ -316,10 +348,10 @@ export async function POST(req: NextRequest) {
       .select('*')
       .single();
 
-    // Update last_tick_at
+    // Update last_tick_at and tick_count
     await supabase
       .from('exploration_sessions')
-      .update({ last_tick_at: new Date().toISOString() })
+      .update({ last_tick_at: new Date().toISOString(), collect_preferences: updatedPrefs })
       .eq('id', session.id);
 
     return NextResponse.json({ ok: true, event: insertedEvent });

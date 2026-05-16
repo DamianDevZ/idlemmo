@@ -25,6 +25,10 @@ const MATERIAL_WORDS = new Set([
   'Basic', 'Crude', 'Apprentice',
   'Cured', 'Thick', 'Shadow',
 ]);
+function formatSlot(slot: string): string {
+  return slot.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function stripMaterialPrefix(displayName: string): string {
   const words = displayName.split(' ');
   let i = 0;
@@ -233,7 +237,7 @@ export default async function HomeBasePage() {
                         <span className="text-sm text-muted-foreground tabular-nums">×{item.quantity}</span>
                       )}
                       {item.equipped_slot && (
-                        <Badge variant="outline" className="text-xs capitalize">{item.equipped_slot}</Badge>
+                        <Badge variant="outline" className="text-xs">{formatSlot(item.equipped_slot!)}</Badge>
                       )}
                       <Badge variant="secondary" className={`text-xs capitalize ${RARITY_COLORS[def?.rarity ?? 'common']}`}>
                         {def?.rarity}
@@ -282,8 +286,8 @@ export default async function HomeBasePage() {
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {item.equipped_slot ? (
-                            <Badge className="text-xs capitalize bg-primary/15 text-primary border-primary/30 border">
-                              ✓ {item.equipped_slot}
+                            <Badge className="text-xs bg-primary/15 text-primary border-primary/30 border">
+                              ✓ {formatSlot(item.equipped_slot!)}
                             </Badge>
                           ) : (
                             <Badge variant="outline" className="text-xs text-muted-foreground">In bag</Badge>

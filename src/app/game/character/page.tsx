@@ -7,7 +7,19 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Progress } from '@/components/ui/progress';
 import { EquipmentPanel } from '@/components/game/EquipmentPanel';
 import type { EquippedData, EquipItemData } from '@/components/game/EquipmentPanel';
-import type { DbCharacter, DbCharacterAttributes } from '@/types/game';
+import type { DbCharacter, DbCharacterAttributes, AttributeName } from '@/types/game';
+
+export const dynamic = 'force-dynamic';
+
+const ATTRIBUTE_META: { name: AttributeName; label: string; icon: string }[] = [
+  { name: 'vigor',        label: 'Vigor',        icon: '❤️'  },
+  { name: 'endurance',    label: 'Endurance',    icon: '🛡️' },
+  { name: 'strength',     label: 'Strength',     icon: '💪'  },
+  { name: 'dexterity',    label: 'Dexterity',    icon: '🏃'  },
+  { name: 'intelligence', label: 'Intelligence', icon: '🧠'  },
+  { name: 'faith',        label: 'Faith',        icon: '✨'  },
+  { name: 'arcane',       label: 'Arcane',       icon: '🔮'  },
+];
 
 export const dynamic = 'force-dynamic';
 
@@ -139,24 +151,86 @@ export default async function CharacterPage() {
         </CardContent>
       </Card>
 
-      {/* Derived stats */}
+      {/* Attributes */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Derived Stats</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Attributes</CardTitle>
+            {character.skill_points_available > 0 ? (
+              <Link href="/game/skills" className="text-xs text-primary hover:underline">
+                {character.skill_points_available} point{character.skill_points_available !== 1 ? 's' : ''} to spend →
+              </Link>
+            ) : (
+              <Link href="/game/skills" className="text-xs text-muted-foreground hover:underline">
+                Skills →
+              </Link>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-x-4 sm:gap-x-8 gap-y-2 text-sm">
-            <DerivedRow label="Max HP"          value={derived.maxHp} />
-            <DerivedRow label="Max Stamina"     value={derived.maxStamina} />
-            <DerivedRow label="Carry Slots"     value={derived.carrySlots} />
-            <DerivedRow label="HP Regen /min"   value={`${derived.hpRegenPerMin.toFixed(1)} hp`} />
-            <DerivedRow label="Gather Speed"    value={`${(derived.gatherSpeedDivisor * 100 - 100).toFixed(0)}% faster`} />
-            <DerivedRow label="Gather Yield"    value={`×${derived.gatherYieldMult.toFixed(2)}`} />
-            <DerivedRow label="Refine Eff."     value={`×${derived.refineEfficiencyMult.toFixed(2)}`} />
-            <DerivedRow label="Craft Success"   value={`+${derived.craftSuccessBonus.toFixed(1)}%`} />
-            <DerivedRow label="Rare Find"       value={`+${derived.rareChanceBonus.toFixed(1)}%`} />
-            <DerivedRow label="Crit Chance"     value={`${derived.critChance.toFixed(1)}%`} />
-            <DerivedRow label="Crit Damage"     value={`×${derived.critDamageMult.toFixed(2)}`} />
+          <div className="grid grid-cols-2 gap-y-2 gap-x-6 text-sm">
+            {ATTRIBUTE_META.map(({ name, label, icon }) => (
+              <div key={name} className="flex items-center justify-between">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <span className="text-base leading-none">{icon}</span>
+                  {label}
+                </span>
+                <span className="font-semibold tabular-nums">{attributes[name]}</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Character Stats — grouped by category */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Character Stats</CardTitle>
+          <CardDescription className="text-xs">Derived from your attributes and equipment</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {/* ── Combat ── */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">⚔️ Combat</p>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+              <StatRow label="Max HP"      value={derived.maxHp} />
+              <StatRow label="Defense"     value={`${(derived.defenseReduction * 100).toFixed(0)}% reduction`} />
+              <StatRow label="Melee Dmg"   value={`×${derived.meleeDamageMult.toFixed(2)}`} />
+              <StatRow label="Ranged Dmg"  value={`×${derived.rangedDamageMult.toFixed(2)}`} />
+              <StatRow label="Magic Dmg"   value={`×${derived.magicDamageMult.toFixed(2)}`} />
+              <StatRow label="Attack Spd"  value={`×${derived.attackSpeedMult.toFixed(2)}`} />
+              <StatRow label="Crit Chance" value={`${derived.critChance.toFixed(1)}%`} />
+              <StatRow label="Crit Damage" value={`×${derived.critDamageMult.toFixed(2)}`} />
+            </div>
+          </div>
+
+          {/* ── Gathering ── */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">🌿 Gathering</p>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+              <StatRow label="Speed"     value={`+${((derived.gatherSpeedDivisor - 1) * 100).toFixed(1)}%`} />
+              <StatRow label="Yield"     value={`×${derived.gatherYieldMult.toFixed(2)}`} />
+              <StatRow label="Rare Find" value={`+${derived.rareChanceBonus.toFixed(1)}%`} />
+            </div>
+          </div>
+
+          {/* ── Crafting & Refining ── */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">⚗️ Crafting & Refining</p>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+              <StatRow label="Craft Success" value={`+${derived.craftSuccessBonus.toFixed(1)}%`} />
+              <StatRow label="Refine Eff."   value={`×${derived.refineEfficiencyMult.toFixed(2)}`} />
+            </div>
+          </div>
+
+          {/* ── Survival ── */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">🎒 Survival</p>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+              <StatRow label="Max Stamina" value={derived.maxStamina} />
+              <StatRow label="Carry Slots" value={derived.carrySlots} />
+              <StatRow label="HP Regen"    value={`${derived.hpRegenPerMin.toFixed(1)} hp/min`} />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -176,7 +250,7 @@ export default async function CharacterPage() {
   );
 }
 
-function DerivedRow({ label, value }: { label: string; value: string | number }) {
+function StatRow({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="flex justify-between">
       <span className="text-muted-foreground">{label}</span>

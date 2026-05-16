@@ -4,12 +4,11 @@ import { useState, useEffect, useRef, useTransition } from 'react';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import { getResourceIconPath } from '@/lib/item-icon';
-import { startExploration, returnHome, actOnExploreEvent, useCampsiteItem, getExploreInventory } from '@/features/exploration/actions';
+import { startExploration, returnHome, actOnExploreEvent, useCampsiteItem } from '@/features/exploration/actions';
 import type { ExploreAction } from '@/features/exploration/actions';
 import { checkBiomeTierAccess } from '@/lib/game/requirements';
 import { GAME_CONFIG } from '@/config/game.config';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -22,7 +21,7 @@ import type {
 interface ConsumableItem {
   instance_id: string;
   quantity: number;
-  item_definitions: { name: string; display_name: string; type: string; stats: { heal_amount?: number } | null; image_url: string | null } | null;
+  item: { name: string; display_name: string; stats: Record<string, number>; image_url: string | null };
 }
 
 interface Props {
@@ -56,17 +55,17 @@ function stripMaterialPrefix(name: string): string {
 
 function getItemIcon(item: string): string {
   const map: Record<string, string> = {
-    logs: '🪵', wood: '🪵', planks: '🪵',
-    stone: '🪨', cut_stone: '🪨',
-    ore: '⛏️', metal: '⛏️', ingots: '🔩',
-    hide: '🐾', leather: '🐾',
-    herbs: '🌿', fiber: '🌿', cloth: '🧵',
-    fish: '🐟', berries: '🍓',
+    logs: 'ðŸªµ', wood: 'ðŸªµ', planks: 'ðŸªµ',
+    stone: 'ðŸª¨', cut_stone: 'ðŸª¨',
+    ore: 'â›ï¸', metal: 'â›ï¸', ingots: 'ðŸ”©',
+    hide: 'ðŸ¾', leather: 'ðŸ¾',
+    herbs: 'ðŸŒ¿', fiber: 'ðŸŒ¿', cloth: 'ðŸ§µ',
+    fish: 'ðŸŸ', berries: 'ðŸ“',
   };
   for (const [k, v] of Object.entries(map)) {
     if (item.toLowerCase().includes(k)) return v;
   }
-  return '📦';
+  return 'ðŸ“¦';
 }
 
 interface EventDisplay {
@@ -81,19 +80,19 @@ function formatEvent(ev: DbExplorationEvent): EventDisplay {
   const d = (ev.data ?? {}) as Record<string, unknown>;
   switch (ev.event_type) {
     case 'resource_found': {
-      if ((d.quantity as number) <= 0) return { icon: '🌫️', title: 'Nothing found…', accent: 'muted' };
+      if ((d.quantity as number) <= 0) return { icon: 'ðŸŒ«ï¸', title: 'Nothing foundâ€¦', accent: 'muted' };
       const rawName = String(d.display_name ?? d.item ?? 'item');
       const itemKey = String(d.item ?? '');
       return {
         icon: getItemIcon(itemKey),
         iconPath: getResourceIconPath(itemKey) ?? undefined,
-        title: `${d.quantity}× ${capitalise(rawName)}`,
+        title: `${d.quantity}Ã— ${capitalise(rawName)}`,
         accent: 'green',
       };
     }
     case 'enemy_encountered':
       return {
-        icon: '⚔️',
+        icon: 'âš”ï¸',
         title: String(d.enemy ?? 'Enemy'),
         subtitle: undefined,
         accent: 'blue',
@@ -101,50 +100,49 @@ function formatEvent(ev: DbExplorationEvent): EventDisplay {
     case 'combat_result': {
       const loot = d.lootDrops as Array<{ item: string; quantity: number }> | undefined;
       const lootStr = loot?.length
-        ? loot.map(l => `${l.quantity}× ${l.item.replace(/_/g, ' ')}`).join(', ')
+        ? loot.map(l => `${l.quantity}Ã— ${l.item.replace(/_/g, ' ')}`).join(', ')
         : null;
       return {
-        icon: d.victory ? '⚔️' : '💀',
+        icon: d.victory ? 'âš”ï¸' : 'ðŸ’€',
         title: d.victory ? `Defeated ${d.enemy}` : `Lost to ${d.enemy}`,
         subtitle: [
-          d.hpLost ? `−${d.hpLost} HP` : null,
+          d.hpLost ? `âˆ’${d.hpLost} HP` : null,
           d.xpGained ? `+${d.xpGained} XP` : null,
           lootStr,
-        ].filter(Boolean).join(' · ') || undefined,
+        ].filter(Boolean).join(' Â· ') || undefined,
         accent: d.victory ? 'blue' : 'red',
       };
     }
     case 'flee_result':
       return {
-        icon: d.fleeSuccess ? '💨' : '⚠️',
+        icon: d.fleeSuccess ? 'ðŸ’¨' : 'âš ï¸',
         title: d.fleeSuccess ? `Fled from ${d.enemy}` : `Flee failed!`,
-        subtitle: d.hpLost ? `−${d.hpLost} HP` : undefined,
+        subtitle: d.hpLost ? `âˆ’${d.hpLost} HP` : undefined,
         accent: d.fleeSuccess ? 'muted' : 'red',
       };
     case 'treasure_found':
       return {
-        icon: '�',
+        icon: 'ðŸª™',
+        iconPath: getResourceIconPath('coin') ?? undefined,
         title: `Found ${d.gold} coins`,
         accent: 'yellow',
       };
     case 'recipe_found':
       return {
-        icon: '📜',
+        icon: 'ðŸ“œ',
         title: `Recipe: ${stripMaterialPrefix(String(d.recipe_name ?? 'Unknown'))}`,
         subtitle: String(d.category ?? ''),
         accent: 'yellow',
       };
     case 'session_ended':
       return {
-        icon: '🏠',
+        icon: 'ðŸ ',
         title: String(d.reason) === 'auto_retreat' ? 'Auto-retreated (low HP)' : 'Returned home',
         subtitle: d.hp != null ? `HP remaining: ${d.hp}` : undefined,
         accent: 'muted',
       };
-    case 'campsite_reached':
-      return { icon: '🏕️', title: 'Campsite', subtitle: 'Rested and continued exploring', accent: 'muted' };
     default:
-      return { icon: '⚙️', title: capitalise(ev.event_type), accent: 'muted' };
+      return { icon: 'âš™ï¸', title: capitalise(ev.event_type), accent: 'muted' };
   }
 }
 
@@ -164,25 +162,26 @@ const HISTORY_ACCENT: Record<EventDisplay['accent'], string> = {
   muted:  'text-muted-foreground',
 };
 
+
+/** Live "Xh Xm" timer showing how long the exploration session has been running. */
 function DepthTimer({ startedAt }: { startedAt: string }) {
-  const [label, setLabel] = useState('');
+  const [elapsed, setElapsed] = useState(() => Date.now() - new Date(startedAt).getTime());
   useEffect(() => {
-    function update() {
-      const mins = Math.floor((Date.now() - new Date(startedAt).getTime()) / 60000);
-      setLabel(mins < 1 ? 'Just arrived' : `${mins}m in zone`);
-    }
-    update();
-    const id = setInterval(update, 10000);
+    const id = setInterval(() => setElapsed(Date.now() - new Date(startedAt).getTime()), 10_000);
     return () => clearInterval(id);
   }, [startedAt]);
-  return <span className="text-xs text-muted-foreground" suppressHydrationWarning>{label}</span>;
+  const totalMins = Math.floor(elapsed / 60_000);
+  const hrs  = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  const label = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+  return <span suppressHydrationWarning>{label} in zone</span>;
 }
 
 
 export default function ExploreClient({ character, biomes, biomeTiers, activeSession: initialSession, initialEvents, characterSkills, playerToolTier, initialConsumables = [] }: Props) {
   const attrs = character.character_attributes;
 
-  // ── State ──────────────────────────────────────────────────────────────────
+  // â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [selectedBiome, setSelectedBiome] = useState<string>(biomes[0]?.id ?? '');
   const [selectedTier, setSelectedTier] = useState(1);
 
@@ -192,15 +191,22 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
   const [pendingEvent, setPendingEvent] = useState<DbExplorationEvent | null>(null);
   const [autoApprove, setAutoApprove] = useState(false);
   const [pending, startTransition] = useTransition();
-  const [error, setError] = useState('');
 
+  // Track live HP and consumables in state so campsite UI reflects changes immediately
   const [currentHp, setCurrentHp] = useState(character.current_hp);
   const [consumables, setConsumables] = useState<ConsumableItem[]>(initialConsumables);
-  const [inventoryOpen, setInventoryOpen] = useState(false);
-  const [inventoryItems, setInventoryItems] = useState<Awaited<ReturnType<typeof getExploreInventory>>>([]);
-  const [inventoryLoading, setInventoryLoading] = useState(false);
 
-  // Offline catch-up: shown when returning after missing ≥2 ticks
+  // Persist auto-approve preference across navigation
+  useEffect(() => {
+    const stored = localStorage.getItem('explore:autoApprove');
+    if (stored === 'true') setAutoApprove(true);
+  }, []);
+  useEffect(() => {
+    localStorage.setItem('explore:autoApprove', String(autoApprove));
+  }, [autoApprove]);
+  const [error, setError] = useState('');
+
+  // Offline catch-up: shown when returning after missing â‰¥2 ticks
   const [catchingUp, setCatchingUp] = useState(false);
   const [offlineSummary, setOfflineSummary] = useState<{
     ticksProcessed: number;
@@ -216,7 +222,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
   const lastTickRef = useRef<number>(Date.now());
   const [tickProgress, setTickProgress] = useState(0);
 
-  // ── Cycle engine refs ───────────────────────────────────────────────────────
+  // â”€â”€ Cycle engine refs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // prefetchRef holds the tick result while the countdown runs:
   //   'in-flight' = fetch pending, null = no decision event, event = decision ready
   const cycleTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -231,7 +237,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
   sessionRef.current     = activeSession;
   autoApproveRef.current = autoApprove;
 
-  // ── Realtime subscription ──────────────────────────────────────────────────
+  // â”€â”€ Realtime subscription â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
@@ -247,7 +253,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
         (payload) => {
           const ev = payload.new as DbExplorationEvent;
           console.log('[Realtime] event received:', ev.event_type);
-          // Only use Realtime for session state — all event data comes from HTTP responses
+          // Only use Realtime for session state â€” all event data comes from HTTP responses
           if (ev.event_type === 'session_ended') {
             setPendingEvent(null);
             setActiveSession(null);
@@ -260,7 +266,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
     return () => { supabase.removeChannel(channel); };
   }, [character.id]);
 
-  // ── Cycle engine ────────────────────────────────────────────────────────────
+  // â”€â”€ Cycle engine â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // revealRef and startCycleRef are re-assigned each render so async callbacks
   // always close over the freshest state/props without needing dependency arrays.
 
@@ -271,25 +277,23 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
     // Surface the event in history exactly when the progress bar completes
     if (ev) setEvents(prev => [ev, ...prev].slice(0, 50));
 
-    const isDecision = ev && (
-      ev.event_type === 'resource_found' ||
-      ev.event_type === 'enemy_encountered' ||
-      ev.event_type === 'campsite_reached'
-    );
+    const isDecision = ev && (ev.event_type === 'resource_found' || ev.event_type === 'enemy_encountered' || ev.event_type === 'campsite_reached');
     if (!isDecision) {
-      startCycleRef.current(); // passive event or empty tick — keep going
+      startCycleRef.current(); // passive event or empty tick â€” keep going
       return;
     }
 
+    // Campsite in auto-approve: just continue (no healing)
+    if (ev.event_type === 'campsite_reached' && autoApproveRef.current) {
+      actOnExploreEvent(character.id, sessionRef.current!.id, ev.id, 'campsite_continue')
+        .then(() => startCycleRef.current())
+        .catch(() => startCycleRef.current());
+      return;
+    }
+
+    // Campsite in manual mode â€” show the campsite panel
     if (ev.event_type === 'campsite_reached') {
-      if (autoApproveRef.current) {
-        // Auto mode: just continue
-        actOnExploreEvent(character.id, session.id, ev.id, 'campsite_continue')
-          .then(() => startCycleRef.current())
-          .catch(() => startCycleRef.current());
-      } else {
-        setPendingEvent(ev);
-      }
+      setPendingEvent(ev);
       return;
     }
 
@@ -311,7 +315,6 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
           if (ev.event_type === 'enemy_encountered' && result.combatResult) {
             const cr = result.combatResult;
             const d  = (ev.data ?? {}) as Record<string, unknown>;
-            if (cr.newHp != null) setCurrentHp(cr.newHp);
             setEvents(prev => [{
               id: crypto.randomUUID(), session_id: session.id, character_id: character.id,
               event_type: 'combat_result',
@@ -327,7 +330,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
               occurred_at: new Date().toISOString(), acknowledged_at: null,
             } as DbExplorationEvent, ...prev].slice(0, 50));
             setActiveSession(null);
-            return; // session over — don't start next cycle
+            return; // session over â€” don't start next cycle
           }
           startCycleRef.current();
         })
@@ -356,7 +359,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
       if (prefetchRef.current !== 'in-flight') {
         revealRef.current(prefetchRef.current);
       }
-      // else: fetch still in flight — bar stays at 100%, reveal fires when fetch returns
+      // else: fetch still in flight â€” bar stays at 100%, reveal fires when fetch returns
     }, intervalMs);
 
     // Fire the tick fetch 1.5 s before the countdown ends.
@@ -385,8 +388,8 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
   };
 
   // Start cycle when session is created or changes.
-  // On mount with an existing session, check for offline ticks first — if there are
-  // ≥2 pending ticks (user was away), fire the catch-up endpoint before resuming.
+  // On mount with an existing session, check for offline ticks first â€” if there are
+  // â‰¥2 pending ticks (user was away), fire the catch-up endpoint before resuming.
   useEffect(() => {
     if (!activeSession) {
       if (cycleTimerRef.current) clearTimeout(cycleTimerRef.current);
@@ -432,7 +435,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
     };
   }, [activeSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Progress bar — fills 0→100% over the tick interval
+  // Progress bar â€” fills 0â†’100% over the tick interval
   // Naturally stays at 100% when elapsed > interval (waiting for server)
   // Frozen at 100% when a manual decision is pending
   useEffect(() => {
@@ -464,14 +467,14 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
     handleEventAction(action);
   }, [autoApprove]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Derived ────────────────────────────────────────────────────────────────
+  // â”€â”€ Derived â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const biomeTiersForSelected = biomeTiers.filter(bt => bt.biome_id === selectedBiome);
 
   function getTierAccess(tier: DbBiomeTier) {
     return checkBiomeTierAccess(tier, attrs, 0, 0);
   }
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
+  // â”€â”€ Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function handleStart() {
     setError('');
     const tier = biomeTiersForSelected.find(t => t.tier === selectedTier);
@@ -493,45 +496,13 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
     });
   }
 
-  async function handleCampsiteUseItem(itemInstanceId: string) {
-    const result = await useCampsiteItem(character.id, itemInstanceId);
-    if (result.ok && result.newHp != null) {
-      setCurrentHp(result.newHp);
-      setConsumables(prev =>
-        prev
-          .map(c => c.instance_id === itemInstanceId ? { ...c, quantity: c.quantity - 1 } : c)
-          .filter(c => c.quantity > 0)
-      );
-    }
-  }
-
-  function handleCampsiteContinue() {
-    if (!pendingEvent || !activeSession) return;
-    const eventId   = pendingEvent.id;
-    const sessionId = activeSession.id;
-    setPendingEvent(null);
-    startTransition(async () => {
-      await actOnExploreEvent(character.id, sessionId, eventId, 'campsite_continue').catch(() => {});
-      startCycleRef.current();
-    });
-  }
-
-  async function handleOpenInventory() {
-    setInventoryOpen(true);
-    if (inventoryItems.length === 0) {
-      setInventoryLoading(true);
-      const items = await getExploreInventory(character.id).catch(() => []);
-      setInventoryItems(items);
-      setInventoryLoading(false);
-    }
-  }
-
   function handleReturn() {
+    if (!activeSession) return;
     startTransition(async () => {
       try {
         await returnHome(character.id, activeSession.id);
       } catch {
-        // Session may have already ended via auto-retreat — still clear client state
+        // Session may have already ended via auto-retreat â€” still clear client state
       }
       setPendingEvent(null);
       setActiveSession(null);
@@ -551,7 +522,6 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
         if ((action === 'fight' || action === 'flee') && result.combatResult) {
           const cr = result.combatResult;
           const d  = (captured.data ?? {}) as Record<string, unknown>;
-          if (cr.newHp != null) setCurrentHp(cr.newHp);
           const synthetic: DbExplorationEvent = {
             id: crypto.randomUUID(),
             session_id:   sessionId,
@@ -564,6 +534,8 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
             acknowledged_at: null,
           };
           setEvents(prev => [synthetic, ...prev].slice(0, 50));
+          // Keep HP bar in sync with actual server value
+          if (cr.newHp != null) setCurrentHp(cr.newHp);
         }
 
         if (result.autoRetreat) {
@@ -579,7 +551,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
           setEvents(prev => [ended, ...prev].slice(0, 50));
           setActiveSession(null);
           setPendingEvent(null);
-          return; // session over — don't start next cycle
+          return; // session over â€” don't start next cycle
         }
       } catch {
         // ignore
@@ -589,7 +561,40 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
     });
   }
 
-  // ── Active session view ────────────────────────────────────────────────────
+  function handleCampsiteUseItem(itemInstanceId: string) {
+    startTransition(async () => {
+      try {
+        const result = await useCampsiteItem(character.id, itemInstanceId);
+        if (result.ok) {
+          setCurrentHp(result.newHp);
+          // Decrement or remove the consumable from local state
+          setConsumables(prev => prev
+            .map(c => c.instance_id === itemInstanceId ? { ...c, quantity: c.quantity - 1 } : c)
+            .filter(c => c.quantity > 0)
+          );
+        }
+      } catch {
+        // ignore â€” item may have been used already
+      }
+    });
+  }
+
+  function handleCampsiteContinue() {
+    if (!pendingEvent || !activeSession) return;
+    const eventId   = pendingEvent.id;
+    const sessionId = activeSession.id;
+    startTransition(async () => {
+      try {
+        await actOnExploreEvent(character.id, sessionId, eventId, 'campsite_continue');
+      } catch {
+        // ignore
+      }
+      setPendingEvent(null);
+      startCycleRef.current();
+    });
+  }
+
+  // â”€â”€ Active session view â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (activeSession) {
     const activeTier  = biomeTiers.find(bt => bt.id === activeSession.biome_tier_id);
     const activeBiome = biomes.find(b => b.id === activeTier?.biome_id);
@@ -604,6 +609,11 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
     const tickSec = GAME_CONFIG.exploration.tickIntervalSeconds;
     const secsLeft = Math.max(0, Math.ceil(tickSec - (tickProgress / 100) * tickSec));
 
+    // Tiers for the active biome, sorted ascending â€” used for the depth bar
+    const activeBiomeTiers = biomeTiers
+      .filter(bt => bt.biome_id === activeTier?.biome_id)
+      .sort((a, b) => a.tier - b.tier);
+
     return (
       <div className="p-4 md:p-6 space-y-4 max-w-xl mx-auto">
         {/* Header */}
@@ -611,55 +621,53 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
           <div className="min-w-0">
             <h2 className="text-xl md:text-2xl font-bold text-primary leading-tight">Exploring</h2>
             <p className="text-muted-foreground text-sm truncate">
-              {activeBiome?.icon} {activeBiome?.display_name} — {activeTier?.display_name}
+              {activeBiome?.icon} {activeBiome?.display_name} â€” {activeTier?.display_name}
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button variant="outline" size="sm" onClick={handleOpenInventory} className="shrink-0">
-              🎒 Inventory
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleReturn} disabled={pending} className="shrink-0">
-              {pending ? '…' : '🏠 Return'}
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" onClick={handleReturn} disabled={pending} className="shrink-0">
+            {pending ? 'â€¦' : 'ðŸ  Return'}
+          </Button>
         </div>
 
-        {/* Depth tier bar */}
-        {(() => {
-          const allTiers = biomeTiers.filter(bt => bt.biome_id === activeBiome?.id).sort((a, b) => a.tier - b.tier);
-          const currentTierIndex = allTiers.findIndex(bt => bt.id === activeTier?.id);
-          return (
-            <div className="rounded-xl border border-border bg-card px-4 py-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Depth</p>
-                <DepthTimer startedAt={activeSession.started_at} />
-              </div>
-              <div className="flex gap-1">
-                {allTiers.map((bt, i) => (
+        {/* Depth / tier visual */}
+        {activeTier && activeBiomeTiers.length > 0 && (
+          <div className="rounded-xl border border-border bg-card px-4 py-3 space-y-2">
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+              <span className="font-medium">Depth</span>
+              <DepthTimer startedAt={activeSession.started_at} />
+            </div>
+            <div className="flex items-center gap-1.5">
+              {activeBiomeTiers.map(bt => {
+                const isActive  = bt.id === activeTier.id;
+                const isPast    = bt.tier < activeTier.tier;
+                return (
                   <div
                     key={bt.id}
                     title={bt.display_name}
                     className={`flex-1 h-2 rounded-full transition-colors ${
-                      i < currentTierIndex ? 'bg-primary/35' :
-                      i === currentTierIndex ? 'bg-primary' :
-                      'bg-muted'
+                      isActive ? 'bg-primary' : isPast ? 'bg-primary/35' : 'bg-muted'
                     }`}
                   />
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Tier {activeTier?.tier}/{allTiers.length} — {activeTier?.display_name}
-              </p>
+                );
+              })}
             </div>
-          );
-        })()}
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-foreground">
+                {activeTier.display_name}
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                Tier {activeTier.tier}/{activeBiomeTiers.length}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* HP + controls row */}
         <div className="rounded-xl border border-border bg-card px-4 py-3 space-y-2.5">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-xs text-muted-foreground shrink-0">HP</span>
-              <span className="text-sm font-semibold tabular-nums">{currentHp}<span className="text-muted-foreground font-normal">/{maxHp}</span></span>
+              <span className="text-sm font-semibold tabular-nums">{character.current_hp}<span className="text-muted-foreground font-normal">/{maxHp}</span></span>
               <span className="text-[10px] text-muted-foreground/60 hidden sm:inline">(retreat at {activeSession.retreat_hp_threshold}%)</span>
             </div>
             <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
@@ -673,17 +681,17 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
             </label>
           </div>
           <Progress
-            value={Math.min(100, (currentHp / maxHp) * 100)}
+            value={Math.min(100, (character.current_hp / maxHp) * 100)}
             className="h-1.5"
           />
         </div>
 
-        {/* ── Offline catch-up summary ── */}
+        {/* â”€â”€ Offline catch-up summary â”€â”€ */}
         {offlineSummary && (
           <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 px-4 py-3 space-y-2">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-yellow-400">⏳ While you were away ({offlineSummary.ticksProcessed} ticks)</p>
-              <button onClick={() => setOfflineSummary(null)} className="text-xs text-muted-foreground hover:text-foreground leading-none">✕</button>
+              <p className="text-sm font-semibold text-yellow-400">â³ While you were away ({offlineSummary.ticksProcessed} ticks)</p>
+              <button onClick={() => setOfflineSummary(null)} className="text-xs text-muted-foreground hover:text-foreground leading-none">âœ•</button>
             </div>
             <div className="text-xs text-muted-foreground space-y-1">
               {offlineSummary.resourcesGained.map(r => {
@@ -692,8 +700,8 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
                   <div key={r.item} className="flex items-center gap-2">
                     {iconPath
                       ? <Image src={iconPath} alt={r.displayName} width={16} height={16} className="object-contain shrink-0" />
-                      : <span className="text-sm shrink-0">🌿</span>}
-                    <span>{r.quantity}× {r.displayName}</span>
+                      : <span className="text-sm shrink-0">ðŸŒ¿</span>}
+                    <span>{r.quantity}Ã— {r.displayName}</span>
                   </div>
                 );
               })}
@@ -703,8 +711,8 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
                   <div key={l.item} className="flex items-center gap-2">
                     {iconPath
                       ? <Image src={iconPath} alt={l.item} width={16} height={16} className="object-contain shrink-0" />
-                      : <span className="text-sm shrink-0">💎</span>}
-                    <span>{l.quantity}× {l.item.replace(/_/g, ' ')}</span>
+                      : <span className="text-sm shrink-0">ðŸ’Ž</span>}
+                    <span>{l.quantity}Ã— {l.item.replace(/_/g, ' ')}</span>
                   </div>
                 );
               })}
@@ -722,32 +730,32 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
               )}
               {offlineSummary.xpGained > 0 && (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm shrink-0">✨</span>
+                  <span className="text-sm shrink-0">âœ¨</span>
                   <span>+{offlineSummary.xpGained} XP</span>
                 </div>
               )}
               {offlineSummary.hpLost > 0 && (
                 <div className="flex items-center gap-2 text-red-400">
-                  <span className="text-sm shrink-0">❤️</span>
-                  <span>−{offlineSummary.hpLost} HP taken</span>
+                  <span className="text-sm shrink-0">â¤ï¸</span>
+                  <span>âˆ’{offlineSummary.hpLost} HP taken</span>
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {/* ── Catching up spinner ── */}
+        {/* â”€â”€ Catching up spinner â”€â”€ */}
         {catchingUp && (
           <div className="text-center text-sm text-muted-foreground py-3 animate-pulse">
-            ⏳ Processing offline ticks…
+            â³ Processing offline ticksâ€¦
           </div>
         )}
 
-        {/* ── Tick progress (hidden while waiting for decision) ── */}
+        {/* â”€â”€ Tick progress (hidden while waiting for decision) â”€â”€ */}
         {!pendingEvent && !catchingUp && (
           <div className="space-y-1.5">
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{tickProgress < 95 ? `Exploring… next find in ${secsLeft}s` : 'Finding…'}</span>
+              <span>{tickProgress < 95 ? `Exploringâ€¦ next find in ${secsLeft}s` : 'Findingâ€¦'}</span>
               <span>{Math.round(tickProgress)}%</span>
             </div>
             <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
@@ -759,59 +767,16 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
           </div>
         )}
 
-        {/* ── Campsite card ── */}
-        {pendingEvent?.event_type === 'campsite_reached' && (
-          <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 px-5 py-5 space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="text-4xl">🏕️</span>
-              <div>
-                <p className="text-lg font-bold text-foreground">Campsite reached!</p>
-                <p className="text-xs text-muted-foreground">HP {currentHp}/{maxHp} · Use items, swap gear, or return home</p>
-              </div>
-            </div>
-            <Progress value={Math.min(100, (currentHp / maxHp) * 100)} className="h-2" />
-            {consumables.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Consumables</p>
-                {consumables.map(c => {
-                  if (!c.item_definitions) return null;
-                  const healAmt = c.item_definitions.stats?.heal_amount ?? 0;
-                  return (
-                    <div key={c.instance_id} className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2">
-                      <span className="text-xl shrink-0">🧪</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{c.item_definitions.display_name}</p>
-                        <p className="text-xs text-muted-foreground">Heals {healAmt} HP · ×{c.quantity}</p>
-                      </div>
-                      <Button size="sm" onClick={() => handleCampsiteUseItem(c.instance_id)} disabled={currentHp >= maxHp}>
-                        Use
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            <div className="flex gap-2">
-              <Button onClick={handleCampsiteContinue} disabled={pending} className="flex-1">
-                Continue Exploring
-              </Button>
-              <Button variant="outline" onClick={handleReturn} disabled={pending} className="flex-1">
-                🏠 Return Home
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* ── Decision card (replaces progress bar while awaiting choice) ── */}
-        {pendingEvent && pendingEvent.event_type !== 'campsite_reached' && (() => {
+        {/* â”€â”€ Decision card (replaces progress bar while awaiting choice) â”€â”€ */}
+        {pendingEvent && (() => {
           const pd = (pendingEvent.data ?? {}) as Record<string, unknown>;
           const isResource = pendingEvent.event_type === 'resource_found';
           const displayName = isResource
             ? String(pd.display_name ?? capitalise(String(pd.item ?? 'item')))
             : String(pd.enemy ?? 'Enemy');
-          const icon = isResource ? getItemIcon(String(pd.item ?? '')) : '⚔️';
+          const icon = isResource ? getItemIcon(String(pd.item ?? '')) : 'âš”ï¸';
 
-          // ── Gather requirement check ──
+          // â”€â”€ Gather requirement check â”€â”€
           const SKILL_LEVEL_REQ = [0, 15, 30, 50, 70];
           const itemTier       = Number(pd.item_tier ?? 1);
           const reqToolTier    = Number(pd.required_tool_tier ?? Math.max(0, itemTier - 1));
@@ -843,7 +808,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
                 })()}
                 <div>
                   <p className="text-lg font-bold text-foreground">
-                    {isResource ? `Found ${pd.quantity}× ${displayName}!` : `${displayName} appears!`}
+                    {isResource ? `Found ${pd.quantity}Ã— ${displayName}!` : `${displayName} appears!`}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {isResource
@@ -860,33 +825,33 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
                       disabled={pending || collectLocked}
                       className={`flex-1 h-11 text-base ${collectLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
                     >
-                      ✓ Collect
+                      âœ“ Collect
                     </Button>
                     <Button variant="outline" onClick={() => handleEventAction('leave')} disabled={pending} className="flex-1 h-11 text-base">
-                      ✗ Leave
+                      âœ— Leave
                     </Button>
                   </>
                 ) : (
                   <>
                     <Button onClick={() => handleEventAction('fight')} disabled={pending} className="flex-1 h-11 text-base">
-                      ⚔️ Fight
+                      âš”ï¸ Fight
                     </Button>
                     <Button variant="outline" onClick={() => handleEventAction('flee')} disabled={pending} className="flex-1 h-11 text-base">
-                      🏃 Flee <span className="text-xs opacity-60 ml-1">(50%)</span>
+                      ðŸƒ Flee <span className="text-xs opacity-60 ml-1">(50%)</span>
                     </Button>
                   </>
                 )}
               </div>
               {autoApprove && (
                 <p className="text-[10px] text-muted-foreground text-center">
-                  Auto-{isResource ? 'collecting' : 'fighting'}…
+                  Auto-{isResource ? 'collecting' : 'fighting'}â€¦
                 </p>
               )}
             </div>
           );
         })()}
 
-        {/* ── Last event (shown after decision resolves) ── */}
+        {/* â”€â”€ Last event (shown after decision resolves) â”€â”€ */}
         {!pendingEvent && current ? (
           <div className={`rounded-xl border px-5 py-4 flex items-center gap-4 ${currentAccent.card}`}>
             {current.iconPath
@@ -915,11 +880,11 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
           </div>
         ) : !pendingEvent ? (
           <div className="rounded-xl border border-border bg-card px-5 py-6 text-center text-muted-foreground text-sm">
-            Waiting for first tick…
+            Waiting for first tickâ€¦
           </div>
         ) : null}
 
-        {/* ── History ── */}
+        {/* â”€â”€ History â”€â”€ */}
         {historyEvents.length > 0 && (
           <div className="space-y-px">
             <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-2">History</p>
@@ -945,42 +910,11 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
             })}
           </div>
         )}
-
-        {/* ── Inventory sheet ── */}
-        <Sheet open={inventoryOpen} onOpenChange={setInventoryOpen}>
-          <SheetContent side="bottom" className="h-[70vh] rounded-t-xl flex flex-col">
-            <SheetHeader>
-              <SheetTitle>Inventory</SheetTitle>
-            </SheetHeader>
-            <div className="overflow-y-auto flex-1 px-4 pb-6 space-y-2 mt-2">
-              {inventoryLoading && (
-                <p className="text-sm text-muted-foreground text-center py-8">Loading…</p>
-              )}
-              {!inventoryLoading && inventoryItems.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-8">Nothing in inventory.</p>
-              )}
-              {inventoryItems.map(row => {
-                if (!row.item_definitions) return null;
-                const def = row.item_definitions;
-                return (
-                  <div key={row.instance_id} className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2">
-                    <span className="text-xl shrink-0">📦</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{def.display_name}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{def.type}</p>
-                    </div>
-                    <span className="text-sm font-bold tabular-nums text-primary shrink-0">×{row.quantity}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </SheetContent>
-        </Sheet>
       </div>
     );
   }
 
-  // ── Setup view ─────────────────────────────────────────────────────────────
+  // â”€â”€ Setup view â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-2xl mx-auto">
       <div>
@@ -1028,7 +962,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
                   >
                     <div className="font-semibold">T{bt.tier}</div>
                     <div className="truncate">{bt.display_name.split(' ').slice(-1)[0]}</div>
-                    {!access.canDo && <div className="text-[10px] mt-0.5">🔒</div>}
+                    {!access.canDo && <div className="text-[10px] mt-0.5">ðŸ”’</div>}
                   </button>
                 );
               })}
@@ -1041,12 +975,12 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
                   <div className="font-medium">{bt.display_name}</div>
                   <p className="text-muted-foreground text-xs">{bt.description}</p>
                   <div className="text-xs text-muted-foreground pt-1 space-x-3">
-                    <span>Enemies lv {bt.enemy_level_min}–{bt.enemy_level_max}</span>
-                    {bt.required_skill_level > 0 && <span>Skill ≥{bt.required_skill_level}</span>}
+                    <span>Enemies lv {bt.enemy_level_min}â€“{bt.enemy_level_max}</span>
+                    {bt.required_skill_level > 0 && <span>Skill â‰¥{bt.required_skill_level}</span>}
                     {bt.required_tool_tier > 0 && <span>Tool T{bt.required_tool_tier}+</span>}
                     {bt.required_attribute && (
                       <span className="capitalize">
-                        {(bt.required_attribute as { stat: string; value: number }).stat} ≥{(bt.required_attribute as { stat: string; value: number }).value}
+                        {(bt.required_attribute as { stat: string; value: number }).stat} â‰¥{(bt.required_attribute as { stat: string; value: number }).value}
                       </span>
                     )}
                   </div>
@@ -1081,7 +1015,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
         onClick={handleStart}
         disabled={pending || !selectedBiome}
       >
-        {pending ? 'Starting…' : '⚔️ Begin Exploration'}
+        {pending ? 'Startingâ€¦' : 'âš”ï¸ Begin Exploration'}
       </Button>
     </div>
   );

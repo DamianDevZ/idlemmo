@@ -16,7 +16,7 @@ export const GAME_CONFIG = {
     /** Multiplicative XP cost increase per level. 1.15 = 15% more XP each level. */
     xpScalingFactor: 1.15,
     /** Skill points awarded each time the character gains a main level. */
-    skillPointsPerLevel: 1,
+    skillPointsPerLevel: 2,
     /** Starting main level for new characters. */
     startingMainLevel: 1,
     /** Starting attribute value for every attribute on character creation. */
@@ -82,7 +82,7 @@ export const GAME_CONFIG = {
   // ─── Skills ─────────────────────────────────────────────────────────────────
   skills: {
     /** Category XP earned per activity action tick. */
-    categoryXpPerTick: 10,
+    categoryXpPerTick: 15,
     /** Category XP required to earn one category point. */
     categoryXpPerPoint: 100,
     /**
@@ -104,6 +104,20 @@ export const GAME_CONFIG = {
     rareFindBonus: 0.05,
     /** Skill mult applied to combat damage. 1 + (level × FACTOR) */
     combatDamageFactor: 0.02,
+  },
+
+  // ─── XP Rewards ──────────────────────────────────────────────────────────────
+  xpRewards: {
+    /** Main XP per item tier when a gathered item is collected. */
+    gatherMainXpPerTier: 12,
+    /** Gathering category XP per item tier when collected. */
+    gatherCatXpPerTier: 18,
+    /** Base main XP awarded for defeating an enemy. */
+    combatBaseXp: 10,
+    /** Additional main XP per enemy level on top of the base. */
+    combatXpPerLevel: 5,
+    /** Usage category XP per enemy level awarded on kill. */
+    combatUsageCatXpPerLevel: 12,
   },
 
   // ─── Exploration ─────────────────────────────────────────────────────────────
@@ -139,6 +153,13 @@ export const GAME_CONFIG = {
 
     /** Seconds before a player encounter friend request auto-dismisses. */
     playerEncounterTimeoutSeconds: 60,
+
+    /**
+     * A campsite event fires after every Nth tick within a session.
+     * At a campsite the player can use consumables, swap loadout items from inventory,
+     * or return home before continuing exploration.
+     */
+    campsiteEveryTicks: 5,
   },
 
   // ─── Combat ─────────────────────────────────────────────────────────────────

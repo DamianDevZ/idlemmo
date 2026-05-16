@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { joinArenaQueue, leaveArenaQueue } from '@/features/town/actions';
+import { joinArenaQueue, leaveArenaQueue, checkArenaMatch } from '@/features/town/actions';
+
+const POLL_INTERVAL_MS = 5_000;
 
 interface Props {
   characterId: string;
@@ -14,6 +16,33 @@ export function ArenaQueueButton({ characterId, isQueued: initialQueued }: Props
   const [queued, setQueued] = useState(initialQueued);
   const [result, setResult] = useState<{ matched: boolean; won?: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // ISO timestamp recorded when the player successfully enters the queue,
+  // used as the lower bound when polling for a completed match.
+  const [joinedAt, setJoinedAt] = useState<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Poll for a match result every 5 s while queued.
+  useEffect(() => {
+    if (!queued || !joinedAt) return;
+
+    async function poll() {
+      try {
+        const res = await checkArenaMatch(characterId, joinedAt!);
+        if (res.matched) {
+          setResult(res);
+          setQueued(false);
+          setJoinedAt(null);
+        }
+      } catch {
+        // silently ignore poll errors — the user can always manually leave
+      }
+    }
+
+    intervalRef.current = setInterval(poll, POLL_INTERVAL_MS);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [queued, joinedAt, characterId]);
 
   function handleJoin() {
     setError(null);
@@ -25,6 +54,8 @@ export function ArenaQueueButton({ characterId, isQueued: initialQueued }: Props
           setResult(res);
           setQueued(false);
         } else {
+          // Record when we entered the queue so the poller has a time lower bound.
+          setJoinedAt(new Date().toISOString());
           setQueued(true);
         }
       } catch (e) {
@@ -35,6 +66,7 @@ export function ArenaQueueButton({ characterId, isQueued: initialQueued }: Props
 
   function handleLeave() {
     setError(null);
+    setJoinedAt(null);
     startTransition(async () => {
       try {
         await leaveArenaQueue(characterId);

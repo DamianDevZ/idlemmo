@@ -9,7 +9,7 @@ import type { CollectPreference } from '@/types/game';
 
 const { attributes: ATTR } = GAME_CONFIG;
 
-export type ExploreAction = 'collect' | 'leave' | 'fight' | 'flee';
+export type ExploreAction = 'collect' | 'leave' | 'fight' | 'flee' | 'campsite_continue';
 
 export interface ActOnEventResult {
   ok: boolean;
@@ -180,13 +180,13 @@ export async function actOnExploreEvent(
     // Award XP proportional to item tier
     const itemTier = Number(d.item_tier ?? 1);
     await Promise.all([
-      awardMainXp(supabase, characterId, itemTier * 8),
-      awardCategoryXp(supabase, characterId, 'gathering', itemTier * 12),
+      awardMainXp(supabase, characterId, itemTier * GAME_CONFIG.xpRewards.gatherMainXpPerTier),
+      awardCategoryXp(supabase, characterId, 'gathering', itemTier * GAME_CONFIG.xpRewards.gatherCatXpPerTier),
     ]);
     return { ok: true };
   }
 
-  if (action === 'leave') {
+  if (action === 'leave' || action === 'campsite_continue') {
     return { ok: true };
   }
 
@@ -230,7 +230,7 @@ export async function actOnExploreEvent(
     hpLost  = Math.min(character.current_hp - 1, Math.floor(rounds * enemyDmg * 0.4));
     victory = playerDmg * rounds >= enemyHp;
     // Prefer xp_reward stored in event data (from enemy_types), fall back to formula
-    xpGained = victory ? Number(d.xp_reward ?? (10 + level * 3)) : 0;
+    xpGained = victory ? Number(d.xp_reward ?? (GAME_CONFIG.xpRewards.combatBaseXp + level * GAME_CONFIG.xpRewards.combatXpPerLevel)) : 0;
   }
 
   // Roll loot drops from the enemy's loot_table stored in event data.
@@ -263,7 +263,7 @@ export async function actOnExploreEvent(
   if (victory && xpGained > 0) {
     await Promise.all([
       awardMainXp(supabase, characterId, xpGained),
-      awardCategoryXp(supabase, characterId, 'usage', level * 10),
+      awardCategoryXp(supabase, characterId, 'usage', level * GAME_CONFIG.xpRewards.combatUsageCatXpPerLevel),
     ]);
   }
 
@@ -334,4 +334,104 @@ export async function updateCollectPreference(
     .eq('id', sessionId);
 
   revalidatePath('/game/explore');
+}
+
+/**
+ * Use a consumable item from the character's inventory at a campsite.
+ * Verifies ownership, applies the heal_amount from item stats, and
+ * removes one unit from inventory. Returns the character's new HP.
+ */
+export async function useCampsiteItem(
+  characterId: string,
+  itemInstanceId: string,
+): Promise<{ ok: boolean; newHp: number }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Unauthenticated');
+
+  // Verify character ownership
+  const { data: character } = await supabase
+    .from('characters')
+    .select('id, current_hp, character_attributes(vigor)')
+    .eq('id', characterId)
+    .eq('user_id', user.id)
+    .single();
+  if (!character) throw new Error('Character not found');
+
+  // Verify the item belongs to this character and is a consumable
+  const { data: invItem } = await supabase
+    .from('character_inventory')
+    .select('instance_id, quantity, item_definitions(type, stats)')
+    .eq('instance_id', itemInstanceId)
+    .eq('character_id', characterId)
+    .single();
+  if (!invItem) throw new Error('Item not found in inventory');
+
+  const itemDef = invItem.item_definitions as { type: string; stats: Record<string, number> } | null;
+  if (itemDef?.type !== 'consumable') throw new Error('Item is not a consumable');
+
+  const healAmount = Number(itemDef.stats?.heal_amount ?? 0);
+  if (healAmount <= 0) throw new Error('Item has no heal effect');
+
+  // Calculate max HP from vigor
+  const vigor = ((character.character_attributes as unknown as { vigor?: number } | null)?.vigor ?? 5);
+  const maxHp = ATTR.baseHp + vigor * ATTR.hpPerVigor;
+
+  const newHp = Math.min(maxHp, character.current_hp + healAmount);
+
+  // Apply heal and consume item in a transaction-like sequence
+  await supabase
+    .from('characters')
+    .update({ current_hp: newHp })
+    .eq('id', characterId);
+
+  if (invItem.quantity <= 1) {
+    await supabase.from('character_inventory').delete().eq('instance_id', itemInstanceId);
+  } else {
+    await supabase
+      .from('character_inventory')
+      .update({ quantity: invItem.quantity - 1 })
+      .eq('instance_id', itemInstanceId);
+  }
+
+  return { ok: true, newHp };
+}
+
+/**
+ * Fetches the character's current inventory for display during exploration.
+ * Only returns items for the authenticated user's character.
+ */
+export async function getExploreInventory(characterId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Unauthenticated');
+
+  // Verify ownership
+  const { data: character } = await supabase
+    .from('characters')
+    .select('id')
+    .eq('id', characterId)
+    .eq('user_id', user.id)
+    .single();
+  if (!character) throw new Error('Character not found');
+
+  const { data: items } = await supabase
+    .from('character_inventory')
+    .select('instance_id, quantity, equipped_slot, item_definitions(name, display_name, type, rarity, image_url, stackable)')
+    .eq('character_id', characterId)
+    .order('item_definitions(type)');
+
+  return (items ?? []) as Array<{
+    instance_id: string;
+    quantity: number;
+    equipped_slot: string | null;
+    item_definitions: {
+      name: string;
+      display_name: string;
+      type: string;
+      rarity: string;
+      image_url: string | null;
+      stackable: boolean;
+    } | null;
+  }>;
 }

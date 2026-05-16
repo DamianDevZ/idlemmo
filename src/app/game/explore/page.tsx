@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import ExploreClient from '@/components/game/ExploreClient';
-import type { DbBiome, DbBiomeTier, DbCharacter, DbCharacterAttributes, DbExplorationSession } from '@/types/game';
+import type { DbBiome, DbBiomeTier, DbCharacter, DbCharacterAttributes, DbExplorationSession, DbInventoryItem, DbItemDefinition } from '@/types/game';
 export const dynamic = 'force-dynamic';
 
 export default async function ExplorePage() {
@@ -23,6 +23,7 @@ export default async function ExplorePage() {
     { data: charSkills },
     { data: skills },
     { data: equippedTools },
+    { data: consumableInventory },
   ] = await Promise.all([
     supabase.from('biomes').select('*').neq('name', 'ocean').order('sort_order'),
     supabase.from('biome_tiers').select('*').order('tier'),
@@ -33,6 +34,11 @@ export default async function ExplorePage() {
       .select('item_definitions(equipment_tier)')
       .eq('character_id', character.id)
       .not('equipped_slot', 'is', null),
+    supabase
+      .from('character_inventory')
+      .select('instance_id, quantity, item_definitions(name, display_name, type, stats, image_url)')
+      .eq('character_id', character.id)
+      .is('equipped_slot', null),
   ]);
 
   // Build skill_name → level map
@@ -66,6 +72,20 @@ export default async function ExplorePage() {
     .order('occurred_at', { ascending: false })
     .limit(20);
 
+  // Filter to consumables only
+  type RawConsumable = {
+    instance_id: string;
+    quantity: number;
+    item_definitions: { name: string; display_name: string; type: string; stats: Record<string, number>; image_url: string | null } | null;
+  };
+  const consumables = ((consumableInventory ?? []) as unknown as RawConsumable[])
+    .filter(row => row.item_definitions?.type === 'consumable' && (row.item_definitions.stats?.heal_amount ?? 0) > 0)
+    .map(row => ({
+      instance_id: row.instance_id,
+      quantity:    row.quantity,
+      item:        row.item_definitions!,
+    }));
+
   return (
     <ExploreClient
       character={character as DbCharacter & { character_attributes: DbCharacterAttributes }}
@@ -75,6 +95,7 @@ export default async function ExplorePage() {
       initialEvents={recentEvents ?? []}
       characterSkills={characterSkills}
       playerToolTier={playerToolTier}
+      initialConsumables={consumables}
     />
   );
 }
