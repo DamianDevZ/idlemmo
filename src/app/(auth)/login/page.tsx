@@ -13,10 +13,13 @@ export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState('');
+  const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent'>('idle');
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
+    setUnconfirmedEmail('');
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
@@ -28,12 +31,28 @@ export default function LoginPage() {
 
     if (error) {
       setError(error.message);
+      // Supabase returns this exact message for unconfirmed accounts
+      if (error.message.toLowerCase().includes('email not confirmed')) {
+        setUnconfirmedEmail(email);
+      }
       setLoading(false);
       return;
     }
 
     router.push('/game');
     router.refresh();
+  }
+
+  async function handleResend() {
+    if (!unconfirmedEmail || resendState !== 'idle') return;
+    setResendState('sending');
+    const supabase = createClient();
+    await supabase.auth.resend({
+      type: 'signup',
+      email: unconfirmedEmail,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+    });
+    setResendState('sent');
   }
 
   return (
@@ -79,7 +98,25 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                <p className="text-destructive text-sm">{error}</p>
+                <div className="space-y-2">
+                  <p className="text-destructive text-sm">{error}</p>
+                  {unconfirmedEmail && (
+                    resendState === 'sent' ? (
+                      <p className="text-sm text-muted-foreground">
+                        ✅ New confirmation email sent — check your inbox.
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleResend}
+                        disabled={resendState === 'sending'}
+                        className="text-sm text-primary hover:underline disabled:opacity-50"
+                      >
+                        {resendState === 'sending' ? 'Sending…' : 'Resend confirmation email'}
+                      </button>
+                    )
+                  )}
+                </div>
               )}
 
               <Button type="submit" className="w-full" disabled={loading}>
