@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 // ── Friends ───────────────────────────────────────────────────────────────────
 
@@ -171,9 +172,12 @@ export async function checkArenaMatch(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthenticated');
 
-  // Fetch stored max HPs so both players see the exact same combat values —
-  // the simulation ran once; we never re-derive stats from character_attributes here.
-  const { data: match, error } = await supabase
+  // Admin client bypasses RLS — needed to read both players' data server-side
+  const admin = createAdminClient();
+
+  // Fetch stored match data — admin client so both players can read the row
+  // regardless of which player_id column they occupy
+  const { data: match, error } = await admin
     .from('arena_matches')
     .select(
       'winner_id, player1_id, player2_id, player1_rating_delta, player2_rating_delta, player1_max_hp, player2_max_hp, combat_starts_at, player1_fighter_data, player2_fighter_data, combat_log',
@@ -195,10 +199,11 @@ export async function checkArenaMatch(
   const yourFighterData = isPlayer1 ? match.player1_fighter_data : match.player2_fighter_data;
   const opponentFighterData = isPlayer1 ? match.player2_fighter_data : match.player1_fighter_data;
 
-  // Only need the two character names — everything else comes from the stored match
+  // Admin client bypasses RLS so we can read both characters' names regardless
+  // of which player is making the request
   const [charResult, oppResult] = await Promise.all([
-    supabase.from('characters').select('name').eq('id', characterId).single(),
-    supabase.from('characters').select('name').eq('id', opponentId).single(),
+    admin.from('characters').select('name').eq('id', characterId).single(),
+    admin.from('characters').select('name').eq('id', opponentId).single(),
   ]);
 
   const defaultFighter: FighterData = { str: 5, end: 5, dex: 5, vig: 5, weaponName: null, damageType: 'strike', weaponBase: 25, armorName: null, armorBonus: 0 };
