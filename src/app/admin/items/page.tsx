@@ -116,25 +116,35 @@ export default async function AdminItemsPage({
     // Pre-compute weapon aggregations
     const weapons = byType['weapon'] ?? [];
 
-    // Damage type: tally the actual primary_damage_type values from data
+    // Damage type: tally actual values + show unset weapons as grey so donut is proportional
     const dmgTally: Record<string, number> = {};
+    let dmgUnset = 0;
     for (const w of weapons) {
       if (w.primary_damage_type) dmgTally[w.primary_damage_type] = (dmgTally[w.primary_damage_type] ?? 0) + 1;
+      else dmgUnset++;
     }
-    const weaponDmgSegs: Seg[] = Object.entries(dmgTally)
-      .sort((a, b) => b[1] - a[1])
-      .map(([t, v], i) => ({ label: t, value: v, color: DMG_COLORS[t] ?? DMG_FALLBACK[i % DMG_FALLBACK.length] }));
+    const weaponDmgSegs: Seg[] = [
+      ...Object.entries(dmgTally)
+        .sort((a, b) => b[1] - a[1])
+        .map(([t, v], i) => ({ label: t, value: v, color: DMG_COLORS[t] ?? DMG_FALLBACK[i % DMG_FALLBACK.length] })),
+      ...(dmgUnset > 0 ? [{ label: 'unset', value: dmgUnset, color: '#334155' }] : []),
+    ];
 
-    // Attr scaling: count weapons that use each attr (primary or secondary), no weighting
+    // Attr scaling: count weapons per attr (primary or secondary); unset = no scaling defined
     const scalingTally: Record<string, number> = {};
+    let scalingUnset = 0;
     for (const w of weapons) {
+      if (!w.primary_scaling_attr && !w.secondary_scaling_attr) { scalingUnset++; continue; }
       if (w.primary_scaling_attr) scalingTally[w.primary_scaling_attr] = (scalingTally[w.primary_scaling_attr] ?? 0) + 1;
       if (w.secondary_scaling_attr && w.secondary_scaling_attr !== w.primary_scaling_attr)
         scalingTally[w.secondary_scaling_attr] = (scalingTally[w.secondary_scaling_attr] ?? 0) + 1;
     }
-    const scalingSegs: Seg[] = Object.entries(scalingTally)
-      .map(([a, v]) => ({ label: a, value: v, color: SCALING_HEX[a] ?? '#94a3b8' }))
-      .sort((a, b) => b.value - a.value);
+    const scalingSegs: Seg[] = [
+      ...Object.entries(scalingTally)
+        .map(([a, v]) => ({ label: a, value: v, color: SCALING_HEX[a] ?? '#94a3b8' }))
+        .sort((a, b) => b.value - a.value),
+      ...(scalingUnset > 0 ? [{ label: 'unset', value: scalingUnset, color: '#334155' }] : []),
+    ];
 
     // Armor material aggregation
     const armors = byType['armor'] ?? [];
