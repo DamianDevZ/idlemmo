@@ -2,7 +2,8 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PersistentTabs } from '@/components/ui/PersistentTabs';
 import { GAME_CONFIG } from '@/config/game.config';
 import { FriendRequestCard } from '@/components/game/FriendRequestCard';
 import { AddFriendForm } from '@/components/game/AddFriendForm';
@@ -106,7 +107,7 @@ export default async function TownPage() {
         <p className="text-muted-foreground text-sm">The common ground. Find allies, compete in the arena, and battle world bosses.</p>
       </div>
 
-      <Tabs defaultValue="friends">
+      <PersistentTabs storageKey="town" defaultValue="friends">
         <TabsList className="w-full grid grid-cols-4">
           <TabsTrigger value="friends">
             Friends
@@ -274,7 +275,7 @@ export default async function TownPage() {
             />
           )}
         </TabsContent>
-      </Tabs>
+      </PersistentTabs>
     </div>
   );
 }

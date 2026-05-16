@@ -26,7 +26,7 @@ export default async function FormulasPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="flex flex-wrap justify-center gap-4">
         {PAGE_CATEGORIES.map((cat) => {
           const settingCount = cat.dbCats.reduce(
             (sum, c) => sum + (countsByDbCat[c] ?? 0),
@@ -36,7 +36,7 @@ export default async function FormulasPage() {
             <Link
               key={cat.slug}
               href={`/admin/formulas/${cat.slug}`}
-              className="group rounded-xl border border-border bg-card hover:border-primary/50 hover:bg-accent/10 transition-colors p-5 flex flex-col gap-3"
+              className="group w-72 rounded-xl border border-border bg-card hover:border-primary/50 hover:bg-accent/10 transition-colors p-5 flex flex-col gap-3"
             >
               <div className="flex items-center gap-2.5">
                 <span className="text-2xl leading-none">{cat.icon}</span>

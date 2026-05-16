@@ -14,7 +14,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PersistentTabs } from '@/components/ui/PersistentTabs';
 import AllocatePointButton from '@/components/game/AllocatePointButton';
 import AttributeSpendButton from '@/components/game/AttributeSpendButton';
 import CraftingPanel from '@/components/game/CraftingPanel';
@@ -125,7 +126,7 @@ export default async function SkillsPage() {
         <p className="text-muted-foreground text-sm">Train, refine, and craft your way to power.</p>
       </div>
 
-      <Tabs defaultValue="attributes">
+      <PersistentTabs storageKey="skills" defaultValue="attributes">
         <TabsList className="w-full grid grid-cols-5 p-0.5 mb-4">
           <TabsTrigger value="attributes" className="gap-1 text-[11px] data-[state=active]:text-primary">
             <span>⚡</span>
@@ -383,7 +384,7 @@ export default async function SkillsPage() {
             </div>
           ))}
         </TabsContent>
-      </Tabs>
+      </PersistentTabs>
     </div>
   );
 }

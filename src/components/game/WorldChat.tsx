@@ -35,28 +35,56 @@ export function WorldChat({
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Supabase Realtime subscription — listen for new inserts
+  // Supabase Realtime subscription — listen for new inserts.
+  // A unique channel name per mount avoids conflicts when React StrictMode
+  // unmounts and remounts the component during development.
   useEffect(() => {
     const supabase = createClient();
+
+    // Track known IDs so both realtime and poll paths can deduplicate safely
+    const knownIds = new Set(initialMessages.map((m) => m.id));
+    let latestAt =
+      initialMessages.length > 0
+        ? initialMessages[initialMessages.length - 1].created_at
+        : new Date(0).toISOString();
+
+    const addMessage = (msg: ChatMessage) => {
+      if (knownIds.has(msg.id)) return;
+      knownIds.add(msg.id);
+      if (msg.created_at > latestAt) latestAt = msg.created_at;
+      setMessages((prev) => {
+        const next = [...prev, msg];
+        return next.length > 50 ? next.slice(next.length - 50) : next;
+      });
+    };
+
+    // Realtime: postgres_changes on world_chat_messages
     const channel = supabase
-      .channel('world-chat')
+      .channel(`world-chat-${Math.random().toString(36).slice(2, 9)}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'world_chat_messages' },
-        (payload) => {
-          setMessages((prev) => {
-            // Keep a rolling window of the last 50 messages in memory
-            const next = [...prev, payload.new as ChatMessage];
-            return next.length > 50 ? next.slice(next.length - 50) : next;
-          });
-        },
+        (payload) => addMessage(payload.new as ChatMessage),
       )
       .subscribe();
 
+    // Polling fallback every 5 s — catches messages if the WebSocket is not
+    // delivering (e.g. Realtime disabled on the project or network issues)
+    const poll = setInterval(async () => {
+      const { data } = await supabase
+        .from('world_chat_messages')
+        .select('id, character_id, character_name, message, created_at')
+        .gt('created_at', latestAt)
+        .order('created_at', { ascending: true })
+        .limit(20);
+      (data ?? []).forEach((row) => addMessage(row as ChatMessage));
+    }, 5_000);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(poll);
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cooldown countdown displayed on the Send button
   useEffect(() => {

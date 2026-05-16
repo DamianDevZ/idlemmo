@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getResourceIconPath, getResourceInfo } from '@/lib/item-icon';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PersistentTabs } from '@/components/ui/PersistentTabs';
 import { DepositButton, DepositAllButton } from '@/components/game/DepositButton';
 import HomeRefiningPanel from '@/components/game/HomeRefiningPanel';
 import HomeCraftingPanel from '@/components/game/HomeCraftingPanel';
@@ -168,7 +169,7 @@ export default async function HomeBasePage() {
         <p className="text-muted-foreground text-sm">Your sanctuary. Rest, craft, and manage your belongings.</p>
       </div>
 
-      <Tabs defaultValue="inventory">
+      <PersistentTabs storageKey="home" defaultValue="inventory">
         <TabsList className="w-full grid grid-cols-4">
           <TabsTrigger value="inventory" className="gap-1">
             <span className="hidden sm:inline">Inventory</span>
@@ -363,7 +364,7 @@ export default async function HomeBasePage() {
             characterId={character.id}
           />
         </TabsContent>
-      </Tabs>
+      </PersistentTabs>
     </div>
   );
 }
