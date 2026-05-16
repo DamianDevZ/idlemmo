@@ -5,21 +5,10 @@ const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABA
 const gradeByRarity = { common: 'D', uncommon: 'C', rare: 'B', epic: 'A', legendary: 'S' };
 
 const weapons = [
-  // swords — slash / str
-  { name: 'copper_sword',     damage: 'slash',     pri: 'str', sec: null,  mat: 'metal', rarity: 'common'    },
+  // one per damage type — the canonical weapon for each
+  { name: 'crude_knife',      damage: 'pierce',    pri: 'str', sec: null,  mat: 'metal', rarity: 'common'    },
   { name: 'iron_sword',       damage: 'slash',     pri: 'str', sec: null,  mat: 'metal', rarity: 'uncommon'  },
-  { name: 'silver_sword',     damage: 'slash',     pri: 'str', sec: 'dex', mat: 'metal', rarity: 'rare'      },
-  { name: 'mithril_sword',    damage: 'slash',     pri: 'str', sec: 'dex', mat: 'metal', rarity: 'epic'      },
-  { name: 'void_sword',       damage: 'slash',     pri: 'str', sec: 'int', mat: 'metal', rarity: 'legendary' },
-  // bows — pierce / dex
-  { name: 'oak_shortbow',     damage: 'pierce',    pri: 'dex', sec: null,  mat: null,    rarity: 'common'    },
-  { name: 'birch_longbow',    damage: 'pierce',    pri: 'dex', sec: null,  mat: null,    rarity: 'uncommon'  },
-  { name: 'mahogany_bow',     damage: 'pierce',    pri: 'dex', sec: null,  mat: null,    rarity: 'rare'      },
-  { name: 'ebony_recurve',    damage: 'pierce',    pri: 'dex', sec: 'str', mat: null,    rarity: 'epic'      },
-  { name: 'void_bow',         damage: 'pierce',    pri: 'dex', sec: 'str', mat: null,    rarity: 'legendary' },
-  // staves — elemental / int
   { name: 'apprentice_staff', damage: 'fire',      pri: 'int', sec: null,  mat: null,    rarity: 'common'    },
-  { name: 'iron_cap_staff',   damage: 'fire',      pri: 'int', sec: null,  mat: null,    rarity: 'uncommon'  },
   { name: 'crystal_staff',    damage: 'ice',       pri: 'int', sec: null,  mat: null,    rarity: 'rare'      },
   { name: 'mithril_staff',    damage: 'lightning', pri: 'int', sec: null,  mat: null,    rarity: 'epic'      },
   { name: 'void_staff',       damage: 'true',      pri: 'int', sec: null,  mat: null,    rarity: 'legendary' },
