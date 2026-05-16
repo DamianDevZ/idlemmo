@@ -21,27 +21,29 @@ export async function depositToStash(characterId: string, itemId: string) {
     .single();
   if (!character) throw new Error('Character not found');
 
-  // Fetch both rows in parallel
-  const [{ data: invRow }, { data: stashRow }] = await Promise.all([
-    supabase
-      .from('character_inventory')
-      .select('quantity')
-      .eq('character_id', characterId)
-      .eq('item_id', itemId)
-      .single(),
-    supabase
-      .from('character_stash')
-      .select('quantity')
-      .eq('character_id', characterId)
-      .eq('item_id', itemId)
-      .maybeSingle(),
-  ]);
+  // Collect ALL unequipped inventory rows for this item and sum them.
+  // Using select-all instead of .single() guards against any leftover duplicate rows.
+  const { data: invRows } = await supabase
+    .from('character_inventory')
+    .select('instance_id, quantity')
+    .eq('character_id', characterId)
+    .eq('item_id', itemId)
+    .is('equipped_slot', null);
 
-  if (!invRow || invRow.quantity <= 0) return; // nothing to deposit
+  const totalQty = (invRows ?? []).reduce((sum, r) => sum + (r.quantity as number), 0);
+  if (totalQty <= 0) return;
 
-  const newStashQty = (stashRow?.quantity ?? 0) + invRow.quantity;
+  // Fetch existing stash row to merge quantities
+  const { data: stashRow } = await supabase
+    .from('character_stash')
+    .select('quantity')
+    .eq('character_id', characterId)
+    .eq('item_id', itemId)
+    .maybeSingle();
 
-  // Upsert stash with merged quantity
+  const newStashQty = (stashRow?.quantity ?? 0) + totalQty;
+
+  // Upsert stash — unique constraint on (character_id, item_id) handles the merge
   const { error: stashErr } = await supabase
     .from('character_stash')
     .upsert(
@@ -50,12 +52,14 @@ export async function depositToStash(characterId: string, itemId: string) {
     );
   if (stashErr) throw new Error(stashErr.message);
 
-  // Remove from inventory
-  await supabase
-    .from('character_inventory')
-    .delete()
-    .eq('character_id', characterId)
-    .eq('item_id', itemId);
+  // Remove from inventory by instance_id so we never accidentally touch equipped items
+  const instanceIds = (invRows ?? []).map(r => r.instance_id as string);
+  if (instanceIds.length > 0) {
+    await supabase
+      .from('character_inventory')
+      .delete()
+      .in('instance_id', instanceIds);
+  }
 
   revalidatePath('/game/home');
 }
@@ -80,11 +84,18 @@ export async function depositAllToStash(characterId: string) {
   // Only deposit unequipped items
   const { data: invRows } = await supabase
     .from('character_inventory')
-    .select('item_id, quantity')
+    .select('instance_id, item_id, quantity')
     .eq('character_id', characterId)
     .is('equipped_slot', null);
 
   if (!invRows || invRows.length === 0) return;
+
+  // Aggregate quantities by item_id in case there are any leftover duplicate rows
+  const itemTotals = new Map<string, number>();
+  for (const row of invRows) {
+    const id = row.item_id as string;
+    itemTotals.set(id, (itemTotals.get(id) ?? 0) + (row.quantity as number));
+  }
 
   // Fetch existing stash to compute merged totals
   const { data: stashRows } = await supabase
@@ -94,10 +105,10 @@ export async function depositAllToStash(characterId: string) {
 
   const stashMap = new Map((stashRows ?? []).map(r => [r.item_id as string, r.quantity as number]));
 
-  const upsertPayload = invRows.map(row => ({
+  const upsertPayload = Array.from(itemTotals.entries()).map(([item_id, qty]) => ({
     character_id: characterId,
-    item_id: row.item_id as string,
-    quantity: (stashMap.get(row.item_id as string) ?? 0) + (row.quantity as number),
+    item_id,
+    quantity: (stashMap.get(item_id) ?? 0) + qty,
   }));
 
   const { error: stashErr } = await supabase
@@ -105,11 +116,12 @@ export async function depositAllToStash(characterId: string) {
     .upsert(upsertPayload, { onConflict: 'character_id,item_id' });
   if (stashErr) throw new Error(stashErr.message);
 
+  // Delete the deposited inventory rows by instance_id (precise — never touches equipped items)
+  const instanceIds = invRows.map(r => r.instance_id as string);
   await supabase
     .from('character_inventory')
     .delete()
-    .eq('character_id', characterId)
-    .in('item_id', invRows.map(r => r.item_id));
+    .in('instance_id', instanceIds);
 
   revalidatePath('/game/home');
 }
