@@ -30,7 +30,7 @@ export default async function AdminEnemiesPage({
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-heading">Enemies</h1>
+            <h1 className="text-2xl font-bold text-heading">Enemies</h1>
             <p className="text-sm text-muted-foreground">{enemies?.length ?? 0} types across {biomes?.length ?? 0} biomes</p>
           </div>
           <Link href="/admin/enemies/new"

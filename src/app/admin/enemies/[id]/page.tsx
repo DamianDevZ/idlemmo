@@ -29,11 +29,11 @@ export default async function EnemyEditorPage({ params }: { params: Promise<{ id
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex items-center gap-3">
         <Link href="/admin/enemies" className="text-sm text-muted-foreground hover:text-body transition-colors">← Enemies</Link>
         <span className="text-muted-foreground">/</span>
-        <h1 className="text-xl font-bold text-heading">{isNew ? 'New Enemy' : enemy.display_name}</h1>
+        <h1 className="text-2xl font-bold text-heading">{isNew ? 'New Enemy' : enemy.display_name}</h1>
       </div>
       <EnemyForm
         initial={{ ...enemy, id: isNew ? undefined : id } as Parameters<typeof EnemyForm>[0]['initial']}

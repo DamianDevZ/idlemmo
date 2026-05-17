@@ -10,8 +10,8 @@ const BLANK = {
   description: '', stackable: false, equipment_tier: 1,
   base_damage: null, base_defense: null, primary_damage_type: null,
   material_type: null, primary_scaling_attr: 'str', primary_scaling_grade: 'F',
-  secondary_scaling_attr: null, secondary_scaling_grade: null, image_url: null,
-  resistances: {},
+  secondary_scaling_attr: null, secondary_scaling_grade: null,
+  image_url: null, resistances: {},
 };
 
 export default async function ItemEditorPage({ params }: { params: Promise<{ id: string }> }) {
@@ -52,11 +52,11 @@ export default async function ItemEditorPage({ params }: { params: Promise<{ id:
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex items-center gap-3">
         <Link href="/admin/items" className="text-sm text-muted-foreground hover:text-body transition-colors">← Items</Link>
         <span className="text-muted-foreground">/</span>
-        <h1 className="text-xl font-bold text-heading">{isNew ? 'New Item' : item.display_name}</h1>
+        <h1 className="text-2xl font-bold text-heading">{isNew ? 'New Item' : item.display_name}</h1>
       </div>
       <ItemForm
         initial={{ ...item, id: isNew ? undefined : id }}

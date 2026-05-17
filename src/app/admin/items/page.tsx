@@ -157,7 +157,7 @@ export default async function AdminItemsPage({
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-heading">Items</h1>
+            <h1 className="text-2xl font-bold text-heading">Items</h1>
             <p className="text-sm text-muted-foreground">{rows.length} total item definitions</p>
           </div>
           <Link href="/admin/items/new"

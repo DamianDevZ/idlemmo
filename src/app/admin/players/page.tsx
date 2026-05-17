@@ -41,7 +41,7 @@ export default async function AdminPlayersPage({
   if (!characters?.length) {
     return (
       <div className="space-y-4">
-        <h1 className="text-xl font-bold text-heading">Player Ledger</h1>
+        <h1 className="text-2xl font-bold text-heading">Player Ledger</h1>
         <p className="text-muted-foreground text-sm">No players found.</p>
       </div>
     );
@@ -87,7 +87,7 @@ export default async function AdminPlayersPage({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-heading">Player Ledger</h1>
+          <h1 className="text-2xl font-bold text-heading">Player Ledger</h1>
           <p className="text-sm text-muted-foreground">{characters.length} characters</p>
         </div>
       </div>
