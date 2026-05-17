@@ -45,6 +45,16 @@ type Item = {
   gathering_skill_id: string | null;
   is_tiered: boolean;
   consumable_effects: ConsumableEffect[];
+  tool_config: ToolConfig;
+};
+
+type ToolConfig = {
+  yield_min: number;
+  yield_max: number;
+  above_penalty: number;       // % reduction for gathering one tier above
+  below_bonus_base: number;    // % bonus for gathering one tier below
+  below_bonus_growth: number;  // compound growth % per additional tier below
+                               // bonus(n) = below_bonus_base * (1 + below_bonus_growth/100)^(n-1)
 };
 
 export type SkillOption = { id: string; name: string; display_name: string; category: string };
@@ -113,6 +123,14 @@ const MATERIAL_TYPES = ['metal','leather','cloth'];
 const SCALE_ATTRS = ['str','dex','int'];
 const GRADES = ['S','A','B','C','D','F'];
 
+
+const BLANK_TOOL_CONFIG: ToolConfig = {
+  yield_min: 1,
+  yield_max: 3,
+  above_penalty: 100,
+  below_bonus_base: 100,
+  below_bonus_growth: 50,
+};
 
 const BLANK_RECIPE: RecipeFormData = {
   display_name: '',
@@ -189,6 +207,11 @@ export function ItemForm({
   const [item, setItem] = useState<Item>(initial);
   const [resistances, setResistances] = useState<ResistancesMap>(() => initResistances(initial.resistances));
   const [effects, setEffects] = useState<ConsumableEffect[]>(initial.consumable_effects ?? []);
+  const [toolConfig, setToolConfig] = useState<ToolConfig>(
+    (initial.tool_config && Object.keys(initial.tool_config).length > 0)
+      ? initial.tool_config
+      : { ...BLANK_TOOL_CONFIG }
+  );
   const [recipe, setRecipe] = useState<RecipeFormData | null>(initialRecipe ?? null);
 
   const isNew = !initial.id;
@@ -210,6 +233,16 @@ export function ItemForm({
       ...prev,
       [dmgType]: { ...prev[dmgType], [field]: value },
     }));
+  }
+
+  function setTool<K extends keyof ToolConfig>(key: K, value: ToolConfig[K]) {
+    setToolConfig(prev => ({ ...prev, [key]: value }));
+  }
+
+  // Compute the bonus for each tier below: bonus(n) = base * (1 + growth/100)^(n-1)
+  function belowBonusAtStep(n: number): number {
+    if (n < 1) return 0;
+    return toolConfig.below_bonus_base * Math.pow(1 + toolConfig.below_bonus_growth / 100, n - 1);
   }
 
   function setRecipeField<K extends keyof RecipeFormData>(key: K, value: RecipeFormData[K]) {
@@ -272,7 +305,7 @@ export function ItemForm({
   function handleSave() {
     startTransition(async () => {
       try {
-        await upsertItem(initial.id ?? null, { ...item, resistances, consumable_effects: effects }, recipe);
+        await upsertItem(initial.id ?? null, { ...item, resistances, consumable_effects: effects, tool_config: toolConfig }, recipe);
         router.push('/admin/items');
       } catch (e) {
         setError((e as Error).message);
@@ -309,6 +342,7 @@ export function ItemForm({
   const showArmor  = item.type === 'armor';
   const showMaterial = item.type === 'material';
   const showConsumable = item.type === 'consumable';
+  const showTool = item.type === 'tool';
   // Materials don't have a fixed tier — they span all tiers when is_tiered=true
   const showEquipTier = ['weapon','armor','tool','consumable'].includes(item.type);
   // Refined materials have a crafting recipe; weapon/armor use crafting skills, refined use refining skills
@@ -851,8 +885,105 @@ export function ItemForm({
             </div>
           )}
 
+          {/* ── Tool stats ─────────────────────────────────────────── */}
+          {showTool && (
+            <div className="bg-card border border-border rounded-lg p-5 space-y-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tool Stats</p>
+
+              {/* Gathering skill */}
+              <Field label="Gathering Skill">
+                <Select
+                  value={item.gathering_skill_id ?? ''}
+                  onChange={e => set('gathering_skill_id', e.target.value || null)}
+                >
+                  <option value="">None assigned</option>
+                  {skills.filter(s => s.category === 'gathering').map(s => (
+                    <option key={s.id} value={s.id}>{s.display_name}</option>
+                  ))}
+                </Select>
+              </Field>
+
+              {/* Base yield range */}
+              <div className="border-t border-border pt-4 space-y-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Base Yield (own tier)</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Items gathered per attempt at the tool&apos;s own tier.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Min">
+                    <Input type="number" min={1}
+                      value={toolConfig.yield_min}
+                      onChange={e => setTool('yield_min', Number(e.target.value))} />
+                  </Field>
+                  <Field label="Max">
+                    <Input type="number" min={1}
+                      value={toolConfig.yield_max}
+                      onChange={e => setTool('yield_max', Number(e.target.value))} />
+                  </Field>
+                </div>
+              </div>
+
+              {/* Tier modifiers */}
+              <div className="border-t border-border pt-4 space-y-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tier Modifiers</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    100% = 1 guaranteed item change &middot; 25% = 25% chance of an extra change
+                  </p>
+                </div>
+                <Field label="Above penalty (% reduction, 1 tier above)">
+                  <Input type="number" min={0} step={5}
+                    value={toolConfig.above_penalty}
+                    onChange={e => setTool('above_penalty', Number(e.target.value))} />
+                </Field>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Below bonus base (1 tier below, %)">
+                    <Input type="number" min={0} step={5}
+                      value={toolConfig.below_bonus_base}
+                      onChange={e => setTool('below_bonus_base', Number(e.target.value))} />
+                  </Field>
+                  <Field label="Below compound growth (% per step)">
+                    <Input type="number" min={0} step={5}
+                      value={toolConfig.below_bonus_growth}
+                      onChange={e => setTool('below_bonus_growth', Number(e.target.value))} />
+                  </Field>
+                </div>
+
+                {/* Live preview */}
+                {item.equipment_tier && item.equipment_tier > 1 && (
+                  <div className="rounded-md bg-background border border-border p-3 space-y-1">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Preview (T{item.equipment_tier} tool)</p>
+                    {/* One tier above */}
+                    {item.equipment_tier < maxTier && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">T{item.equipment_tier + 1} (above)</span>
+                        <span className="text-destructive">&minus;{toolConfig.above_penalty.toFixed(0)}%</span>
+                      </div>
+                    )}
+                    {/* Own tier */}
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">T{item.equipment_tier} (own)</span>
+                      <span className="text-body">{toolConfig.yield_min}&ndash;{toolConfig.yield_max} items</span>
+                    </div>
+                    {/* Tiers below */}
+                    {Array.from({ length: item.equipment_tier - 1 }, (_, i) => i + 1).map(step => {
+                      const tier = item.equipment_tier! - step;
+                      const bonus = belowBonusAtStep(step);
+                      return (
+                        <div key={tier} className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">T{tier} (below ×{step})</span>
+                          <span className="text-green-400">+{bonus.toFixed(0)}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Placeholder for non-equipment types */}
-          {!showWeapon && !showArmor && !showMaterial && !showConsumable && (
+          {!showWeapon && !showArmor && !showMaterial && !showConsumable && !showTool && (
             <div className="bg-card border border-border rounded-lg p-8 flex items-center justify-center">
               <p className="text-sm text-muted-foreground">No additional stats for this item type.</p>
             </div>

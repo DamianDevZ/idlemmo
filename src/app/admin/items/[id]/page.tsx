@@ -16,6 +16,7 @@ const BLANK = {
   material_subtype: null, gathering_skill_id: null,
   is_tiered: true,
   consumable_effects: [],
+  tool_config: {},
 };
 
 export default async function ItemEditorPage({

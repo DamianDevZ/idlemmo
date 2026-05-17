@@ -28,6 +28,7 @@ export type ItemFormData = {
   gathering_skill_id?: string | null;
   is_tiered?: boolean;
   consumable_effects?: object[];
+  tool_config?: object;
 };
 
 export type RecipeIngredient = { item_id: string; tier: number | null; quantity: number };
