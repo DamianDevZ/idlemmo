@@ -13,6 +13,7 @@ const BLANK = {
   secondary_scaling_attr: null, secondary_scaling_grade: null,
   image_url: null, resistances: {},
   required_mastery_skill_id: null, required_mastery_level: 1,
+  material_subtype: null, gathering_skill_id: null,
 };
 
 export default async function ItemEditorPage({ params }: { params: Promise<{ id: string }> }) {

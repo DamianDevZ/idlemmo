@@ -32,6 +32,8 @@ type Item = {
   resistances?: ResistancesMap;
   required_mastery_skill_id: string | null;
   required_mastery_level: number;
+  material_subtype: string | null;
+  gathering_skill_id: string | null;
 };
 
 export type SkillOption = { id: string; name: string; display_name: string; category: string };
@@ -220,9 +222,12 @@ export function ItemForm({
   }
 
   const showWeapon = item.type === 'weapon';
-  const showArmor = item.type === 'armor';
-  const showEquipTier = ['weapon','armor','tool'].includes(item.type);
-  const showRecipe = showWeapon || showArmor;
+  const showArmor  = item.type === 'armor';
+  const showMaterial = item.type === 'material';
+  const showEquipTier = ['weapon','armor','tool','material'].includes(item.type);
+  // Refined materials have a crafting recipe; weapon/armor use crafting skills, refined use refining skills
+  const showRecipe = showWeapon || showArmor || (showMaterial && item.material_subtype === 'refined');
+  const recipeSkillCategory = showMaterial ? 'refining' : 'crafting';
 
   return (
     <div className="max-w-5xl mx-auto space-y-5">
@@ -475,11 +480,73 @@ export function ItemForm({
             </div>
           )}
 
+          {/* ── Material stats ────────────────────────────────────────────── */}
+          {showMaterial && (
+            <div className="bg-card border border-border rounded-lg p-5 space-y-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Material</p>
+
+              <Field label="Subtype">
+                <div className="flex gap-2">
+                  {(['raw','refined','unique'] as const).map(sub => (
+                    <button
+                      key={sub}
+                      type="button"
+                      onClick={() => set('material_subtype', sub)}
+                      className={`flex-1 py-2 rounded-md text-sm font-medium border transition-colors capitalize
+                        ${item.material_subtype === sub
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background border-border text-muted-foreground hover:text-body hover:border-ring'}`}
+                    >
+                      {sub}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+
+              {item.material_subtype === 'raw' && (
+                <div className="space-y-3">
+                  <Field label="Gathering Skill">
+                    <Select
+                      value={item.gathering_skill_id ?? ''}
+                      onChange={e => set('gathering_skill_id', e.target.value || null)}
+                    >
+                      <option value="">None assigned</option>
+                      {skills.filter(s => s.category === 'gathering').map(s => (
+                        <option key={s.id} value={s.id}>{s.display_name}</option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <p className="text-xs text-muted-foreground">
+                    Links this material to a gathering skill. Used to populate node drop tables.
+                  </p>
+                </div>
+              )}
+
+              {item.material_subtype === 'refined' && (
+                <p className="text-xs text-muted-foreground">
+                  Define the refining recipe in the section below. Use a <strong>Refining</strong> skill (Smelting, Tanning, etc.) as the required skill.
+                </p>
+              )}
+
+              {item.material_subtype === 'unique' && (
+                <p className="text-xs text-muted-foreground">
+                  Unique materials are obtained via boss drops, events, or special quests — not crafted or gathered normally.
+                </p>
+              )}
+
+              {!item.material_subtype && (
+                <p className="text-xs text-muted-foreground italic">Select a subtype above to continue.</p>
+              )}
+            </div>
+          )}
+
           {/* ── Crafting Recipe ───────────────────────────────────────────── */}
           {showRecipe && (
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Crafting Recipe</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  {showMaterial ? 'Refining Recipe' : 'Crafting Recipe'}
+                </p>
                 <button
                   type="button"
                   onClick={() => setRecipe(r => r ? null : { ...BLANK_RECIPE, display_name: item.display_name })}
@@ -506,7 +573,7 @@ export function ItemForm({
                       <Select value={recipe.required_skill_id}
                         onChange={e => setRecipeField('required_skill_id', e.target.value)}>
                         <option value="">Select skill…</option>
-                        {skills.filter(s => s.category === 'crafting').map(s => (
+                        {skills.filter(s => s.category === recipeSkillCategory).map(s => (
                           <option key={s.id} value={s.id}>{s.display_name}</option>
                         ))}
                       </Select>
@@ -576,7 +643,7 @@ export function ItemForm({
           )}
 
           {/* Placeholder for non-equipment types */}
-          {!showWeapon && !showArmor && (
+          {!showWeapon && !showArmor && !showMaterial && (
             <div className="bg-card border border-border rounded-lg p-8 flex items-center justify-center">
               <p className="text-sm text-muted-foreground">No additional stats for this item type.</p>
             </div>

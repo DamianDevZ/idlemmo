@@ -24,6 +24,8 @@ export type ItemFormData = {
   resistances?: Record<string, { value: number; mode: 'percent' | 'flat' }>;
   required_mastery_skill_id?: string | null;
   required_mastery_level?: number | null;
+  material_subtype?: string | null;
+  gathering_skill_id?: string | null;
 };
 
 export type RecipeIngredient = { item_id: string; tier: number | null; quantity: number };
