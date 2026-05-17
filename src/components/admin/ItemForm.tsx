@@ -11,6 +11,17 @@ type ResistanceMode = 'percent' | 'flat';
 type ResistanceEntry = { value: number; mode: ResistanceMode };
 type ResistancesMap = Record<string, ResistanceEntry>;
 
+type EffectTrigger = 'instant' | 'timed' | 'tick' | 'on_hit';
+type ConsumableEffect = {
+  trigger: EffectTrigger;
+  target: string;
+  value: number;
+  duration_ticks?: number;   // timed
+  tick_count?: number;       // tick
+  hit_count?: number;        // on_hit
+  condition?: 'exploring';   // tick only
+};
+
 type Item = {
   id?: string;
   name: string;
@@ -35,6 +46,7 @@ type Item = {
   material_subtype: string | null;
   gathering_skill_id: string | null;
   is_tiered: boolean;
+  consumable_effects: ConsumableEffect[];
 };
 
 export type SkillOption = { id: string; name: string; display_name: string; category: string };
@@ -56,6 +68,50 @@ const RESIST_TYPES: { key: string; label: string; emoji: string }[] = [
   { key: 'bleed',     label: 'Bleed',     emoji: '🩸' },
   { key: 'lightning', label: 'Lightning', emoji: '⚡' },
 ];
+// Consumable effects constants
+const EFFECT_TRIGGERS: { value: EffectTrigger; label: string; hint: string }[] = [
+  { value: 'instant',  label: 'Instant',       hint: 'Applied once, immediately on use' },
+  { value: 'timed',   label: 'Timed buff',     hint: 'Active for N ticks while in effect' },
+  { value: 'tick',    label: 'Per-tick',       hint: 'Applied every tick for N ticks' },
+  { value: 'on_hit',  label: 'On-hit',         hint: 'Procs on each hit for N hits' },
+];
+
+const EFFECT_TARGET_GROUPS: { group: string; targets: { key: string; label: string }[] }[] = [
+  {
+    group: 'Attributes',
+    targets: [
+      { key: 'str', label: 'Strength' },
+      { key: 'dex', label: 'Dexterity' },
+      { key: 'int', label: 'Intelligence' },
+      { key: 'vit', label: 'Vitality' },
+      { key: 'luk', label: 'Luck' },
+    ],
+  },
+  {
+    group: 'Stats',
+    targets: [
+      { key: 'hp',   label: 'HP' },
+      { key: 'mp',   label: 'MP' },
+      { key: 'rage', label: 'Rage' },
+    ],
+  },
+  {
+    group: 'On-hit Damage',
+    targets: [
+      { key: 'fire_damage',      label: 'Fire' },
+      { key: 'ice_damage',       label: 'Ice' },
+      { key: 'poison_damage',    label: 'Poison' },
+      { key: 'lightning_damage', label: 'Lightning' },
+      { key: 'bleed_damage',     label: 'Bleed' },
+      { key: 'slash_damage',     label: 'Slash' },
+      { key: 'pierce_damage',    label: 'Pierce' },
+      { key: 'blunt_damage',     label: 'Blunt' },
+    ],
+  },
+];
+
+const BLANK_EFFECT: ConsumableEffect = { trigger: 'instant', target: 'hp', value: 0 };
+
 const MATERIAL_TYPES = ['metal','leather','cloth'];
 const SCALE_ATTRS = ['str','dex','int'];
 const GRADES = ['S','A','B','C','D','F'];
@@ -135,6 +191,7 @@ export function ItemForm({
   const [error, setError] = useState<string | null>(null);
   const [item, setItem] = useState<Item>(initial);
   const [resistances, setResistances] = useState<ResistancesMap>(() => initResistances(initial.resistances));
+  const [effects, setEffects] = useState<ConsumableEffect[]>(initial.consumable_effects ?? []);
   const [recipe, setRecipe] = useState<RecipeFormData | null>(initialRecipe ?? null);
 
   const isNew = !initial.id;
@@ -176,6 +233,28 @@ export function ItemForm({
     } : null);
   }
 
+  function addEffect() {
+    setEffects(prev => [...prev, { ...BLANK_EFFECT }]);
+  }
+
+  function removeEffect(i: number) {
+    setEffects(prev => prev.filter((_, idx) => idx !== i));
+  }
+
+  function setEffect(i: number, patch: Partial<ConsumableEffect>) {
+    setEffects(prev => {
+      const next = [...prev];
+      next[i] = { ...next[i], ...patch };
+      // Clear fields that don't apply to the new trigger
+      if (patch.trigger) {
+        if (patch.trigger !== 'timed')  delete next[i].duration_ticks;
+        if (patch.trigger !== 'tick')   { delete next[i].tick_count; delete next[i].condition; }
+        if (patch.trigger !== 'on_hit') delete next[i].hit_count;
+      }
+      return next;
+    });
+  }
+
   function setIngredient(i: number, patch: Partial<RecipeIngredient>) {
     setRecipe(prev => {
       if (!prev) return prev;
@@ -197,7 +276,7 @@ export function ItemForm({
   function handleSave() {
     startTransition(async () => {
       try {
-        await upsertItem(initial.id ?? null, { ...item, resistances }, recipe);
+        await upsertItem(initial.id ?? null, { ...item, resistances, consumable_effects: effects }, recipe);
         router.push('/admin/items');
       } catch (e) {
         setError((e as Error).message);
@@ -233,6 +312,7 @@ export function ItemForm({
   const showWeapon = item.type === 'weapon';
   const showArmor  = item.type === 'armor';
   const showMaterial = item.type === 'material';
+  const showConsumable = item.type === 'consumable';
   // Materials don't have a fixed tier — they span all tiers when is_tiered=true
   const showEquipTier = ['weapon','armor','tool'].includes(item.type);
   // Refined materials have a crafting recipe; weapon/armor use crafting skills, refined use refining skills
@@ -663,8 +743,146 @@ export function ItemForm({
             </div>
           )}
 
+          {/* ── Consumable Effects ─────────────────────────────────────── */}
+          {showConsumable && (
+            <div className="bg-card border border-border rounded-lg p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Consumable Effects</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Each row is one effect applied on use.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={addEffect}
+                  className="text-xs px-3 py-1 rounded border border-border text-muted-foreground hover:text-body hover:border-ring transition-colors"
+                >
+                  + Add Effect
+                </button>
+              </div>
+
+              {effects.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">No effects yet. Add one above.</p>
+              )}
+
+              <div className="space-y-3">
+                {effects.map((eff, i) => (
+                  <div key={i} className="flex flex-wrap items-start gap-2 p-3 bg-background border border-border rounded-md">
+
+                    {/* Trigger */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Trigger</span>
+                      <Select
+                        value={eff.trigger}
+                        onChange={e => setEffect(i, { trigger: e.target.value as EffectTrigger })}
+                      >
+                        {EFFECT_TRIGGERS.map(t => (
+                          <option key={t.value} value={t.value}>{t.label}</option>
+                        ))}
+                      </Select>
+                    </div>
+
+                    {/* Target */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Target</span>
+                      <Select
+                        value={eff.target}
+                        onChange={e => setEffect(i, { target: e.target.value })}
+                      >
+                        {EFFECT_TARGET_GROUPS.map(g => (
+                          <optgroup key={g.group} label={g.group}>
+                            {g.targets.map(t => (
+                              <option key={t.key} value={t.key}>{t.label}</option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </Select>
+                    </div>
+
+                    {/* Value */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Value</span>
+                      <Input
+                        type="number"
+                        value={eff.value}
+                        onChange={e => setEffect(i, { value: Number(e.target.value) })}
+                        className="w-20"
+                      />
+                    </div>
+
+                    {/* Timed: duration */}
+                    {eff.trigger === 'timed' && (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Duration (ticks)</span>
+                        <Input
+                          type="number" min={1}
+                          value={eff.duration_ticks ?? ''}
+                          onChange={e => setEffect(i, { duration_ticks: e.target.value ? Number(e.target.value) : undefined })}
+                          placeholder="e.g. 300"
+                          className="w-28"
+                        />
+                      </div>
+                    )}
+
+                    {/* Tick: count + condition */}
+                    {eff.trigger === 'tick' && (
+                      <>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Tick count</span>
+                          <Input
+                            type="number" min={1}
+                            value={eff.tick_count ?? ''}
+                            onChange={e => setEffect(i, { tick_count: e.target.value ? Number(e.target.value) : undefined })}
+                            placeholder="e.g. 10"
+                            className="w-24"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Condition</span>
+                          <Select
+                            value={eff.condition ?? ''}
+                            onChange={e => setEffect(i, { condition: (e.target.value as 'exploring') || undefined })}
+                          >
+                            <option value="">Always</option>
+                            <option value="exploring">Exploring only</option>
+                          </Select>
+                        </div>
+                      </>
+                    )}
+
+                    {/* On-hit: count */}
+                    {eff.trigger === 'on_hit' && (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Hit count</span>
+                        <Input
+                          type="number" min={1}
+                          value={eff.hit_count ?? ''}
+                          onChange={e => setEffect(i, { hit_count: e.target.value ? Number(e.target.value) : undefined })}
+                          placeholder="e.g. 5"
+                          className="w-24"
+                        />
+                      </div>
+                    )}
+
+                    {/* Hint + remove */}
+                    <div className="flex flex-col justify-between ml-auto self-stretch min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => removeEffect(i)}
+                        className="self-end p-1 text-muted-foreground hover:text-destructive transition-colors text-lg leading-none"
+                      >×</button>
+                      <span className="text-[10px] text-muted-foreground italic">
+                        {EFFECT_TRIGGERS.find(t => t.value === eff.trigger)?.hint}
+                      </span>
+                    </div>
+
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Placeholder for non-equipment types */}
-          {!showWeapon && !showArmor && !showMaterial && (
+          {!showWeapon && !showArmor && !showMaterial && !showConsumable && (
             <div className="bg-card border border-border rounded-lg p-8 flex items-center justify-center">
               <p className="text-sm text-muted-foreground">No additional stats for this item type.</p>
             </div>

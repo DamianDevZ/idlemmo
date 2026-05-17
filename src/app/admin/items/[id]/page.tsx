@@ -15,6 +15,7 @@ const BLANK = {
   required_mastery_skill_id: null, required_mastery_level: 1,
   material_subtype: null, gathering_skill_id: null,
   is_tiered: true,
+  consumable_effects: [],
 };
 
 export default async function ItemEditorPage({
