@@ -3,6 +3,13 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { upsertItem, uploadItemIcon, deleteItem } from '@/features/admin/item-actions';
+import type { RecipeFormData } from '@/features/admin/item-actions';
+
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+type ResistanceMode = 'percent' | 'flat';
+type ResistanceEntry = { value: number; mode: ResistanceMode };
+type ResistancesMap = Record<string, ResistanceEntry>;
 
 type Item = {
   id?: string;
@@ -22,14 +29,42 @@ type Item = {
   secondary_scaling_attr: string | null;
   secondary_scaling_grade: string | null;
   image_url: string | null;
+  resistances?: ResistancesMap;
 };
+
+export type SkillOption = { id: string; name: string; display_name: string };
+
+// ── Constants ──────────────────────────────────────────────────────────────────
 
 const TYPES = ['material','tool','weapon','armor','consumable','misc','special_attack'];
 const RARITIES = ['common','uncommon','rare','epic','legendary'];
 const DAMAGE_TYPES = ['slash','blunt','bleed','pierce','fire','ice','lightning','poison','true'];
+// Resistance grid excludes 'true' — true damage bypasses all armor
+const RESIST_TYPES: { key: string; label: string; emoji: string }[] = [
+  { key: 'slash',     label: 'Slash',     emoji: '⚔️' },
+  { key: 'blunt',     label: 'Blunt',     emoji: '🔨' },
+  { key: 'pierce',    label: 'Pierce',    emoji: '🏹' },
+  { key: 'bleed',     label: 'Bleed',     emoji: '🩸' },
+  { key: 'fire',      label: 'Fire',      emoji: '🔥' },
+  { key: 'ice',       label: 'Ice',       emoji: '❄️' },
+  { key: 'lightning', label: 'Lightning', emoji: '⚡' },
+  { key: 'poison',    label: 'Poison',    emoji: '☠️' },
+];
 const MATERIAL_TYPES = ['metal','leather','cloth'];
 const SCALE_ATTRS = ['str','dex','int'];
 const GRADES = ['S','A','B','C','D','F'];
+
+const BLANK_RECIPE: RecipeFormData = {
+  display_name: '',
+  output_quantity: 1,
+  required_skill_id: '',
+  required_skill_level: 1,
+  ingredients: [],
+  base_success_chance: 80,
+  craft_time_seconds: 30,
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -60,11 +95,37 @@ function Select({ children, ...props }: React.SelectHTMLAttributes<HTMLSelectEle
   );
 }
 
-export function ItemForm({ initial }: { initial: Item }) {
+// ── Main Form ─────────────────────────────────────────────────────────────────
+
+function initResistances(raw?: ResistancesMap): ResistancesMap {
+  const base: ResistancesMap = {};
+  for (const { key } of RESIST_TYPES) {
+    base[key] = { value: 0, mode: 'percent' };
+  }
+  if (raw && typeof raw === 'object') {
+    for (const { key } of RESIST_TYPES) {
+      const entry = raw[key];
+      if (entry) base[key] = entry;
+    }
+  }
+  return base;
+}
+
+export function ItemForm({
+  initial,
+  recipe: initialRecipe,
+  skills,
+}: {
+  initial: Item;
+  recipe?: RecipeFormData | null;
+  skills: SkillOption[];
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [item, setItem] = useState<Item>(initial);
+  const [resistances, setResistances] = useState<ResistancesMap>(() => initResistances(initial.resistances));
+  const [recipe, setRecipe] = useState<RecipeFormData | null>(initialRecipe ?? null);
 
   const isNew = !initial.id;
 
@@ -72,10 +133,44 @@ export function ItemForm({ initial }: { initial: Item }) {
     setItem(prev => ({ ...prev, [key]: value }));
   }
 
+  function setResist(dmgType: string, field: keyof ResistanceEntry, value: string | number) {
+    setResistances(prev => ({
+      ...prev,
+      [dmgType]: { ...prev[dmgType], [field]: value },
+    }));
+  }
+
+  function setRecipeField<K extends keyof RecipeFormData>(key: K, value: RecipeFormData[K]) {
+    setRecipe(prev => (prev ? { ...prev, [key]: value } : { ...BLANK_RECIPE, [key]: value }));
+  }
+
+  function addIngredient() {
+    setRecipe(prev => prev ? {
+      ...prev,
+      ingredients: [...prev.ingredients, { item_name: '', quantity: 1 }],
+    } : null);
+  }
+
+  function removeIngredient(i: number) {
+    setRecipe(prev => prev ? {
+      ...prev,
+      ingredients: prev.ingredients.filter((_, idx) => idx !== i),
+    } : null);
+  }
+
+  function setIngredient(i: number, field: 'item_name' | 'quantity', value: string | number) {
+    setRecipe(prev => {
+      if (!prev) return prev;
+      const next = [...prev.ingredients];
+      next[i] = { ...next[i], [field]: value };
+      return { ...prev, ingredients: next };
+    });
+  }
+
   function handleSave() {
     startTransition(async () => {
       try {
-        await upsertItem(initial.id ?? null, item);
+        await upsertItem(initial.id ?? null, { ...item, resistances }, recipe);
         router.push('/admin/items');
       } catch (e) {
         setError((e as Error).message);
@@ -178,10 +273,10 @@ export function ItemForm({ initial }: { initial: Item }) {
         </Field>
       )}
 
-      {/* Weapon-specific */}
+      {/* ── Weapon stats ─────────────────────────────────────────────────────── */}
       {showWeapon && (
         <div className="space-y-4 p-4 bg-card border border-border rounded-lg">
-          <h3 className="text-sm font-semibold text-heading">Weapon Stats</h3>
+          <h3 className="text-sm font-semibold text-heading">⚔️ Weapon Stats</h3>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Base Damage">
               <Input type="number" step="0.01" value={item.base_damage ?? ''} onChange={e => set('base_damage', e.target.value ? Number(e.target.value) : null)} />
@@ -199,7 +294,9 @@ export function ItemForm({ initial }: { initial: Item }) {
               </Select>
             </Field>
           </div>
+
           <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Attribute Scaling</h4>
+          <p className="text-xs text-muted-foreground -mt-2">Grade multipliers: S=1.5× A=1.4× B=1.3× C=1.2× D=1.1× F=1.0×</p>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Primary Attribute">
               <Select value={item.primary_scaling_attr ?? ''} onChange={e => set('primary_scaling_attr', e.target.value || null)}>
@@ -207,14 +304,13 @@ export function ItemForm({ initial }: { initial: Item }) {
                 {SCALE_ATTRS.map(a => <option key={a} value={a}>{a.toUpperCase()}</option>)}
               </Select>
             </Field>
-            <Field label="Primary Grade  (S=1.5×  A=1.4×  B=1.3×  C=1.2×  D=1.1×  F=1.0×)">
-&
+            <Field label="Primary Grade">
               <Select value={item.primary_scaling_grade ?? ''} onChange={e => set('primary_scaling_grade', e.target.value || null)}>
                 <option value="">None</option>
                 {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
               </Select>
             </Field>
-            <Field label="Secondary Attribute (T3+ only)">
+            <Field label="Secondary Attribute (Tier 3+ only)">
               <Select value={item.secondary_scaling_attr ?? ''} onChange={e => set('secondary_scaling_attr', e.target.value || null)}>
                 <option value="">None</option>
                 {SCALE_ATTRS.map(a => <option key={a} value={a}>{a.toUpperCase()}</option>)}
@@ -230,10 +326,10 @@ export function ItemForm({ initial }: { initial: Item }) {
         </div>
       )}
 
-      {/* Armor-specific */}
+      {/* ── Armor stats ──────────────────────────────────────────────────────── */}
       {showArmor && (
         <div className="space-y-4 p-4 bg-card border border-border rounded-lg">
-          <h3 className="text-sm font-semibold text-heading">Armor Stats</h3>
+          <h3 className="text-sm font-semibold text-heading">🛡️ Armor Stats</h3>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Base Defense">
               <Input type="number" step="0.01" value={item.base_defense ?? ''} onChange={e => set('base_defense', e.target.value ? Number(e.target.value) : null)} />
@@ -245,10 +341,159 @@ export function ItemForm({ initial }: { initial: Item }) {
               </Select>
             </Field>
           </div>
+
+          {/* Resistance grid */}
+          <div className="space-y-3">
+            <div>
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Damage Resistances &amp; Weaknesses</h4>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Positive = resist (less damage taken). Negative = weakness (more damage taken).
+                &ldquo;true&rdquo; damage always bypasses armor.
+              </p>
+            </div>
+            {/* Header row */}
+            <div className="grid grid-cols-[1fr_80px_100px] gap-2 px-1">
+              <span className="text-xs text-muted-foreground font-semibold">Type</span>
+              <span className="text-xs text-muted-foreground font-semibold">Value</span>
+              <span className="text-xs text-muted-foreground font-semibold">Mode</span>
+            </div>
+            {RESIST_TYPES.map(rt => {
+              const entry = resistances[rt.key];
+              const val = entry?.value ?? 0;
+              const valueColor = val > 0 ? 'text-green-400' : val < 0 ? 'text-red-400' : 'text-muted-foreground';
+              return (
+                <div key={rt.key} className="grid grid-cols-[1fr_80px_100px] items-center gap-2">
+                  <span className="text-sm text-body">{rt.emoji} {rt.label}</span>
+                  <input
+                    type="number"
+                    value={val}
+                    onChange={e => setResist(rt.key, 'value', Number(e.target.value))}
+                    className={`px-2 py-1.5 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-ring text-center ${valueColor}`}
+                  />
+                  <Select
+                    value={entry?.mode ?? 'percent'}
+                    onChange={e => setResist(rt.key, 'mode', e.target.value as ResistanceMode)}
+                  >
+                    <option value="percent">% of dmg</option>
+                    <option value="flat">flat dmg</option>
+                  </Select>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
-      {/* Actions */}
+      {/* ── Crafting Recipe ───────────────────────────────────────────────────── */}
+      {(showWeapon || showArmor) && (
+        <div className="space-y-4 p-4 bg-card border border-border rounded-lg">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-heading">🔨 Crafting Recipe</h3>
+            <button
+              type="button"
+              onClick={() => setRecipe(r => r ? null : { ...BLANK_RECIPE, display_name: item.display_name })}
+              className="text-xs px-3 py-1 rounded border border-border text-muted-foreground hover:text-body hover:border-ring transition-colors"
+            >
+              {recipe ? 'Remove Recipe' : '+ Add Recipe'}
+            </button>
+          </div>
+
+          {recipe && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Recipe Name">
+                  <Input
+                    value={recipe.display_name}
+                    onChange={e => setRecipeField('display_name', e.target.value)}
+                    placeholder="Craft Iron Sword"
+                  />
+                </Field>
+                <Field label="Output Quantity">
+                  <Input
+                    type="number" min={1}
+                    value={recipe.output_quantity}
+                    onChange={e => setRecipeField('output_quantity', Number(e.target.value))}
+                  />
+                </Field>
+                <Field label="Required Skill">
+                  <Select
+                    value={recipe.required_skill_id}
+                    onChange={e => setRecipeField('required_skill_id', e.target.value)}
+                  >
+                    <option value="">Select skill…</option>
+                    {skills.map(s => (
+                      <option key={s.id} value={s.id}>{s.display_name}</option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Required Skill Level">
+                  <Input
+                    type="number" min={1} max={99}
+                    value={recipe.required_skill_level}
+                    onChange={e => setRecipeField('required_skill_level', Number(e.target.value))}
+                  />
+                </Field>
+                <Field label="Base Success Chance (%)">
+                  <Input
+                    type="number" min={1} max={95}
+                    value={recipe.base_success_chance}
+                    onChange={e => setRecipeField('base_success_chance', Number(e.target.value))}
+                  />
+                </Field>
+                <Field label="Craft Time (seconds)">
+                  <Input
+                    type="number" min={1}
+                    value={recipe.craft_time_seconds}
+                    onChange={e => setRecipeField('craft_time_seconds', Number(e.target.value))}
+                  />
+                </Field>
+              </div>
+
+              {/* Ingredients */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Ingredients</h4>
+                  <button
+                    type="button"
+                    onClick={addIngredient}
+                    className="text-xs px-2 py-0.5 rounded border border-border text-muted-foreground hover:text-body hover:border-ring transition-colors"
+                  >
+                    + Add
+                  </button>
+                </div>
+                {recipe.ingredients.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic">No ingredients yet.</p>
+                )}
+                {recipe.ingredients.map((ing, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Input
+                      value={ing.item_name}
+                      onChange={e => setIngredient(i, 'item_name', e.target.value)}
+                      placeholder="item_slug (e.g. iron_ore)"
+                      className="flex-1"
+                    />
+                    <input
+                      type="number" min={1}
+                      value={ing.quantity}
+                      onChange={e => setIngredient(i, 'quantity', Number(e.target.value))}
+                      className="w-16 px-2 py-2 text-sm bg-background border border-border rounded-md text-body focus:outline-none focus:ring-1 focus:ring-ring text-center"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeIngredient(i)}
+                      className="p-1 text-muted-foreground hover:text-destructive transition-colors text-lg leading-none"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Actions ───────────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 pt-2">
         <button
           onClick={handleSave}
