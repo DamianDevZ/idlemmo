@@ -21,12 +21,13 @@ export default async function ItemEditorPage({ params }: { params: Promise<{ id:
   const isNew = id === 'new';
   const db = createAdminClient();
 
-  // Load item, skills, and existing recipe in parallel
-  const [itemResult, skillsResult, recipeResult] = await Promise.all([
+  // Load item, skills, material items, and existing recipe in parallel
+  const [itemResult, skillsResult, materialsResult, recipeResult] = await Promise.all([
     isNew
       ? Promise.resolve({ data: null })
       : db.from('item_definitions').select('*').eq('id', id).single(),
     db.from('skills').select('id, name, display_name, skill_categories(name)').order('display_name'),
+    db.from('item_definitions').select('id, name, display_name, equipment_tier').eq('type', 'material').order('display_name'),
     isNew
       ? Promise.resolve({ data: null })
       : db.from('recipes').select('*').eq('output_item_id', id).maybeSingle(),
@@ -43,7 +44,15 @@ export default async function ItemEditorPage({ params }: { params: Promise<{ id:
     category: (s.skill_categories as unknown as { name: string } | null)?.name ?? '',
   }));
 
+  const materialItems = (materialsResult.data ?? []).map(m => ({
+    id: m.id,
+    name: m.name,
+    display_name: m.display_name,
+    equipment_tier: m.equipment_tier as number | null,
+  }));
+
   let recipe: RecipeFormData | null = null;
+
   if (recipeResult.data) {
     const r = recipeResult.data;
     recipe = {
@@ -53,7 +62,6 @@ export default async function ItemEditorPage({ params }: { params: Promise<{ id:
       required_skill_id:    r.required_skill_id,
       required_skill_level: r.required_skill_level,
       ingredients:          r.ingredients ?? [],
-      base_success_chance:  r.base_success_chance,
       craft_time_seconds:   r.craft_time_seconds,
     };
   }
@@ -69,6 +77,7 @@ export default async function ItemEditorPage({ params }: { params: Promise<{ id:
         initial={{ ...item, id: isNew ? undefined : id }}
         recipe={recipe}
         skills={skills}
+        materialItems={materialItems}
       />
     </div>
   );

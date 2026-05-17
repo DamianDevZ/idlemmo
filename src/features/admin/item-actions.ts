@@ -26,7 +26,7 @@ export type ItemFormData = {
   required_mastery_level?: number | null;
 };
 
-export type RecipeIngredient = { item_name: string; quantity: number };
+export type RecipeIngredient = { item_id: string; tier: number | null; quantity: number };
 
 export type RecipeFormData = {
   id?: string;
@@ -35,7 +35,6 @@ export type RecipeFormData = {
   required_skill_id: string;
   required_skill_level: number;
   ingredients: RecipeIngredient[];
-  base_success_chance: number;
   craft_time_seconds: number;
 };
 
@@ -71,7 +70,7 @@ export async function upsertItem(
       required_skill_id:   recipe.required_skill_id,
       required_skill_level: recipe.required_skill_level,
       ingredients:         recipe.ingredients,
-      base_success_chance: recipe.base_success_chance,
+      base_success_chance: 100,
       craft_time_seconds:  recipe.craft_time_seconds,
     };
 

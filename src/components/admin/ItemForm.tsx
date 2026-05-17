@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { upsertItem, uploadItemIcon, deleteItem } from '@/features/admin/item-actions';
-import type { RecipeFormData } from '@/features/admin/item-actions';
+import type { RecipeFormData, RecipeIngredient } from '@/features/admin/item-actions';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -35,6 +35,7 @@ type Item = {
 };
 
 export type SkillOption = { id: string; name: string; display_name: string; category: string };
+export type MaterialItem = { id: string; name: string; display_name: string; equipment_tier: number | null };
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -65,7 +66,6 @@ const BLANK_RECIPE: RecipeFormData = {
   required_skill_id: '',
   required_skill_level: 1,
   ingredients: [],
-  base_success_chance: 80,
   craft_time_seconds: 30,
 };
 
@@ -120,10 +120,12 @@ export function ItemForm({
   initial,
   recipe: initialRecipe,
   skills,
+  materialItems,
 }: {
   initial: Item;
   recipe?: RecipeFormData | null;
   skills: SkillOption[];
+  materialItems: MaterialItem[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -152,7 +154,7 @@ export function ItemForm({
   function addIngredient() {
     setRecipe(prev => prev ? {
       ...prev,
-      ingredients: [...prev.ingredients, { item_name: '', quantity: 1 }],
+      ingredients: [...prev.ingredients, { item_id: '', tier: null, quantity: 1 }],
     } : null);
   }
 
@@ -163,11 +165,11 @@ export function ItemForm({
     } : null);
   }
 
-  function setIngredient(i: number, field: 'item_name' | 'quantity', value: string | number) {
+  function setIngredient(i: number, patch: Partial<RecipeIngredient>) {
     setRecipe(prev => {
       if (!prev) return prev;
       const next = [...prev.ingredients];
-      next[i] = { ...next[i], [field]: value };
+      next[i] = { ...next[i], ...patch };
       return { ...prev, ingredients: next };
     });
   }
@@ -514,11 +516,6 @@ export function ItemForm({
                         value={recipe.required_skill_level}
                         onChange={e => setRecipeField('required_skill_level', Number(e.target.value))} />
                     </Field>
-                    <Field label="Success Chance (%)">
-                      <Input type="number" min={1} max={95}
-                        value={recipe.base_success_chance}
-                        onChange={e => setRecipeField('base_success_chance', Number(e.target.value))} />
-                    </Field>
                     <Field label="Craft Time (s)">
                       <Input type="number" min={1}
                         value={recipe.craft_time_seconds}
@@ -537,18 +534,41 @@ export function ItemForm({
                     {recipe.ingredients.length === 0 && (
                       <p className="text-xs text-muted-foreground italic">No ingredients yet.</p>
                     )}
-                    {recipe.ingredients.map((ing, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <Input value={ing.item_name}
-                          onChange={e => setIngredient(i, 'item_name', e.target.value)}
-                          placeholder="item_slug" className="flex-1" />
-                        <input type="number" min={1} value={ing.quantity}
-                          onChange={e => setIngredient(i, 'quantity', Number(e.target.value))}
-                          className="w-16 px-2 py-2 text-sm bg-background border border-border rounded-md text-body focus:outline-none focus:ring-1 focus:ring-ring text-center" />
-                        <button type="button" onClick={() => removeIngredient(i)}
-                          className="p-1 text-muted-foreground hover:text-destructive transition-colors text-lg leading-none">×</button>
-                      </div>
-                    ))}
+                    {recipe.ingredients.map((ing, i) => {
+                      const mat = materialItems.find(m => m.id === ing.item_id);
+                      const maxTier = mat?.equipment_tier ?? null;
+                      return (
+                        <div key={i} className="flex items-center gap-2">
+                          <Select
+                            value={ing.item_id}
+                            onChange={e => setIngredient(i, { item_id: e.target.value, tier: null })}
+                            className="flex-1"
+                          >
+                            <option value="">Select material…</option>
+                            {materialItems.map(m => (
+                              <option key={m.id} value={m.id}>{m.display_name}</option>
+                            ))}
+                          </Select>
+                          {maxTier && maxTier > 0 && (
+                            <Select
+                              value={ing.tier ?? ''}
+                              onChange={e => setIngredient(i, { tier: e.target.value ? Number(e.target.value) : null })}
+                              className="w-20"
+                            >
+                              <option value="">Tier</option>
+                              {Array.from({ length: maxTier }, (_, t) => t + 1).map(t => (
+                                <option key={t} value={t}>T{t}</option>
+                              ))}
+                            </Select>
+                          )}
+                          <input type="number" min={1} value={ing.quantity}
+                            onChange={e => setIngredient(i, { quantity: Number(e.target.value) })}
+                            className="w-16 px-2 py-2 text-sm bg-background border border-border rounded-md text-body focus:outline-none focus:ring-1 focus:ring-ring text-center" />
+                          <button type="button" onClick={() => removeIngredient(i)}
+                            className="p-1 text-muted-foreground hover:text-destructive transition-colors text-lg leading-none">×</button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
