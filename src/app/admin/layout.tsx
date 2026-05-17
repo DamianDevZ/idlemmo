@@ -5,8 +5,9 @@ import { ReactNode } from 'react';
 const NAV = [
   { href: '/admin',             label: '📊 Dashboard' },
   { label: '── Game ──',        href: null },
-  { href: '/admin/items',       label: '⚔️  Items' },
-  { href: '/admin/enemies',     label: '👹 Enemies' },
+  { href: '/admin/items',         label: '⚔️  Items' },
+  { href: '/admin/weapon-types',  label: '🗡️  Weapon Types' },
+  { href: '/admin/enemies',       label: '👹 Enemies' },
   { href: '/admin/formulas',    label: '⚙️  Formulas & Config' },
   { label: '── Players ──',     href: null },
   { href: '/admin/players',     label: '👥 Ledger' },

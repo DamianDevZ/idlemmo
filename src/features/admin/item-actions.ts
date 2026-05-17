@@ -29,6 +29,8 @@ export type ItemFormData = {
   is_tiered?: boolean;
   consumable_effects?: object[];
   tool_config?: object;
+  weapon_type_id?: string | null;
+  compatible_weapon_type_ids?: string[];
 };
 
 export type RecipeIngredient = { item_id: string; tier: number | null; quantity: number };

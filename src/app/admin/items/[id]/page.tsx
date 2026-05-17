@@ -17,6 +17,8 @@ const BLANK = {
   is_tiered: true,
   consumable_effects: [],
   tool_config: {},
+  weapon_type_id: null,
+  compatible_weapon_type_ids: [],
 };
 
 export default async function ItemEditorPage({
@@ -32,8 +34,8 @@ export default async function ItemEditorPage({
   const isNew = id === 'new';
   const db = createAdminClient();
 
-  // Load item, skills, material items, existing recipe, and global config in parallel
-  const [itemResult, skillsResult, materialsResult, recipeResult, configResult] = await Promise.all([
+  // Load item, skills, material items, existing recipe, weapon types, and global config in parallel
+  const [itemResult, skillsResult, materialsResult, recipeResult, weaponTypesResult, configResult] = await Promise.all([
     isNew
       ? Promise.resolve({ data: null })
       : db.from('item_definitions').select('*').eq('id', id).single(),
@@ -42,10 +44,12 @@ export default async function ItemEditorPage({
     isNew
       ? Promise.resolve({ data: null })
       : db.from('recipes').select('*').eq('output_item_id', id).maybeSingle(),
+    db.from('weapon_types').select('id, name, display_name').order('display_name'),
     db.from('game_config').select('value').eq('key', 'max_tier').single(),
   ]);
 
   const maxTier = Number((configResult as { data: { value: number } | null }).data?.value ?? 5);
+  const weaponTypes = (weaponTypesResult.data ?? []) as { id: string; name: string; display_name: string }[];
 
   if (!isNew && !itemResult.data) notFound();
 
@@ -102,6 +106,7 @@ export default async function ItemEditorPage({
         recipe={recipe}
         skills={skills}
         materialItems={materialItems}
+        weaponTypes={weaponTypes}
         maxTier={maxTier}
       />
     </div>

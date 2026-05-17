@@ -46,6 +46,8 @@ type Item = {
   is_tiered: boolean;
   consumable_effects: ConsumableEffect[];
   tool_config: ToolConfig;
+  weapon_type_id: string | null;
+  compatible_weapon_type_ids: string[];
 };
 
 type ToolConfig = {
@@ -59,6 +61,7 @@ type ToolConfig = {
 
 export type SkillOption = { id: string; name: string; display_name: string; category: string };
 export type MaterialItem = { id: string; name: string; display_name: string; equipment_tier: number | null; is_tiered: boolean };
+export type WeaponType  = { id: string; name: string; display_name: string };
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -118,6 +121,8 @@ const EFFECT_TARGET_GROUPS: { group: string; targets: { key: string; label: stri
 ];
 
 const BLANK_EFFECT: ConsumableEffect = { trigger: 'instant', target: 'hp', value: 0 };
+
+const TYPES_LABELS: Record<string, string> = { special_attack: 'Ultimate' };
 
 const MATERIAL_TYPES = ['metal','leather','cloth'];
 const SCALE_ATTRS = ['str','dex','int'];
@@ -193,12 +198,14 @@ export function ItemForm({
   recipe: initialRecipe,
   skills,
   materialItems,
+  weaponTypes,
   maxTier,
 }: {
   initial: Item;
   recipe?: RecipeFormData | null;
   skills: SkillOption[];
   materialItems: MaterialItem[];
+  weaponTypes: WeaponType[];
   maxTier: number;
 }) {
   const router = useRouter();
@@ -343,6 +350,7 @@ export function ItemForm({
   const showMaterial = item.type === 'material';
   const showConsumable = item.type === 'consumable';
   const showTool = item.type === 'tool';
+  const showUltimate = item.type === 'special_attack';
   // Materials don't have a fixed tier — they span all tiers when is_tiered=true
   const showEquipTier = ['weapon','armor','tool','consumable'].includes(item.type);
   // Refined materials have a crafting recipe; weapon/armor use crafting skills, refined use refining skills
@@ -392,7 +400,7 @@ export function ItemForm({
           <div className="grid grid-cols-2 gap-3">
             <Field label="Type">
               <Select value={item.type} onChange={e => set('type', e.target.value)}>
-                {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                {TYPES.map(t => <option key={t} value={t}>{TYPES_LABELS[t] ?? t}</option>)}
               </Select>
             </Field>
             <Field label="Rarity">
@@ -490,6 +498,14 @@ export function ItemForm({
                     {MATERIAL_TYPES.map(m => <option key={m} value={m}>{m}</option>)}
                   </Select>
                 </Field>
+                <Field label="Weapon Type">
+                  <Select value={item.weapon_type_id ?? ''} onChange={e => set('weapon_type_id', e.target.value || null)}>
+                    <option value="">None</option>
+                    {weaponTypes.map(wt => (
+                      <option key={wt.id} value={wt.id}>{wt.display_name}</option>
+                    ))}
+                  </Select>
+                </Field>
               </div>
 
               <div className="border-t border-border pt-4 space-y-3">
@@ -512,7 +528,7 @@ export function ItemForm({
                   </Field>
                 </div>
                 <p className="text-xs text-muted-foreground italic">
-                  Secondary scaling is configured per special attack, not on the weapon.
+                  Secondary scaling is configured per Ultimate, not on the weapon.
                 </p>
               </div>
 
@@ -982,8 +998,76 @@ export function ItemForm({
             </div>
           )}
 
+          {/* ── Ultimate stats ──────────────────────────────────────── */}
+          {showUltimate && (
+            <div className="bg-card border border-border rounded-lg p-5 space-y-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Ultimate Stats</p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Damage Type">
+                  <Select value={item.primary_damage_type ?? ''} onChange={e => set('primary_damage_type', e.target.value || null)}>
+                    <option value="">None</option>
+                    {DAMAGE_TYPES.map(d => <option key={d} value={d}>{d}</option>)}
+                  </Select>
+                </Field>
+              </div>
+
+              <div className="border-t border-border pt-4 space-y-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Attribute Scaling</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">S=1.5× A=1.4× B=1.3× C=1.2× D=1.1× F=1.0×</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Attribute">
+                    <Select value={item.primary_scaling_attr ?? ''} onChange={e => set('primary_scaling_attr', e.target.value || null)}>
+                      <option value="">None</option>
+                      {SCALE_ATTRS.map(a => <option key={a} value={a}>{a.toUpperCase()}</option>)}
+                    </Select>
+                  </Field>
+                  <Field label="Grade">
+                    <Select value={item.primary_scaling_grade ?? ''} onChange={e => set('primary_scaling_grade', e.target.value || null)}>
+                      <option value="">None</option>
+                      {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+                    </Select>
+                  </Field>
+                </div>
+              </div>
+
+              <div className="border-t border-border pt-4 space-y-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Compatible Weapon Types</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">This Ultimate can only be bound to weapons of these types.</p>
+                </div>
+                {weaponTypes.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic">No weapon types defined yet. <a href="/admin/weapon-types" className="underline hover:text-body">Add some here.</a></p>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  {weaponTypes.map(wt => {
+                    const checked = item.compatible_weapon_type_ids.includes(wt.id);
+                    return (
+                      <label key={wt.id} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={e => {
+                            const next = e.target.checked
+                              ? [...item.compatible_weapon_type_ids, wt.id]
+                              : item.compatible_weapon_type_ids.filter(id => id !== wt.id);
+                            set('compatible_weapon_type_ids', next);
+                          }}
+                          className="w-4 h-4 rounded border-border"
+                        />
+                        <span className="text-sm text-body">{wt.display_name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Placeholder for non-equipment types */}
-          {!showWeapon && !showArmor && !showMaterial && !showConsumable && !showTool && (
+          {!showWeapon && !showArmor && !showMaterial && !showConsumable && !showTool && !showUltimate && (
             <div className="bg-card border border-border rounded-lg p-8 flex items-center justify-center">
               <p className="text-sm text-muted-foreground">No additional stats for this item type.</p>
             </div>
