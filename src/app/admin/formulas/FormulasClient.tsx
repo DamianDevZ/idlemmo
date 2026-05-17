@@ -53,8 +53,8 @@ const CAT_META: Record<string, { title: string; icon: string; formula: string; d
   combat_damage: {
     title: 'Combat — Damage',
     icon: '⚔️',
-    formula: 'damage    = weaponBase × (1 + scalingAttr / divisor) × skillMult\nreduction = armor / (armor + armorDivisor)  [hyperbolic, never hits 100%]\n\nEach weapon has its own Scaling Attribute (STR / DEX / INT), set in the Items admin.\nThe matching divisor below controls how much that attribute boosts damage.',
-    desc: 'Lower divisor = each attribute point adds more damage. Armor divisor uses a curve that never reaches 100%, so armor always helps but never makes you invincible.',
+    formula: 'Each weapon has a Base Damage and a Scaling Attribute (STR, DEX, or INT) that you set in the Items admin.\n\nFinal damage = weapon base × (1 + your attribute ÷ divisor)\n\nA lower divisor means each attribute point adds more damage. The divisors below let you tune how powerful STR, DEX, and INT are for the weapons that use them.',
+    desc: 'Armor uses a separate curve (base ÷ divisor) that never reaches 100% — so more armor always helps, but nothing makes you invincible.',
   },
   combat_speed_crit: {
     title: 'Combat — Speed & Crits',
@@ -169,13 +169,13 @@ const FIELD_EXAMPLES: Record<string, (v: number) => string> = {
 
   // Combat — Damage
   str_scaling_divisor: v =>
-    `STR-scaling weapons deal: weaponBase × (1 + STR / ${v}). At 20 STR: ×${(1 + 20 / v).toFixed(2)} multiplier. A sword with 50 base damage deals ${Math.round(50 * (1 + 20 / v))} at 20 STR. Halving this divisor roughly doubles the STR bonus. Set a weapon's Scaling Attribute to STR in the Items admin to use this.`,
+    `With divisor ${v}, a fighter with 20 STR deals ${(1 + 20 / v).toFixed(2)}× their weapon's base damage. A sword with 50 base hits for ${Math.round(50 * (1 + 20 / v))}. Lower this number to make STR-scaling weapons hit harder per point of STR.`,
   dex_scaling_divisor: v =>
-    `DEX-scaling weapons deal: weaponBase × (1 + DEX / ${v}). At 20 DEX: ×${(1 + 20 / v).toFixed(2)} multiplier. A dagger with 40 base damage hits for ${Math.round(40 * (1 + 20 / v))} at 20 DEX. Assign DEX scaling to any weapon in the Items admin.`,
+    `With divisor ${v}, a fighter with 20 DEX deals ${(1 + 20 / v).toFixed(2)}× their weapon's base damage. A dagger with 40 base hits for ${Math.round(40 * (1 + 20 / v))}. Lower this number to make DEX-scaling weapons hit harder per point of DEX.`,
   int_scaling_divisor: v =>
-    `INT-scaling weapons deal: weaponBase × (1 + INT / ${v}). At 20 INT: ×${(1 + 20 / v).toFixed(2)} multiplier. A staff with 60 base damage deals ${Math.round(60 * (1 + 20 / v))} at 20 INT. Assign INT scaling to staves or spellcasting weapons in the Items admin.`,
+    `With divisor ${v}, a fighter with 20 INT deals ${(1 + 20 / v).toFixed(2)}× their weapon's base damage. A staff with 60 base hits for ${Math.round(60 * (1 + 20 / v))}. Lower this number to make INT-scaling weapons hit harder per point of INT.`,
   armor_divisor: v =>
-    `reduction = armor / (armor + ${v}). At 50 armor: ${(50 / (50 + v) * 100).toFixed(1)}% damage reduction. At 100 armor: ${(100 / (100 + v) * 100).toFixed(1)}%. This curve is hyperbolic — armor never reaches 100%. Lowering this number makes armor feel much stronger.`,
+    `With divisor ${v}: 50 armor blocks ${(50 / (50 + v) * 100).toFixed(1)}% of incoming damage; 100 armor blocks ${(100 / (100 + v) * 100).toFixed(1)}%. The more armor you have, the less each extra point adds — you can never reach 100% block. Lowering this number makes armor dramatically stronger.`,
 
   // Combat — Speed & Crits
   dex_speed_divisor: v =>
@@ -315,14 +315,14 @@ function FieldPanel({
   return (
     <div
       className={[
-        'rounded-lg border p-4 flex flex-col gap-2.5 transition-colors',
+        'rounded-xl border p-5 flex flex-col gap-3.5 transition-colors',
         dirty ? 'border-amber-500/50 bg-amber-500/5' : 'border-border bg-background',
       ].join(' ')}
     >
       {/* Label + Input */}
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-semibold text-heading leading-snug pt-0.5">{row.label}</p>
-        <div className="flex items-center gap-1.5 shrink-0">
+      <div className="flex items-start justify-between gap-4">
+        <p className="text-base font-bold text-heading leading-snug">{row.label}</p>
+        <div className="flex items-center gap-2 shrink-0">
           <input
             type="number"
             value={value}
@@ -331,34 +331,31 @@ function FieldPanel({
             max={row.max_value ?? undefined}
             onChange={e => onChange(row.key, e.target.value)}
             className={[
-              'w-24 text-right text-sm px-2.5 py-1 rounded-md border bg-card',
+              'w-28 text-right text-base px-3 py-2 rounded-lg border bg-card font-semibold',
               'focus:outline-none focus:ring-1 focus:ring-primary transition-colors',
               dirty ? 'border-amber-500/60 text-amber-300' : 'border-border text-foreground',
             ].join(' ')}
           />
           {row.unit && (
-            <span className="text-xs text-muted-foreground w-8 shrink-0 leading-none">{row.unit}</span>
+            <span className="text-sm text-muted-foreground w-10 shrink-0">{row.unit}</span>
           )}
         </div>
       </div>
 
-      {/* Short DB description */}
-      {row.description && (
-        <p className="text-xs text-muted-foreground leading-relaxed">{row.description}</p>
+      {/* Show DB description only when there's no live example */}
+      {!exampleText && row.description && (
+        <p className="text-sm text-muted-foreground leading-relaxed">{row.description}</p>
       )}
 
-      {/* Live example */}
+      {/* Live example — replaces the raw DB description */}
       {exampleText && (
-        <div className="rounded-md bg-primary/5 border border-primary/15 px-3 py-2">
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            <span className="text-primary font-semibold">Example: </span>
-            {exampleText}
-          </p>
+        <div className="rounded-lg bg-primary/5 border border-primary/15 px-4 py-3">
+          <p className="text-sm leading-relaxed text-body">{exampleText}</p>
         </div>
       )}
 
       {dirty && (
-        <p className="text-[10px] text-amber-400/70">Previously saved: {savedValue}</p>
+        <p className="text-xs text-amber-400/80">Previously saved: {savedValue}</p>
       )}
     </div>
   );
@@ -452,12 +449,10 @@ function CategoryCard({
 
       {open && (
         <div className="border-t border-border">
-          {/* Formula block + description */}
-          <div className="px-5 pt-4 pb-3 space-y-2">
-            <pre className="text-[11px] font-mono bg-background border border-border rounded-lg px-4 py-3 text-muted-foreground overflow-x-auto whitespace-pre leading-relaxed">
-              {meta.formula}
-            </pre>
-            <p className="text-xs text-muted-foreground leading-relaxed">{meta.desc}</p>
+          {/* Category description */}
+          <div className="px-5 pt-4 pb-3">
+            <p className="text-sm text-body leading-relaxed whitespace-pre-line">{meta.formula}</p>
+            <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{meta.desc}</p>
           </div>
 
           {/* Field panels */}
