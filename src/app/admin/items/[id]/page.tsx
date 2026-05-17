@@ -40,7 +40,7 @@ export default async function ItemEditorPage({ params }: { params: Promise<{ id:
     id: s.id,
     name: s.name,
     display_name: s.display_name,
-    category: (s.skill_categories as { name: string } | null)?.name ?? '',
+    category: (s.skill_categories as unknown as { name: string } | null)?.name ?? '',
   }));
 
   let recipe: RecipeFormData | null = null;
