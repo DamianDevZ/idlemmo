@@ -1,0 +1,19 @@
+{
+"servers": {
+"supabase": {
+"type": "http",
+"url": "https://mcp.supabase.com/mcp?project_ref=akgsddyzaprahykweups",
+"headers": {
+"Authorization": "Bearer ${input:supabase-pat}"
+}
+}
+},
+"inputs": [
+{
+"id": "supabase-pat",
+"type": "promptString",
+"description": "Supabase Personal Access Token",
+"password": true
+}
+]
+}

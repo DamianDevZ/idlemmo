@@ -207,7 +207,8 @@ export function ItemForm({ initial }: { initial: Item }) {
                 {SCALE_ATTRS.map(a => <option key={a} value={a}>{a.toUpperCase()}</option>)}
               </Select>
             </Field>
-            <Field label="Primary Grade (S=50% A=40% B=30% C=20% D=10% F=2%)">
+            <Field label="Primary Grade  (S=1.5×  A=1.4×  B=1.3×  C=1.2×  D=1.1×  F=1.0×)">
+&
               <Select value={item.primary_scaling_grade ?? ''} onChange={e => set('primary_scaling_grade', e.target.value || null)}>
                 <option value="">None</option>
                 {GRADES.map(g => <option key={g} value={g}>{g}</option>)}

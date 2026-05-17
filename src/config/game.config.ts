@@ -56,14 +56,17 @@ export const GAME_CONFIG = {
     // Rare / quality drop bonus per point of arcane (added to %)
     arcaneRareFactor: 0.1,
 
-    // Combat — STR-scaling weapons: dmg = weaponBase × (1 + str / DIVISOR)
-    strScalingDivisor: 20,
-
-    // Combat — DEX-scaling weapons: dmg = weaponBase × (1 + dex / DIVISOR)
-    dexScalingDivisor: 20,
-
-    // Combat — INT-scaling weapons: dmg = spellBase × (1 + int / DIVISOR)
-    intScalingDivisor: 20,
+    // Combat — tiered stat contribution to damage
+    // final_damage = weapon_base + round(stat_bonus × grade_mult)
+    // stat_bonus sums contributions across four diminishing tiers.
+    statTier1Rate: 5,   // damage per stat point, levels 1–30
+    statTier2Rate: 3,   // damage per stat point, levels 31–60
+    statTier3Rate: 2,   // damage per stat point, levels 61–100
+    statTier4Rate: 1,   // damage per stat point, levels 101+
+    statTier1Cap: 30,   // tier 1 ends at this stat level
+    statTier2Cap: 60,   // tier 2 ends at this stat level
+    statTier3Cap: 100,  // tier 3 ends at this stat level
+    // Grade multipliers are hardcoded: F=1.0 D=1.1 C=1.2 B=1.3 A=1.4 S=1.5
 
     // Combat — attack speed: speed = weaponBase × (1 + dex / DIVISOR)
     dexSpeedDivisor: 25,

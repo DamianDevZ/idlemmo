@@ -53,8 +53,8 @@ const CAT_META: Record<string, { title: string; icon: string; formula: string; d
   combat_damage: {
     title: 'Combat — Damage',
     icon: '⚔️',
-    formula: 'Each weapon has a Base Damage and a Scaling Attribute (STR, DEX, or INT) that you set in the Items admin.\n\nFinal damage = weapon base × (1 + your attribute ÷ divisor)\n\nA lower divisor means each attribute point adds more damage. The divisors below let you tune how powerful STR, DEX, and INT are for the weapons that use them.',
-    desc: 'Armor uses a separate curve (base ÷ divisor) that never reaches 100% — so more armor always helps, but nothing makes you invincible.',
+    formula: 'Each weapon has a Base Damage, a Scaling Attribute (STR, DEX, or INT), and a Grade (F–S) — all set in the Items admin.\n\nFinal damage = weapon base + round(stat bonus × grade multiplier)\n\nStat bonus grows across four tiers with diminishing returns. Grade multiplies that bonus: F=1.0×, D=1.1×, C=1.2×, B=1.3×, A=1.4×, S=1.5×.\n\nGrade determines how much your stats amplify the weapon — a higher grade rewards building around the weapon\'s scaling attribute.',
+    desc: 'Armor uses a separate curve that never reaches 100% block — so more armor always helps, but nothing makes you invincible.',
   },
   combat_speed_crit: {
     title: 'Combat — Speed & Crits',
@@ -168,12 +168,20 @@ const FIELD_EXAMPLES: Record<string, (v: number) => string> = {
     `rareChance% += Arcane × ${v}. At 10 Arcane: +${(10 * v).toFixed(1)}% rare quality drops. At 20 Arcane: +${(20 * v).toFixed(1)}%. Stacks additively with skill-level rare bonuses.`,
 
   // Combat — Damage
-  str_scaling_divisor: v =>
-    `With divisor ${v}, a fighter with 20 STR deals ${(1 + 20 / v).toFixed(2)}× their weapon's base damage. A sword with 50 base hits for ${Math.round(50 * (1 + 20 / v))}. Lower this number to make STR-scaling weapons hit harder per point of STR.`,
-  dex_scaling_divisor: v =>
-    `With divisor ${v}, a fighter with 20 DEX deals ${(1 + 20 / v).toFixed(2)}× their weapon's base damage. A dagger with 40 base hits for ${Math.round(40 * (1 + 20 / v))}. Lower this number to make DEX-scaling weapons hit harder per point of DEX.`,
-  int_scaling_divisor: v =>
-    `With divisor ${v}, a fighter with 20 INT deals ${(1 + 20 / v).toFixed(2)}× their weapon's base damage. A staff with 60 base hits for ${Math.round(60 * (1 + 20 / v))}. Lower this number to make INT-scaling weapons hit harder per point of INT.`,
+  stat_tier1_rate: v =>
+    `Each stat point in levels 1–30 adds ${v} flat damage. A fighter with 30 STR earns ${30 * v} bonus damage from tier 1 alone. With an S-grade weapon (1.5×): ${Math.round(30 * v * 1.5)} bonus damage, with an F-grade (1.0×): ${Math.round(30 * v * 1.0)}.`,
+  stat_tier2_rate: v =>
+    `Each stat point in levels 31–60 adds ${v} flat damage. At 60 STR, tier 2 contributes ${30 * v} bonus damage. Combined with tier 1 at default 5/pt: ${30 * 5 + 30 * v} total bonus before grade multiplier.`,
+  stat_tier3_rate: v =>
+    `Each stat point in levels 61–100 adds ${v} flat damage. At 100 STR, tier 3 adds ${40 * v}. Full bonus at 100 STR (defaults 5/3/v per tier): ${30 * 5 + 30 * 3 + 40 * v} before grade multiplier.`,
+  stat_tier4_rate: v =>
+    `Each stat point above level 100 adds ${v} flat damage. With the minimum F grade (1.0×) every level gives +${Math.round(v * 1.0)} damage; with S grade (1.5×) every level gives +${Math.round(v * 1.5)}. Every single level still shows a difference.`,
+  stat_tier1_cap: v =>
+    `The Tier 1 rate applies to stat levels 1 through ${v}. These are the most rewarding levels to invest in. Raising this cap extends the high-yield zone before diminishing returns kick in.`,
+  stat_tier2_cap: v =>
+    `Tier 2 rate applies from the Tier 1 cap up to level ${v}. This sets the mid-game plateau. Above ${v}, investment continues at the Tier 3 rate.`,
+  stat_tier3_cap: v =>
+    `Tier 3 rate applies up to level ${v}. Above this cap, any further investment uses the Tier 4 (baseline) rate indefinitely — every level still adds damage, just at the slowest pace.`,
   armor_divisor: v =>
     `With divisor ${v}: 50 armor blocks ${(50 / (50 + v) * 100).toFixed(1)}% of incoming damage; 100 armor blocks ${(100 / (100 + v) * 100).toFixed(1)}%. The more armor you have, the less each extra point adds — you can never reach 100% block. Lowering this number makes armor dramatically stronger.`,
 
