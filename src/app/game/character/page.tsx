@@ -209,9 +209,9 @@ export default async function CharacterPage() {
           <div className="space-y-2">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">⚔️ Damage (Str / Dex / Int)</p>
             <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
-              <StatRow label="Melee (Str)"   value={`×${derived.meleeDamageMult.toFixed(2)}`} />
-              <StatRow label="Ranged (Dex)"  value={`×${derived.rangedDamageMult.toFixed(2)}`} />
-              <StatRow label="Magic (Int)"   value={`×${derived.magicDamageMult.toFixed(2)}`} />
+              <StatRow label="Melee (Str)"   value={`+${derived.strDmgBonus} dmg`} />
+              <StatRow label="Ranged (Dex)"  value={`+${derived.dexDmgBonus} dmg`} />
+              <StatRow label="Magic (Int)"   value={`+${derived.intDmgBonus} dmg`} />
               <StatRow label="Defense"       value={`${(derived.defenseReduction * 100).toFixed(0)}% reduction`} />
             </div>
           </div>

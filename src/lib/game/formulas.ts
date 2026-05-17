@@ -73,14 +73,10 @@ export function calcDerivedStats(attrs: DbCharacterAttributes, armorRating: numb
 
     craftSuccessBonus: attrs.faith * A.faithCraftBonus,
 
-    meleeDamageMult:
-      (1 + attrs.strength / A.strMeleeDivisor),
-
-    rangedDamageMult:
-      (1 + attrs.dexterity / A.dexRangedDivisor),
-
-    magicDamageMult:
-      (1 + attrs.intelligence / A.intMagicDivisor),
+    // Combat — flat stat bonus added to weapon base damage (tiered diminishing returns)
+    strDmgBonus: Math.round(calcTieredStatBonus(attrs.strength)),
+    dexDmgBonus: Math.round(calcTieredStatBonus(attrs.dexterity)),
+    intDmgBonus: Math.round(calcTieredStatBonus(attrs.intelligence)),
 
     attackSpeedMult:
       (1 + attrs.dexterity / A.dexSpeedDivisor),
@@ -156,21 +152,39 @@ export function calcRareChance(
 
 // ─── Combat ───────────────────────────────────────────────────────────────────
 
+/**
+ * Flat damage bonus from a stat using tiered diminishing returns.
+ * Mirrors the SQL formula in join_arena_queue so TypeScript previews match the DB.
+ * Tier 1 (1–30): ×5 | Tier 2 (31–60): ×3 | Tier 3 (61–100): ×2 | Tier 4 (101+): ×1
+ */
+export function calcTieredStatBonus(stat: number): number {
+  const t1 = A.statTier1Cap;
+  const t2 = A.statTier2Cap;
+  const t3 = A.statTier3Cap;
+  return (
+    Math.min(stat, t1) * A.statTier1Rate +
+    Math.max(0, Math.min(stat, t2) - t1) * A.statTier2Rate +
+    Math.max(0, Math.min(stat, t3) - t2) * A.statTier3Rate +
+    Math.max(0, stat - t3) * A.statTier4Rate
+  );
+}
+
 /** Skill combat multiplier: 1 + level × FACTOR */
 export function calcSkillCombatMult(skillLevel: number): number {
   return 1 + skillLevel * S.combatDamageFactor;
 }
 
+/** Melee damage for exploration combat (uses tiered STR bonus, grade-independent). */
 export function calcMeleeDamage(weaponBase: number, strength: number, skillLevel: number): number {
-  return weaponBase * (1 + strength / A.strMeleeDivisor) * calcSkillCombatMult(skillLevel);
+  return (weaponBase + Math.round(calcTieredStatBonus(strength))) * calcSkillCombatMult(skillLevel);
 }
 
 export function calcRangedDamage(weaponBase: number, dexterity: number, skillLevel: number): number {
-  return weaponBase * (1 + dexterity / A.dexRangedDivisor) * calcSkillCombatMult(skillLevel);
+  return (weaponBase + Math.round(calcTieredStatBonus(dexterity))) * calcSkillCombatMult(skillLevel);
 }
 
 export function calcMagicDamage(spellBase: number, intelligence: number, skillLevel: number): number {
-  return spellBase * (1 + intelligence / A.intMagicDivisor) * calcSkillCombatMult(skillLevel);
+  return (spellBase + Math.round(calcTieredStatBonus(intelligence))) * calcSkillCombatMult(skillLevel);
 }
 
 export function calcAttackSpeed(weaponBaseSpeed: number, dexterity: number): number {

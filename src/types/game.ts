@@ -322,10 +322,10 @@ export interface DerivedStats {
   // Refine / craft
   refineEfficiencyMult: number;
   craftSuccessBonus: number;   // percentage points
-  // Combat
-  meleeDamageMult: number;
-  rangedDamageMult: number;
-  magicDamageMult: number;
+  // Combat — flat bonus added to weapon base (tiered diminishing returns per stat point)
+  strDmgBonus: number;
+  dexDmgBonus: number;
+  intDmgBonus: number;
   attackSpeedMult: number;
   critChance: number;          // %
   critDamageMult: number;
