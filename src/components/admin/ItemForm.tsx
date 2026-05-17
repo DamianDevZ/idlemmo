@@ -443,6 +443,40 @@ export function ItemForm({
 
               <div className="border-t border-border pt-4 space-y-3">
                 <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Damage Resistances</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Positive = resist · Negative = weakness · &ldquo;true&rdquo; damage bypasses all
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-x-5 gap-y-2">
+                  {RESIST_TYPES.map(rt => {
+                    const entry = resistances[rt.key];
+                    const val = entry?.value ?? 0;
+                    const valueColor = val > 0 ? 'text-green-400' : val < 0 ? 'text-red-400' : 'text-muted-foreground';
+                    return (
+                      <div key={rt.key} className="flex items-center gap-2">
+                        <span className="text-sm text-body w-24 shrink-0">{rt.emoji} {rt.label}</span>
+                        <input
+                          type="number"
+                          value={val}
+                          onChange={e => setResist(rt.key, 'value', Number(e.target.value))}
+                          className={`w-14 px-2 py-1.5 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-ring text-center ${valueColor}`}
+                        />
+                        <Select
+                          value={entry?.mode ?? 'percent'}
+                          onChange={e => setResist(rt.key, 'mode', e.target.value as ResistanceMode)}
+                        >
+                          <option value="percent">%</option>
+                          <option value="flat">flat</option>
+                        </Select>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="border-t border-border pt-4 space-y-3">
+                <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Mastery Requirement</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     Usage skill needed to equip. Level auto-set by tier ({tierOptions.map(t => `T${t}=L${tierToLevel(t)}`).join(' · ')}).
