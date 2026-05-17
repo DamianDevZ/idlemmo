@@ -48,13 +48,13 @@ const DAMAGE_TYPES = ['slash','pierce','blunt','bleed','fire','ice','poison','li
 // Resistance grid excludes 'true' — true damage bypasses all armor
 const RESIST_TYPES: { key: string; label: string; emoji: string }[] = [
   { key: 'slash',     label: 'Slash',     emoji: '⚔️' },
-  { key: 'blunt',     label: 'Blunt',     emoji: '🔨' },
-  { key: 'pierce',    label: 'Pierce',    emoji: '🏹' },
-  { key: 'bleed',     label: 'Bleed',     emoji: '🩸' },
   { key: 'fire',      label: 'Fire',      emoji: '🔥' },
+  { key: 'pierce',    label: 'Pierce',    emoji: '🏹' },
   { key: 'ice',       label: 'Ice',       emoji: '❄️' },
-  { key: 'lightning', label: 'Lightning', emoji: '⚡' },
+  { key: 'blunt',     label: 'Blunt',     emoji: '🔨' },
   { key: 'poison',    label: 'Poison',    emoji: '☠️' },
+  { key: 'bleed',     label: 'Bleed',     emoji: '🩸' },
+  { key: 'lightning', label: 'Lightning', emoji: '⚡' },
 ];
 const MATERIAL_TYPES = ['metal','leather','cloth'];
 const SCALE_ATTRS = ['str','dex','int'];
