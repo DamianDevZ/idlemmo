@@ -12,6 +12,7 @@ const BLANK = {
   material_type: null, primary_scaling_attr: 'str', primary_scaling_grade: 'F',
   secondary_scaling_attr: null, secondary_scaling_grade: null,
   image_url: null, resistances: {},
+  required_mastery_skill_id: null, required_mastery_level: 1,
 };
 
 export default async function ItemEditorPage({ params }: { params: Promise<{ id: string }> }) {
@@ -25,7 +26,7 @@ export default async function ItemEditorPage({ params }: { params: Promise<{ id:
     isNew
       ? Promise.resolve({ data: null })
       : db.from('item_definitions').select('*').eq('id', id).single(),
-    db.from('skills').select('id, name, display_name').order('display_name'),
+    db.from('skills').select('id, name, display_name, skill_categories(name)').order('display_name'),
     isNew
       ? Promise.resolve({ data: null })
       : db.from('recipes').select('*').eq('output_item_id', id).maybeSingle(),
@@ -34,7 +35,13 @@ export default async function ItemEditorPage({ params }: { params: Promise<{ id:
   if (!isNew && !itemResult.data) notFound();
 
   const item = itemResult.data ?? BLANK;
-  const skills = skillsResult.data ?? [];
+  // Normalize the nested join result into a flat shape for ItemForm
+  const skills = (skillsResult.data ?? []).map(s => ({
+    id: s.id,
+    name: s.name,
+    display_name: s.display_name,
+    category: (s.skill_categories as { name: string } | null)?.name ?? '',
+  }));
 
   let recipe: RecipeFormData | null = null;
   if (recipeResult.data) {

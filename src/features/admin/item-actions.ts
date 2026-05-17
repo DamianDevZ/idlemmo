@@ -22,6 +22,8 @@ export type ItemFormData = {
   secondary_scaling_grade: string | null;
   image_url: string | null;
   resistances?: Record<string, { value: number; mode: 'percent' | 'flat' }>;
+  required_mastery_skill_id?: string | null;
+  required_mastery_level?: number | null;
 };
 
 export type RecipeIngredient = { item_name: string; quantity: number };

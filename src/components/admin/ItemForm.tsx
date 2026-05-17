@@ -30,15 +30,17 @@ type Item = {
   secondary_scaling_grade: string | null;
   image_url: string | null;
   resistances?: ResistancesMap;
+  required_mastery_skill_id: string | null;
+  required_mastery_level: number;
 };
 
-export type SkillOption = { id: string; name: string; display_name: string };
+export type SkillOption = { id: string; name: string; display_name: string; category: string };
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const TYPES = ['material','tool','weapon','armor','consumable','misc','special_attack'];
 const RARITIES = ['common','uncommon','rare','epic','legendary'];
-const DAMAGE_TYPES = ['slash','blunt','bleed','pierce','fire','ice','lightning','poison','true'];
+const DAMAGE_TYPES = ['slash','pierce','blunt','bleed','fire','ice','poison','lightning','true'];
 // Resistance grid excludes 'true' — true damage bypasses all armor
 const RESIST_TYPES: { key: string; label: string; emoji: string }[] = [
   { key: 'slash',     label: 'Slash',     emoji: '⚔️' },
@@ -53,6 +55,9 @@ const RESIST_TYPES: { key: string; label: string; emoji: string }[] = [
 const MATERIAL_TYPES = ['metal','leather','cloth'];
 const SCALE_ATTRS = ['str','dex','int'];
 const GRADES = ['S','A','B','C','D','F'];
+
+// Tier → minimum skill level required (crafting + mastery)
+const TIER_LEVELS: Record<number, number> = { 1: 1, 2: 15, 3: 30, 4: 50, 5: 70 };
 
 const BLANK_RECIPE: RecipeFormData = {
   display_name: '',
@@ -165,6 +170,15 @@ export function ItemForm({
       next[i] = { ...next[i], [field]: value };
       return { ...prev, ingredients: next };
     });
+  }
+
+  function handleTierChange(tier: number | null) {
+    set('equipment_tier', tier);
+    if (tier && TIER_LEVELS[tier]) {
+      const lvl = TIER_LEVELS[tier];
+      set('required_mastery_level', lvl);
+      setRecipe(prev => prev ? { ...prev, required_skill_level: lvl } : prev);
+    }
   }
 
   function handleSave() {
@@ -281,7 +295,7 @@ export function ItemForm({
             <Field label="Equipment Tier (1–5)">
               <Input type="number" min={1} max={5}
                 value={item.equipment_tier ?? ''}
-                onChange={e => set('equipment_tier', e.target.value ? Number(e.target.value) : null)} />
+                onChange={e => handleTierChange(e.target.value ? Number(e.target.value) : null)} />
             </Field>
           )}
 
@@ -355,6 +369,30 @@ export function ItemForm({
                   Secondary scaling is configured per special attack, not on the weapon.
                 </p>
               </div>
+
+              <div className="border-t border-border pt-4 space-y-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Mastery Requirement</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Usage skill needed to equip. Level auto-set by tier ({Object.entries(TIER_LEVELS).map(([t,l]) => `T${t}=L${l}`).join(' · ')}).
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Usage Skill">
+                    <Select value={item.required_mastery_skill_id ?? ''} onChange={e => set('required_mastery_skill_id', e.target.value || null)}>
+                      <option value="">None required</option>
+                      {skills.filter(s => s.category === 'usage').map(s => (
+                        <option key={s.id} value={s.id}>{s.display_name}</option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Min Level">
+                    <Input type="number" min={1} max={99}
+                      value={item.required_mastery_level}
+                      onChange={e => set('required_mastery_level', Number(e.target.value))} />
+                  </Field>
+                </div>
+              </div>
             </div>
           )}
 
@@ -408,6 +446,30 @@ export function ItemForm({
                   })}
                 </div>
               </div>
+
+              <div className="border-t border-border pt-4 space-y-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Mastery Requirement</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Usage skill needed to equip. Level auto-set by tier ({Object.entries(TIER_LEVELS).map(([t,l]) => `T${t}=L${l}`).join(' · ')}).
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Usage Skill">
+                    <Select value={item.required_mastery_skill_id ?? ''} onChange={e => set('required_mastery_skill_id', e.target.value || null)}>
+                      <option value="">None required</option>
+                      {skills.filter(s => s.category === 'usage').map(s => (
+                        <option key={s.id} value={s.id}>{s.display_name}</option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Min Level">
+                    <Input type="number" min={1} max={99}
+                      value={item.required_mastery_level}
+                      onChange={e => set('required_mastery_level', Number(e.target.value))} />
+                  </Field>
+                </div>
+              </div>
             </div>
           )}
 
@@ -442,7 +504,9 @@ export function ItemForm({
                       <Select value={recipe.required_skill_id}
                         onChange={e => setRecipeField('required_skill_id', e.target.value)}>
                         <option value="">Select skill…</option>
-                        {skills.map(s => <option key={s.id} value={s.id}>{s.display_name}</option>)}
+                        {skills.filter(s => s.category === 'crafting').map(s => (
+                          <option key={s.id} value={s.id}>{s.display_name}</option>
+                        ))}
                       </Select>
                     </Field>
                     <Field label="Skill Level">
