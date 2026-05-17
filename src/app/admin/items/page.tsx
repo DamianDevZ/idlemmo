@@ -111,7 +111,9 @@ export default async function AdminItemsPage({
       .eq('type', 'material');
     const all = mats ?? [];
     const bySubtype = { raw: 0, refined: 0, unique: 0 } as Record<string, number>;
-    for (const m of all) bySubtype[m.material_subtype ?? 'raw'] = (bySubtype[m.material_subtype ?? 'raw'] ?? 0) + 1;
+    for (const m of all) {
+      if (m.material_subtype) bySubtype[m.material_subtype] = (bySubtype[m.material_subtype] ?? 0) + 1;
+    }
 
     const subtypes = [
       { key: 'raw',     label: 'Raw Materials',     emoji: '🪨', desc: 'Gathered from the world via gathering skills.' },
