@@ -437,51 +437,9 @@ export function ItemForm({
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Armor Stats</p>
 
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Base Defense">
-                  <Input type="number" step="0.01" value={item.base_defense ?? ''} onChange={e => set('base_defense', e.target.value ? Number(e.target.value) : null)} />
-                </Field>
-                <Field label="Material Type">
-                  <Select value={item.material_type ?? ''} onChange={e => set('material_type', e.target.value || null)}>
-                    <option value="">None</option>
-                    {MATERIAL_TYPES.map(m => <option key={m} value={m}>{m}</option>)}
-                  </Select>
-                </Field>
-              </div>
-
-              <div className="border-t border-border pt-4 space-y-3">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Damage Resistances</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Positive = resist · Negative = weakness · &ldquo;true&rdquo; damage bypasses all
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-x-5 gap-y-2">
-                  {RESIST_TYPES.map(rt => {
-                    const entry = resistances[rt.key];
-                    const val = entry?.value ?? 0;
-                    const valueColor = val > 0 ? 'text-green-400' : val < 0 ? 'text-red-400' : 'text-muted-foreground';
-                    return (
-                      <div key={rt.key} className="flex items-center gap-2">
-                        <span className="text-sm text-body w-24 shrink-0">{rt.emoji} {rt.label}</span>
-                        <input
-                          type="number"
-                          value={val}
-                          onChange={e => setResist(rt.key, 'value', Number(e.target.value))}
-                          className={`w-14 px-2 py-1.5 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-ring text-center ${valueColor}`}
-                        />
-                        <Select
-                          value={entry?.mode ?? 'percent'}
-                          onChange={e => setResist(rt.key, 'mode', e.target.value as ResistanceMode)}
-                        >
-                          <option value="percent">%</option>
-                          <option value="flat">flat</option>
-                        </Select>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              <Field label="Base Defense">
+                <Input type="number" step="0.01" value={item.base_defense ?? ''} onChange={e => set('base_defense', e.target.value ? Number(e.target.value) : null)} />
+              </Field>
 
               <div className="border-t border-border pt-4 space-y-3">
                 <div>
