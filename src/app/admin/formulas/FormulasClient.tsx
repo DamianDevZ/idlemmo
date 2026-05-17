@@ -313,6 +313,7 @@ const FIELD_EXAMPLES: Record<string, (v: number) => string> = {
   // Items & Tiers
   max_tier: v =>
     `Items can have up to ${v} tiers. T1 requires level 1; T${v} requires level 70. Tier level gates: ${Array.from({ length: v }, (_, i) => i + 1).map(t => `T${t}=L${v <= 1 ? 1 : Math.max(1, Math.round(1 + (t - 1) * 69 / (v - 1)))}`).join(' · ')}. Raise this to add more endgame content tiers without a code deploy.`,
+};
 
 // ─── Field Panel ──────────────────────────────────────────────────────────
 
