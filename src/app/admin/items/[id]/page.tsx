@@ -16,9 +16,16 @@ const BLANK = {
   material_subtype: null, gathering_skill_id: null,
 };
 
-export default async function ItemEditorPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ItemEditorPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ type?: string; subtype?: string }>;
+}) {
   await requireAdmin();
   const { id } = await params;
+  const { type: qType, subtype: qSubtype } = await searchParams;
   const isNew = id === 'new';
   const db = createAdminClient();
 
@@ -36,7 +43,16 @@ export default async function ItemEditorPage({ params }: { params: Promise<{ id:
 
   if (!isNew && !itemResult.data) notFound();
 
-  const item = itemResult.data ?? BLANK;
+  // When creating a new item, apply type/subtype from URL query params
+  const blankOverride = isNew && qType ? {
+    ...BLANK,
+    type: qType,
+    ...(qSubtype ? { material_subtype: qSubtype } : {}),
+    // Materials are always stackable
+    ...(qType === 'material' ? { stackable: true, equipment_tier: null } : {}),
+  } : BLANK;
+
+  const item = itemResult.data ?? blankOverride;
   // Normalize the nested join result into a flat shape for ItemForm
   const skills = (skillsResult.data ?? []).map(s => ({
     id: s.id,

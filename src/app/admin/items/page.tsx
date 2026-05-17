@@ -97,11 +97,59 @@ const RARITY_COLORS: Record<string, string> = {
 export default async function AdminItemsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; q?: string; sort?: string; rarity?: string }>;
+  searchParams: Promise<{ type?: string; subtype?: string; q?: string; sort?: string; rarity?: string }>;
 }) {
   await requireAdmin();
   const params = await searchParams;
   const db = createAdminClient();
+
+  // ── MATERIAL SUB-OVERVIEW ────────────────────────────────────────────────
+  if (params.type === 'material' && !params.subtype) {
+    const { data: mats } = await db
+      .from('item_definitions')
+      .select('id, material_subtype, rarity')
+      .eq('type', 'material');
+    const all = mats ?? [];
+    const bySubtype = { raw: 0, refined: 0, unique: 0 } as Record<string, number>;
+    for (const m of all) bySubtype[m.material_subtype ?? 'raw'] = (bySubtype[m.material_subtype ?? 'raw'] ?? 0) + 1;
+
+    const subtypes = [
+      { key: 'raw',     label: 'Raw Materials',     emoji: '🪨', desc: 'Gathered from the world via gathering skills.' },
+      { key: 'refined', label: 'Refined Materials',  emoji: '⚙️', desc: 'Crafted from raw materials via refining skills.' },
+      { key: 'unique',  label: 'Unique Materials',   emoji: '💎', desc: 'Special drops from bosses, events, or quests.' },
+    ];
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link href="/admin/items" className="text-sm text-muted-foreground hover:text-body transition-colors">← Overview</Link>
+            <span className="text-muted-foreground">/</span>
+            <h1 className="text-2xl font-bold text-heading">🪨 Materials</h1>
+            <span className="text-sm text-muted-foreground">{all.length} total</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {subtypes.map(st => (
+            <Link key={st.key} href={`/admin/items?type=material&subtype=${st.key}`}
+              className="group bg-card border border-border rounded-xl p-6 hover:border-primary/50 transition-all flex flex-col gap-3">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl leading-none">{st.emoji}</span>
+                  <div>
+                    <h3 className="font-bold text-heading">{st.label}</h3>
+                    <p className="text-xs text-muted-foreground">{bySubtype[st.key] ?? 0} items</p>
+                  </div>
+                </div>
+                <span className="text-muted-foreground group-hover:text-primary transition-colors">→</span>
+              </div>
+              <p className="text-xs text-muted-foreground">{st.desc}</p>
+            </Link>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   // ── CARD OVERVIEW ────────────────────────────────────────────────────────
   if (!params.type) {
@@ -243,13 +291,14 @@ export default async function AdminItemsPage({
   }
 
   // ── LIST MODE ───────────────────────────────────────────────────────────
-  const { type: typeKey, q, sort, rarity } = params;
+  const { type: typeKey, subtype, q, sort, rarity } = params;
   const tc = ITEM_TYPES.find(t => t.key === typeKey);
 
   let query = db
     .from('item_definitions')
-    .select('id, name, display_name, type, rarity, equipment_tier, base_damage, base_defense, primary_damage_type, primary_scaling_attr, primary_scaling_grade, secondary_scaling_attr, secondary_scaling_grade, material_type, stackable, image_url')
+    .select('id, name, display_name, type, rarity, equipment_tier, base_damage, base_defense, primary_damage_type, primary_scaling_attr, primary_scaling_grade, secondary_scaling_attr, secondary_scaling_grade, material_type, material_subtype, stackable, image_url')
     .eq('type', typeKey!);
+  if (subtype) query = query.eq('material_subtype', subtype);
   if (q) query = query.ilike('display_name', `%${q}%`);
   if (rarity) query = query.eq('rarity', rarity);
   if (sort !== 'rarity') query = query.order(sort === 'tier' ? 'equipment_tier' : 'display_name');
@@ -265,12 +314,21 @@ export default async function AdminItemsPage({
         <div className="flex items-center gap-3">
           <Link href="/admin/items" className="text-sm text-muted-foreground hover:text-body transition-colors">← Overview</Link>
           <span className="text-muted-foreground">/</span>
-          <h1 className="text-xl font-bold text-heading">{tc?.emoji} {tc?.label ?? typeKey}</h1>
+          {subtype ? (
+            <>
+              <Link href={`/admin/items?type=${typeKey}`} className="text-sm text-muted-foreground hover:text-body transition-colors">{tc?.emoji} {tc?.label ?? typeKey}</Link>
+              <span className="text-muted-foreground">/</span>
+              <h1 className="text-xl font-bold text-heading capitalize">{subtype}</h1>
+            </>
+          ) : (
+            <h1 className="text-xl font-bold text-heading">{tc?.emoji} {tc?.label ?? typeKey}</h1>
+          )}
           <span className="text-sm text-muted-foreground">{items.length} items</span>
         </div>
-        <Link href="/admin/items/new"
+        <Link
+          href={`/admin/items/new?type=${typeKey}${subtype ? `&subtype=${subtype}` : ''}`}
           className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 transition-opacity">
-          + New Item
+          + New {subtype ? `${subtype.charAt(0).toUpperCase() + subtype.slice(1)} ` : ''}{tc?.label.replace(/s$/, '') ?? 'Item'}
         </Link>
       </div>
 
@@ -284,6 +342,7 @@ export default async function AdminItemsPage({
 
       <form method="GET" className="flex gap-2 flex-wrap items-center">
         <input type="hidden" name="type" value={typeKey} />
+        {subtype && <input type="hidden" name="subtype" value={subtype} />
         <input name="q" defaultValue={q} placeholder="Search name…"
           className="px-3 py-1.5 text-sm bg-card border border-border rounded-md text-body placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
         <select name="rarity" defaultValue={rarity ?? ''}
@@ -312,7 +371,8 @@ export default async function AdminItemsPage({
               {typeKey === 'weapon' && <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Damage Type</th>}
               {typeKey === 'weapon' && <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Scaling</th>}
               {typeKey === 'armor'  && <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Material</th>}
-              {typeKey !== 'weapon' && typeKey !== 'armor' && <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stats</th>}
+              {typeKey === 'material' && <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Subtype</th>}
+              {typeKey !== 'weapon' && typeKey !== 'armor' && typeKey !== 'material' && <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stats</th>}
               <th className="px-4 py-2 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Edit</th>
             </tr>
           </thead>
@@ -362,7 +422,18 @@ export default async function AdminItemsPage({
                 {typeKey === 'armor' && (
                   <td className="px-4 py-2 text-xs text-muted-foreground capitalize">{item.material_type ?? '—'}</td>
                 )}
-                {typeKey !== 'weapon' && typeKey !== 'armor' && (
+                {typeKey === 'material' && (
+                  <td className="px-4 py-2">
+                    {item.material_subtype ? (
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${
+                        item.material_subtype === 'raw' ? 'bg-green-500/10 text-green-400' :
+                        item.material_subtype === 'refined' ? 'bg-blue-500/10 text-blue-400' :
+                        'bg-purple-500/10 text-purple-400'
+                      }`}>{item.material_subtype}</span>
+                    ) : <span className="text-muted-foreground text-xs">—</span>}
+                  </td>
+                )}
+                {typeKey !== 'weapon' && typeKey !== 'armor' && typeKey !== 'material' && (
                   <td className="px-4 py-2 text-xs text-muted-foreground">
                     {item.base_damage != null && `${item.base_damage} dmg`}
                     {item.base_defense != null && `${item.base_defense} def`}
