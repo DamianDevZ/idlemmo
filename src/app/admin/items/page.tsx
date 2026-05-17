@@ -342,7 +342,7 @@ export default async function AdminItemsPage({
 
       <form method="GET" className="flex gap-2 flex-wrap items-center">
         <input type="hidden" name="type" value={typeKey} />
-        {subtype && <input type="hidden" name="subtype" value={subtype} />
+        {subtype && <input type="hidden" name="subtype" value={subtype} />}
         <input name="q" defaultValue={q} placeholder="Search name…"
           className="px-3 py-1.5 text-sm bg-card border border-border rounded-md text-body placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
         <select name="rarity" defaultValue={rarity ?? ''}
