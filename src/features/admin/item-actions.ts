@@ -26,6 +26,7 @@ export type ItemFormData = {
   required_mastery_level?: number | null;
   material_subtype?: string | null;
   gathering_skill_id?: string | null;
+  is_tiered?: boolean;
 };
 
 export type RecipeIngredient = { item_id: string; tier: number | null; quantity: number };

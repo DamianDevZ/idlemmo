@@ -34,10 +34,11 @@ type Item = {
   required_mastery_level: number;
   material_subtype: string | null;
   gathering_skill_id: string | null;
+  is_tiered: boolean;
 };
 
 export type SkillOption = { id: string; name: string; display_name: string; category: string };
-export type MaterialItem = { id: string; name: string; display_name: string; equipment_tier: number | null };
+export type MaterialItem = { id: string; name: string; display_name: string; equipment_tier: number | null; is_tiered: boolean };
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -59,8 +60,6 @@ const MATERIAL_TYPES = ['metal','leather','cloth'];
 const SCALE_ATTRS = ['str','dex','int'];
 const GRADES = ['S','A','B','C','D','F'];
 
-// Tier → minimum skill level required (crafting + mastery)
-const TIER_LEVELS: Record<number, number> = { 1: 1, 2: 15, 3: 30, 4: 50, 5: 70 };
 
 const BLANK_RECIPE: RecipeFormData = {
   display_name: '',
@@ -123,11 +122,13 @@ export function ItemForm({
   recipe: initialRecipe,
   skills,
   materialItems,
+  maxTier,
 }: {
   initial: Item;
   recipe?: RecipeFormData | null;
   skills: SkillOption[];
   materialItems: MaterialItem[];
+  maxTier: number;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -137,6 +138,14 @@ export function ItemForm({
   const [recipe, setRecipe] = useState<RecipeFormData | null>(initialRecipe ?? null);
 
   const isNew = !initial.id;
+
+  // Linear interpolation: T1 = level 1, T_maxTier = level 70
+  function tierToLevel(tier: number): number {
+    if (maxTier <= 1) return 1;
+    return Math.max(1, Math.round(1 + (tier - 1) * 69 / (maxTier - 1)));
+  }
+
+  const tierOptions = Array.from({ length: maxTier }, (_, i) => i + 1);
 
   function set<K extends keyof Item>(key: K, value: Item[K]) {
     setItem(prev => ({ ...prev, [key]: value }));
@@ -178,8 +187,8 @@ export function ItemForm({
 
   function handleTierChange(tier: number | null) {
     set('equipment_tier', tier);
-    if (tier && TIER_LEVELS[tier]) {
-      const lvl = TIER_LEVELS[tier];
+    if (tier) {
+      const lvl = tierToLevel(tier);
       set('required_mastery_level', lvl);
       setRecipe(prev => prev ? { ...prev, required_skill_level: lvl } : prev);
     }
@@ -224,7 +233,8 @@ export function ItemForm({
   const showWeapon = item.type === 'weapon';
   const showArmor  = item.type === 'armor';
   const showMaterial = item.type === 'material';
-  const showEquipTier = ['weapon','armor','tool','material'].includes(item.type);
+  // Materials don't have a fixed tier — they span all tiers when is_tiered=true
+  const showEquipTier = ['weapon','armor','tool'].includes(item.type);
   // Refined materials have a crafting recipe; weapon/armor use crafting skills, refined use refining skills
   const showRecipe = showWeapon || showArmor || (showMaterial && item.material_subtype === 'refined');
   const recipeSkillCategory = showMaterial ? 'refining' : 'crafting';
@@ -298,11 +308,30 @@ export function ItemForm({
             <span className="text-xs text-muted-foreground">(materials, consumables)</span>
           </div>
 
-          {showEquipTier && (
-            <Field label="Equipment Tier (1–5)">
-              <Input type="number" min={1} max={5}
-                value={item.equipment_tier ?? ''}
-                onChange={e => handleTierChange(e.target.value ? Number(e.target.value) : null)} />
+          {(showEquipTier || showMaterial) && (
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="is_tiered" checked={item.is_tiered}
+                onChange={e => {
+                  set('is_tiered', e.target.checked);
+                  if (!e.target.checked) set('equipment_tier', null);
+                  else if (showEquipTier) handleTierChange(1);
+                }}
+                className="w-4 h-4 rounded border-border" />
+              <label htmlFor="is_tiered" className="text-sm text-body">Tiered item</label>
+            </div>
+          )}
+
+          {showEquipTier && item.is_tiered && (
+            <Field label="Equipment Tier">
+              <Select
+                value={item.equipment_tier?.toString() ?? ''}
+                onChange={e => handleTierChange(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">Select tier…</option>
+                {tierOptions.map(t => (
+                  <option key={t} value={t}>Tier {t} (Level {tierToLevel(t)}+)</option>
+                ))}
+              </Select>
             </Field>
           )}
 
@@ -381,7 +410,7 @@ export function ItemForm({
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Mastery Requirement</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Usage skill needed to equip. Level auto-set by tier ({Object.entries(TIER_LEVELS).map(([t,l]) => `T${t}=L${l}`).join(' · ')}).
+                    Usage skill needed to equip. Level auto-set by tier ({tierOptions.map(t => `T${t}=L${tierToLevel(t)}`).join(' · ')}).
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -458,7 +487,7 @@ export function ItemForm({
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Mastery Requirement</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Usage skill needed to equip. Level auto-set by tier ({Object.entries(TIER_LEVELS).map(([t,l]) => `T${t}=L${l}`).join(' · ')}).
+                    Usage skill needed to equip. Level auto-set by tier ({tierOptions.map(t => `T${t}=L${tierToLevel(t)}`).join(' · ')}).
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -603,7 +632,7 @@ export function ItemForm({
                     )}
                     {recipe.ingredients.map((ing, i) => {
                       const mat = materialItems.find(m => m.id === ing.item_id);
-                      const maxTier = mat?.equipment_tier ?? null;
+                      const matIsTiered = mat?.is_tiered ?? false;
                       return (
                         <div key={i} className="flex items-center gap-2">
                           <Select
@@ -616,14 +645,14 @@ export function ItemForm({
                               <option key={m.id} value={m.id}>{m.display_name}</option>
                             ))}
                           </Select>
-                          {maxTier && maxTier > 0 && (
+                          {matIsTiered && (
                             <Select
                               value={ing.tier ?? ''}
                               onChange={e => setIngredient(i, { tier: e.target.value ? Number(e.target.value) : null })}
                               className="w-20"
                             >
                               <option value="">Tier</option>
-                              {Array.from({ length: maxTier }, (_, t) => t + 1).map(t => (
+                              {tierOptions.map(t => (
                                 <option key={t} value={t}>T{t}</option>
                               ))}
                             </Select>

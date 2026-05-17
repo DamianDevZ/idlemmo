@@ -14,6 +14,7 @@ const BLANK = {
   image_url: null, resistances: {},
   required_mastery_skill_id: null, required_mastery_level: 1,
   material_subtype: null, gathering_skill_id: null,
+  is_tiered: true,
 };
 
 export default async function ItemEditorPage({
@@ -29,17 +30,20 @@ export default async function ItemEditorPage({
   const isNew = id === 'new';
   const db = createAdminClient();
 
-  // Load item, skills, material items, and existing recipe in parallel
-  const [itemResult, skillsResult, materialsResult, recipeResult] = await Promise.all([
+  // Load item, skills, material items, existing recipe, and global config in parallel
+  const [itemResult, skillsResult, materialsResult, recipeResult, configResult] = await Promise.all([
     isNew
       ? Promise.resolve({ data: null })
       : db.from('item_definitions').select('*').eq('id', id).single(),
     db.from('skills').select('id, name, display_name, skill_categories(name)').order('display_name'),
-    db.from('item_definitions').select('id, name, display_name, equipment_tier').eq('type', 'material').order('display_name'),
+    db.from('item_definitions').select('id, name, display_name, equipment_tier, is_tiered').eq('type', 'material').order('display_name'),
     isNew
       ? Promise.resolve({ data: null })
       : db.from('recipes').select('*').eq('output_item_id', id).maybeSingle(),
+    db.from('game_config').select('value').eq('key', 'max_tier').single(),
   ]);
+
+  const maxTier = Number((configResult as { data: { value: number } | null }).data?.value ?? 5);
 
   if (!isNew && !itemResult.data) notFound();
 
@@ -66,6 +70,7 @@ export default async function ItemEditorPage({
     name: m.name,
     display_name: m.display_name,
     equipment_tier: m.equipment_tier as number | null,
+    is_tiered: (m as unknown as { is_tiered: boolean }).is_tiered,
   }));
 
   let recipe: RecipeFormData | null = null;
@@ -95,6 +100,7 @@ export default async function ItemEditorPage({
         recipe={recipe}
         skills={skills}
         materialItems={materialItems}
+        maxTier={maxTier}
       />
     </div>
   );
