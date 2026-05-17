@@ -116,32 +116,3 @@ export async function uploadItemIcon(itemId: string, formData: FormData) {
   revalidatePath('/admin/items');
   return publicUrl;
 }
-
-
-export async function deleteItem(id: string) {
-  await requireAdmin();
-  const db = createAdminClient();
-  const { error } = await db.from('item_definitions').delete().eq('id', id);
-  if (error) throw new Error(error.message);
-  revalidatePath('/admin/items');
-}
-
-export async function uploadItemIcon(itemId: string, formData: FormData) {
-  await requireAdmin();
-  const db = createAdminClient();
-  const file = formData.get('icon') as File;
-  if (!file || file.size === 0) throw new Error('No file provided');
-
-  const ext = file.name.split('.').pop();
-  const path = `items/${itemId}.${ext}`;
-
-  const { error: upErr } = await db.storage
-    .from('icons')
-    .upload(path, file, { upsert: true, contentType: file.type });
-  if (upErr) throw new Error(upErr.message);
-
-  const { data: { publicUrl } } = db.storage.from('icons').getPublicUrl(path);
-  await db.from('item_definitions').update({ image_url: publicUrl }).eq('id', itemId);
-  revalidatePath('/admin/items');
-  return publicUrl;
-}
