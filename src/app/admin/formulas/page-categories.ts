@@ -39,6 +39,13 @@ export const PAGE_CATEGORIES = [
     desc: 'Item drop-on-death probability — what you risk when you die carrying items. Drop-weight multipliers that control how often each rarity tier appears across all loot pools.',
     dbCats: ['death', 'rarities'],
   },
+  {
+    slug: 'items',
+    title: 'Items & Tiers',
+    icon: '🗡️',
+    desc: 'Global item settings — max tier, tier level gates, and other constants that apply across all item definitions.',
+    dbCats: ['items'],
+  },
 ] as const;
 
 export type PageCategorySlug = (typeof PAGE_CATEGORIES)[number]['slug'];
