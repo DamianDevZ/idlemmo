@@ -53,8 +53,8 @@ const CAT_META: Record<string, { title: string; icon: string; formula: string; d
   combat_damage: {
     title: 'Combat — Damage',
     icon: '⚔️',
-    formula: 'meleeDmg  = weaponBase × (1 + STR / meleeDivisor)  × skillMult\nrangedDmg = weaponBase × (1 + DEX / rangedDivisor) × skillMult\nmagicDmg  = spellBase  × (1 + INT / magicDivisor)  × skillMult\nreduction = armor / (armor + armorDivisor)  [hyperbolic, never hits 100%]',
-    desc: 'Divisor values control how much each attribute point adds to damage. Lower divisor = each point matters more. armorDivisor uses a hyperbolic curve so armor never reaches full immunity.',
+    formula: 'damage    = weaponBase × (1 + scalingAttr / divisor) × skillMult\nreduction = armor / (armor + armorDivisor)  [hyperbolic, never hits 100%]\n\nEach weapon has its own Scaling Attribute (STR / DEX / INT), set in the Items admin.\nThe matching divisor below controls how much that attribute boosts damage.',
+    desc: 'Lower divisor = each attribute point adds more damage. Armor divisor uses a curve that never reaches 100%, so armor always helps but never makes you invincible.',
   },
   combat_speed_crit: {
     title: 'Combat — Speed & Crits',
@@ -168,12 +168,12 @@ const FIELD_EXAMPLES: Record<string, (v: number) => string> = {
     `rareChance% += Arcane × ${v}. At 10 Arcane: +${(10 * v).toFixed(1)}% rare quality drops. At 20 Arcane: +${(20 * v).toFixed(1)}%. Stacks additively with skill-level rare bonuses.`,
 
   // Combat — Damage
-  str_melee_divisor: v =>
-    `meleeDmg = weaponBase × (1 + STR / ${v}). At 20 STR: ×${(1 + 20 / v).toFixed(2)} multiplier. A sword hitting 50 base damage deals ${Math.round(50 * (1 + 20 / v))} at 20 STR. Halving this divisor roughly doubles the STR bonus.`,
-  dex_ranged_divisor: v =>
-    `rangedDmg = weaponBase × (1 + DEX / ${v}). At 20 DEX: ×${(1 + 20 / v).toFixed(2)} multiplier. A bow dealing 40 base damage hits for ${Math.round(40 * (1 + 20 / v))} at 20 DEX.`,
-  int_magic_divisor: v =>
-    `magicDmg = spellBase × (1 + INT / ${v}). At 20 INT: ×${(1 + 20 / v).toFixed(2)} multiplier. A spell with 60 base damage deals ${Math.round(60 * (1 + 20 / v))} at 20 INT. Lower = mages hit significantly harder per INT point.`,
+  str_scaling_divisor: v =>
+    `STR-scaling weapons deal: weaponBase × (1 + STR / ${v}). At 20 STR: ×${(1 + 20 / v).toFixed(2)} multiplier. A sword with 50 base damage deals ${Math.round(50 * (1 + 20 / v))} at 20 STR. Halving this divisor roughly doubles the STR bonus. Set a weapon's Scaling Attribute to STR in the Items admin to use this.`,
+  dex_scaling_divisor: v =>
+    `DEX-scaling weapons deal: weaponBase × (1 + DEX / ${v}). At 20 DEX: ×${(1 + 20 / v).toFixed(2)} multiplier. A dagger with 40 base damage hits for ${Math.round(40 * (1 + 20 / v))} at 20 DEX. Assign DEX scaling to any weapon in the Items admin.`,
+  int_scaling_divisor: v =>
+    `INT-scaling weapons deal: weaponBase × (1 + INT / ${v}). At 20 INT: ×${(1 + 20 / v).toFixed(2)} multiplier. A staff with 60 base damage deals ${Math.round(60 * (1 + 20 / v))} at 20 INT. Assign INT scaling to staves or spellcasting weapons in the Items admin.`,
   armor_divisor: v =>
     `reduction = armor / (armor + ${v}). At 50 armor: ${(50 / (50 + v) * 100).toFixed(1)}% damage reduction. At 100 armor: ${(100 / (100 + v) * 100).toFixed(1)}%. This curve is hyperbolic — armor never reaches 100%. Lowering this number makes armor feel much stronger.`,
 

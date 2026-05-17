@@ -56,14 +56,14 @@ export const GAME_CONFIG = {
     // Rare / quality drop bonus per point of arcane (added to %)
     arcaneRareFactor: 0.1,
 
-    // Combat — melee: dmg = weaponBase × (1 + str / DIVISOR)
-    strMeleeDivisor: 20,
+    // Combat — STR-scaling weapons: dmg = weaponBase × (1 + str / DIVISOR)
+    strScalingDivisor: 20,
 
-    // Combat — ranged: dmg = weaponBase × (1 + dex / DIVISOR)
-    dexRangedDivisor: 20,
+    // Combat — DEX-scaling weapons: dmg = weaponBase × (1 + dex / DIVISOR)
+    dexScalingDivisor: 20,
 
-    // Combat — magic: dmg = spellBase × (1 + int / DIVISOR)
-    intMagicDivisor: 20,
+    // Combat — INT-scaling weapons: dmg = spellBase × (1 + int / DIVISOR)
+    intScalingDivisor: 20,
 
     // Combat — attack speed: speed = weaponBase × (1 + dex / DIVISOR)
     dexSpeedDivisor: 25,

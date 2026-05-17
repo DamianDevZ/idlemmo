@@ -48,8 +48,8 @@ const CAT_META: Record<string, { title: string; icon: string; formula: string; d
     title: 'Combat — Damage',
     icon: '⚔️',
     formula:
-      'meleeDmg  = weaponBase × (1 + STR / meleeDivisor) × skillMult\nrangedDmg = weaponBase × (1 + DEX / rangedDivisor) × skillMult\nmagicDmg  = spellBase  × (1 + INT / magicDivisor)  × skillMult\nskillMult = 1 + combatSkillLvl × combatDmgFactor\n\ndefReduction = armor / (armor + armorDivisor)   [hyperbolic, 0 → 1]\nfinalDmg     = max(1, floor(rawDmg × (1 − defReduction)))',
-    desc: 'Lower divisors = more damage per attribute point. armorDivisor controls how quickly armor suffers diminishing returns.',
+      'Each weapon has a Base Damage and a Scaling Attribute (STR, DEX, or INT) — set per-weapon in the Items admin.\n\nFinal hit = weaponBase × (1 + your attribute / divisor)\nSmaller divisor → that attribute adds more damage per point.\n\nArmor uses a curve that never reaches 100%, so more armor always helps.',
+    desc: 'These divisors control how much STR, DEX, and INT amplify weapons that scale off each stat. Assign the scaling attribute on each weapon in the Items admin.',
   },
   combat_speed_crit: {
     title: 'Combat — Speed & Crits',
@@ -234,11 +234,12 @@ export default function CategoryDetail({
         </div>
       </div>
 
-      {/* Formula block */}
+      {/* How it works */}
       <div className="px-6 pt-5 pb-2">
-        <pre className="text-[11px] leading-relaxed font-mono bg-background border border-border rounded-lg px-4 py-3.5 text-muted-foreground overflow-x-auto whitespace-pre">
-          {meta.formula}
-        </pre>
+        <div className="rounded-lg bg-background border border-border px-4 py-3.5">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2">How it works</p>
+          <p className="text-sm text-body leading-relaxed whitespace-pre-line">{meta.formula}</p>
+        </div>
         <p className="text-xs text-muted-foreground mt-3 leading-relaxed">{meta.desc}</p>
       </div>
 
