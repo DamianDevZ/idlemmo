@@ -11,15 +11,13 @@ type ResistanceMode = 'percent' | 'flat';
 type ResistanceEntry = { value: number; mode: ResistanceMode };
 type ResistancesMap = Record<string, ResistanceEntry>;
 
-type EffectTrigger = 'instant' | 'timed' | 'tick' | 'on_hit';
+type EffectTrigger = 'instant' | 'buff' | 'on_hit';
 type ConsumableEffect = {
   trigger: EffectTrigger;
   target: string;
   value: number;
-  duration_ticks?: number;   // timed
-  tick_count?: number;       // tick
-  hit_count?: number;        // on_hit
-  condition?: 'exploring';   // tick only
+  duration_seconds?: number; // buff only
+  hit_count?: number;        // on_hit only
 };
 
 type Item = {
@@ -70,10 +68,9 @@ const RESIST_TYPES: { key: string; label: string; emoji: string }[] = [
 ];
 // Consumable effects constants
 const EFFECT_TRIGGERS: { value: EffectTrigger; label: string; hint: string }[] = [
-  { value: 'instant',  label: 'Instant',       hint: 'Applied once, immediately on use' },
-  { value: 'timed',   label: 'Timed buff',     hint: 'Active for N ticks while in effect' },
-  { value: 'tick',    label: 'Per-tick',       hint: 'Applied every tick for N ticks' },
-  { value: 'on_hit',  label: 'On-hit',         hint: 'Procs on each hit for N hits' },
+  { value: 'instant', label: 'Instant',  hint: 'Applied once, immediately on use' },
+  { value: 'buff',    label: 'Buff',     hint: 'Stat modifier active for N seconds' },
+  { value: 'on_hit',  label: 'On-hit',  hint: 'Procs on each hit for N hits' },
 ];
 
 const EFFECT_TARGET_GROUPS: { group: string; targets: { key: string; label: string }[] }[] = [
@@ -247,8 +244,7 @@ export function ItemForm({
       next[i] = { ...next[i], ...patch };
       // Clear fields that don't apply to the new trigger
       if (patch.trigger) {
-        if (patch.trigger !== 'timed')  delete next[i].duration_ticks;
-        if (patch.trigger !== 'tick')   { delete next[i].tick_count; delete next[i].condition; }
+        if (patch.trigger !== 'buff')   delete next[i].duration_seconds;
         if (patch.trigger !== 'on_hit') delete next[i].hit_count;
       }
       return next;
@@ -809,44 +805,18 @@ export function ItemForm({
                       />
                     </div>
 
-                    {/* Timed: duration */}
-                    {eff.trigger === 'timed' && (
+                    {/* Buff: duration in seconds */}
+                    {eff.trigger === 'buff' && (
                       <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Duration (ticks)</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Duration (seconds)</span>
                         <Input
                           type="number" min={1}
-                          value={eff.duration_ticks ?? ''}
-                          onChange={e => setEffect(i, { duration_ticks: e.target.value ? Number(e.target.value) : undefined })}
+                          value={eff.duration_seconds ?? ''}
+                          onChange={e => setEffect(i, { duration_seconds: e.target.value ? Number(e.target.value) : undefined })}
                           placeholder="e.g. 300"
                           className="w-28"
                         />
                       </div>
-                    )}
-
-                    {/* Tick: count + condition */}
-                    {eff.trigger === 'tick' && (
-                      <>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Tick count</span>
-                          <Input
-                            type="number" min={1}
-                            value={eff.tick_count ?? ''}
-                            onChange={e => setEffect(i, { tick_count: e.target.value ? Number(e.target.value) : undefined })}
-                            placeholder="e.g. 10"
-                            className="w-24"
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Condition</span>
-                          <Select
-                            value={eff.condition ?? ''}
-                            onChange={e => setEffect(i, { condition: (e.target.value as 'exploring') || undefined })}
-                          >
-                            <option value="">Always</option>
-                            <option value="exploring">Exploring only</option>
-                          </Select>
-                        </div>
-                      </>
                     )}
 
                     {/* On-hit: count */}
