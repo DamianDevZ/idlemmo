@@ -139,6 +139,95 @@ function AddLootRow({
   );
 }
 
+// ─── Inline edit form for an existing loot row ───────────────────────────────
+
+function EditLootRow({
+  row,
+  areaId,
+  items,
+  maxTier,
+  onDone,
+}: {
+  row: TierLootRow;
+  areaId: string;
+  items: Item[];
+  maxTier: number;
+  onDone: () => void;
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [form, setForm] = useState({
+    item_id: row.item_id,
+    item_tier: row.item_tier ?? 1,
+    weight: row.weight,
+  });
+
+  const selectedItem = items.find(i => i.id === form.item_id);
+
+  function handleSave() {
+    startTransition(async () => {
+      await upsertAreaTierLoot({
+        id: row.id,
+        area_id: areaId,
+        tier: row.tier,
+        item_id: form.item_id,
+        item_tier: selectedItem?.is_tiered ? form.item_tier : null,
+        weight: form.weight,
+      });
+      router.refresh();
+      onDone();
+    });
+  }
+
+  const tiny = `${inputCls} py-1 text-xs`;
+
+  return (
+    <tr className="bg-primary/5">
+      <td className="py-1.5 pr-2">
+        <div className="flex gap-1">
+          <select
+            value={form.item_id}
+            onChange={e => setForm(p => ({ ...p, item_id: e.target.value }))}
+            className={`${tiny} flex-1 min-w-0`}
+          >
+            {items.map(it => (
+              <option key={it.id} value={it.id}>
+                {it.display_name} ({it.type})
+              </option>
+            ))}
+          </select>
+          {selectedItem?.is_tiered && (
+            <select
+              value={form.item_tier}
+              onChange={e => setForm(p => ({ ...p, item_tier: Number(e.target.value) }))}
+              className={`${tiny} w-14 shrink-0`}
+            >
+              {Array.from({ length: maxTier }, (_, i) => i + 1).map(t => (
+                <option key={t} value={t}>T{t}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      </td>
+      <td className="py-1.5 pr-2">
+        <input type="number" min={1} value={form.weight}
+          onChange={e => setForm(p => ({ ...p, weight: Number(e.target.value) }))}
+          className={`${tiny} w-16`} />
+      </td>
+      <td className="py-1.5">
+        <div className="flex gap-1">
+          <button onClick={handleSave} disabled={isPending} className={btnSecondary}>
+            {isPending ? '…' : 'Save'}
+          </button>
+          <button onClick={onDone} className="px-2 py-1 text-xs text-muted-foreground hover:text-body">
+            Cancel
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 // ─── A single tier section with its loot drops ───────────────────────────────
 
 function TierSection({
@@ -157,6 +246,7 @@ function TierSection({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const itemMap = Object.fromEntries(allItems.map(it => [it.id, it]));
 
@@ -200,6 +290,18 @@ function TierSection({
               <tbody>
                 {rows.map(row => {
                   const item = itemMap[row.item_id];
+                  if (editingId === row.id) {
+                    return (
+                      <EditLootRow
+                        key={row.id}
+                        row={row}
+                        areaId={areaId}
+                        items={allItems}
+                        maxTier={maxTier}
+                        onDone={() => setEditingId(null)}
+                      />
+                    );
+                  }
                   return (
                     <tr key={row.id} className="border-b border-border/30 last:border-0">
                       <td className="py-1.5 pr-2 font-medium text-body">
@@ -210,13 +312,26 @@ function TierSection({
                       </td>
                       <td className="py-1.5 pr-2 text-muted-foreground">{row.weight}</td>
                       <td className="py-1.5">
-                        <button
-                          onClick={() => handleRemove(row.id)}
-                          disabled={isPending}
-                          className="text-destructive hover:opacity-70 disabled:opacity-30 text-base leading-none"
-                        >
-                          ×
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setEditingId(row.id)}
+                            className="text-xs text-primary hover:underline"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              startTransition(async () => {
+                                await deleteAreaTierLoot(row.id, areaId);
+                                router.refresh();
+                              });
+                            }}
+                            disabled={isPending}
+                            className="text-xs text-destructive hover:underline disabled:opacity-30"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
