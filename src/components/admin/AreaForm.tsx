@@ -96,11 +96,11 @@ function AddLootRow({
   return (
     <tr className="bg-primary/5">
       <td className="py-1.5 pr-2">
-        <div className="flex flex-col gap-1">
+        <div className="flex gap-1">
           <select
             value={form.item_id}
             onChange={e => setForm(p => ({ ...p, item_id: e.target.value, item_tier: tier }))}
-            className={`${tiny} w-full`}
+            className={`${tiny} flex-1 min-w-0`}
           >
             <option value="">Pick item…</option>
             {items.map(it => (
@@ -113,7 +113,7 @@ function AddLootRow({
             <select
               value={form.item_tier}
               onChange={e => setForm(p => ({ ...p, item_tier: Number(e.target.value) }))}
-              className={`${tiny} w-28`}
+              className={`${tiny} w-14 shrink-0`}
             >
               {Array.from({ length: maxTier }, (_, i) => i + 1).map(t => (
                 <option key={t} value={t}>T{t}</option>
