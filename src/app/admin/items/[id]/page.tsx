@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { notFound } from 'next/navigation';
 import { ItemForm } from '@/components/admin/ItemForm';
 import type { RecipeFormData } from '@/features/admin/item-actions';
+import type { TierScalingRow } from '@/features/admin/tier-scaling-actions';
 import Link from 'next/link';
 
 const BLANK = {
@@ -35,8 +36,8 @@ export default async function ItemEditorPage({
   const isNew = id === 'new';
   const db = createAdminClient();
 
-  // Load item, skills, material items, existing recipe, weapon types, and global config in parallel
-  const [itemResult, skillsResult, materialsResult, recipeResult, weaponTypesResult, configResult] = await Promise.all([
+  // Load item, skills, material items, existing recipe, weapon types, tier scaling and global config in parallel
+  const [itemResult, skillsResult, materialsResult, recipeResult, weaponTypesResult, tierScalingResult, configResult] = await Promise.all([
     isNew
       ? Promise.resolve({ data: null })
       : db.from('item_definitions').select('*').eq('id', id).single(),
@@ -46,11 +47,13 @@ export default async function ItemEditorPage({
       ? Promise.resolve({ data: null })
       : db.from('recipes').select('*').eq('output_item_id', id).maybeSingle(),
     db.from('weapon_types').select('id, name, display_name').order('display_name'),
+    db.from('tier_scaling_config').select('id, item_type, stat_key, stat_label, tier, multiplier').order('item_type').order('stat_key').order('tier'),
     db.from('game_config').select('value').eq('key', 'max_tier').single(),
   ]);
 
   const maxTier = Number((configResult as { data: { value: number } | null }).data?.value ?? 5);
   const weaponTypes = (weaponTypesResult.data ?? []) as { id: string; name: string; display_name: string }[];
+  const tierScaling = (tierScalingResult.data ?? []) as TierScalingRow[];
 
   if (!isNew && !itemResult.data) notFound();
 
@@ -109,6 +112,7 @@ export default async function ItemEditorPage({
         materialItems={materialItems}
         weaponTypes={weaponTypes}
         maxTier={maxTier}
+        tierScaling={tierScaling}
       />
     </div>
   );

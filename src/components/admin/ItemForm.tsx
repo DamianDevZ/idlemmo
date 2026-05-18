@@ -60,9 +60,10 @@ type ToolConfig = {
                                // bonus(n) = below_bonus_base * (1 + below_bonus_growth/100)^(n-1)
 };
 
-export type SkillOption = { id: string; name: string; display_name: string; category: string };
-export type MaterialItem = { id: string; name: string; display_name: string; equipment_tier: number | null; is_tiered: boolean };
-export type WeaponType  = { id: string; name: string; display_name: string };
+export type SkillOption    = { id: string; name: string; display_name: string; category: string };
+export type MaterialItem   = { id: string; name: string; display_name: string; equipment_tier: number | null; is_tiered: boolean };
+export type WeaponType     = { id: string; name: string; display_name: string };
+export type TierScalingRow = { id?: string; item_type: string; stat_key: string; stat_label: string; tier: number; multiplier: number };
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -201,6 +202,7 @@ export function ItemForm({
   materialItems,
   weaponTypes,
   maxTier,
+  tierScaling,
 }: {
   initial: Item;
   recipe?: RecipeFormData | null;
@@ -208,6 +210,7 @@ export function ItemForm({
   materialItems: MaterialItem[];
   weaponTypes: WeaponType[];
   maxTier: number;
+  tierScaling: TierScalingRow[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -430,29 +433,78 @@ export function ItemForm({
           {(showEquipTier || showMaterial) && (
             <div className="flex items-center gap-2">
               <input type="checkbox" id="is_tiered" checked={item.is_tiered}
-                onChange={e => {
-                  set('is_tiered', e.target.checked);
-                  if (!e.target.checked) set('equipment_tier', null);
-                  else if (showEquipTier) handleTierChange(1);
-                }}
+                onChange={e => set('is_tiered', e.target.checked)}
                 className="w-4 h-4 rounded border-border" />
               <label htmlFor="is_tiered" className="text-sm text-body">Tiered item</label>
             </div>
           )}
 
-          {showEquipTier && item.is_tiered && (
-            <Field label="Equipment Tier">
-              <Select
-                value={item.equipment_tier?.toString() ?? ''}
-                onChange={e => handleTierChange(e.target.value ? Number(e.target.value) : null)}
-              >
-                <option value="">Select tier…</option>
-                {tierOptions.map(t => (
-                  <option key={t} value={t}>Tier {t} (Level {tierToLevel(t)}+)</option>
-                ))}
-              </Select>
-            </Field>
-          )}
+          {/* Tier scaling preview — shown when item is marked as tiered */}
+          {item.is_tiered && (() => {
+            const relevant = tierScaling.filter(r => r.item_type === item.type);
+            const tierNums = Array.from({ length: maxTier }, (_, i) => i + 1);
+            const statMap = relevant.reduce<Record<string, { label: string; tiers: Record<number, number> }>>((acc, r) => {
+              if (!acc[r.stat_key]) acc[r.stat_key] = { label: r.stat_label, tiers: {} };
+              acc[r.stat_key].tiers[r.tier] = r.multiplier;
+              return acc;
+            }, {});
+            const statKeys = Object.keys(statMap);
+
+            function getBase(stat_key: string): number | null {
+              switch (stat_key) {
+                case 'base_damage':  return item.base_damage ?? null;
+                case 'base_defense': return item.base_defense ?? null;
+                case 'yield_min':    return (item.tool_config as Record<string, number>)?.yield_min ?? null;
+                case 'yield_max':    return (item.tool_config as Record<string, number>)?.yield_max ?? null;
+                default:             return null;
+              }
+            }
+
+            return (
+              <div className="rounded-md border border-border bg-background p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Tier scaling preview</p>
+                  <a href="/admin/tier-scaling" target="_blank"
+                     className="text-[10px] text-primary hover:underline">Edit scaling →</a>
+                </div>
+                {statKeys.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    No scaling configured for {item.type}s yet.
+                    <a href="/admin/tier-scaling" target="_blank" className="text-primary hover:underline ml-1">Set it up →</a>
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr>
+                          <th className="text-left text-muted-foreground font-medium pb-1 pr-3">Tier</th>
+                          {statKeys.map(k => (
+                            <th key={k} className="text-right text-muted-foreground font-medium pb-1 px-2">{statMap[k].label}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tierNums.map(t => (
+                          <tr key={t} className={t % 2 === 0 ? 'bg-card/50' : ''}>
+                            <td className="py-0.5 pr-3 text-muted-foreground">T{t}</td>
+                            {statKeys.map(k => {
+                              const base = getBase(k);
+                              const mult = statMap[k].tiers[t] ?? 1.0;
+                              return (
+                                <td key={k} className="py-0.5 px-2 text-right text-body tabular-nums">
+                                  {base != null ? (base * mult).toFixed(1) : <span className="text-muted-foreground">—</span>}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Save / Delete live inside the identity card */}
           <div className="flex items-center gap-3 border-t border-border pt-4">
