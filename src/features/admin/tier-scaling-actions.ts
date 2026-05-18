@@ -1,6 +1,7 @@
 'use server';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAdmin } from '@/lib/admin-auth';
 import { revalidatePath } from 'next/cache';
 
 export type TierScalingRow = {
@@ -38,4 +39,34 @@ export async function deleteTierScalingStat(item_type: string, stat_key: string)
   if (error) throw new Error(error.message);
   revalidatePath('/admin/tier-scaling');
   revalidatePath('/admin/items/[id]', 'page');
+}
+
+/**
+ * Upload a tier frame image. Stored at icons/tier-frames/t{tier}.{ext}.
+ * Always overwrites the previous frame for that tier.
+ * Returns the public URL.
+ */
+export async function uploadTierFrame(tier: number, formData: FormData): Promise<string> {
+  await requireAdmin();
+  const db = createAdminClient();
+  const file = formData.get('frame') as File;
+  if (!file || file.size === 0) throw new Error('No file provided');
+
+  const ext = file.name.split('.').pop() ?? 'png';
+  const path = `tier-frames/t${tier}.${ext}`;
+
+  // Remove old frame files for this tier (any extension) to avoid orphans
+  const { data: existing } = await db.storage.from('icons').list('tier-frames', { search: `t${tier}.` });
+  if (existing && existing.length > 0) {
+    await db.storage.from('icons').remove(existing.map(f => `tier-frames/${f.name}`));
+  }
+
+  const { error } = await db.storage
+    .from('icons')
+    .upload(path, file, { upsert: true, contentType: file.type });
+  if (error) throw new Error(error.message);
+
+  const { data: { publicUrl } } = db.storage.from('icons').getPublicUrl(path);
+  revalidatePath('/admin/tier-scaling');
+  return publicUrl;
 }
