@@ -464,9 +464,9 @@ export function EnemyForm({
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[300px_1fr] gap-5 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr] gap-5 items-start">
 
-        {/* ── Left: Enemy details ─────────────────────────────────────────── */}
+        {/* ── Left: Identity ──────────────────────────────────────────────── */}
         <div className="bg-card border border-border rounded-lg p-5 space-y-4">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Enemy Details</p>
 
@@ -480,80 +480,24 @@ export function EnemyForm({
               onChange={e => setEnemy(p => ({ ...p, name: e.target.value }))}
               placeholder="forest_wolf" className={inputCls} />
           </Field>
-          <Field label="Icon">
-            <input type="text" value={enemy.icon}
-              onChange={e => setEnemy(p => ({ ...p, icon: e.target.value }))}
-              placeholder="🐺" className={inputCls} />
-          </Field>
-          <Field label="Sort Order">
-            <input type="number" min={0} value={enemy.sort_order}
-              onChange={e => setEnemy(p => ({ ...p, sort_order: Number(e.target.value) }))}
-              className={inputCls} />
-          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Icon">
+              <input type="text" value={enemy.icon}
+                onChange={e => setEnemy(p => ({ ...p, icon: e.target.value }))}
+                placeholder="🐺" className={inputCls} />
+            </Field>
+            <Field label="Sort Order">
+              <input type="number" min={0} value={enemy.sort_order}
+                onChange={e => setEnemy(p => ({ ...p, sort_order: Number(e.target.value) }))}
+                className={inputCls} />
+            </Field>
+          </div>
           <Field label="Description">
             <textarea rows={3} value={enemy.description}
               onChange={e => setEnemy(p => ({ ...p, description: e.target.value }))}
               placeholder="A fierce wolf lurking in the woods…"
               className={`${inputCls} resize-y`} />
           </Field>
-
-          <div className="border-t border-border pt-4 space-y-4">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Combat Stats</p>
-            <Field label="Damage Type">
-              <select value={enemy.damage_type}
-                onChange={e => setEnemy(p => ({ ...p, damage_type: e.target.value }))}
-                className={inputCls}>
-                {DAMAGE_TYPES.map(dt => (
-                  <option key={dt.key} value={dt.key}>{dt.emoji} {dt.label}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Attack Speed (hits/sec)">
-              <input type="number" step="0.05" min="0.1" value={enemy.attack_speed}
-                onChange={e => setEnemy(p => ({ ...p, attack_speed: Number(e.target.value) }))}
-                className={inputCls} />
-            </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Base HP">
-                <input type="number" min={1} value={enemy.base_hp}
-                  onChange={e => setEnemy(p => ({ ...p, base_hp: Number(e.target.value) }))}
-                  className={inputCls} />
-              </Field>
-              <Field label="Base Attack">
-                <input type="number" min={1} value={enemy.base_attack}
-                  onChange={e => setEnemy(p => ({ ...p, base_attack: Number(e.target.value) }))}
-                  className={inputCls} />
-              </Field>
-            </div>
-          </div>
-
-          <div className="border-t border-border pt-4 space-y-3">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Resistances</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Positive = resist · Negative = weakness</p>
-            </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-              {RESIST_TYPES.map(rt => {
-                const entry = resistances[rt.key];
-                const val = entry?.value ?? 0;
-                const col = val > 0 ? 'text-green-400' : val < 0 ? 'text-red-400' : 'text-muted-foreground';
-                return (
-                  <div key={rt.key} className="flex items-center gap-2">
-                    <span className="text-sm w-24 shrink-0 text-body">{rt.emoji} {rt.label}</span>
-                    <input type="number" value={val}
-                      onChange={e => setResist(rt.key, 'value', Number(e.target.value))}
-                      className={`w-14 px-2 py-1.5 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-ring text-center ${col}`} />
-                    <select value={entry?.mode ?? 'percent'}
-                      onChange={e => setResist(rt.key, 'mode', e.target.value as ResistanceMode)}
-                      className="px-2 py-1.5 text-xs bg-background border border-border rounded-md focus:outline-none text-muted-foreground">
-                      <option value="percent">%</option>
-                      <option value="flat">flat</option>
-                    </select>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
 
           <div className="flex gap-2 pt-2 border-t border-border">
             <button onClick={handleSave} disabled={isPending} className={`${btnPrimary} flex-1`}>
@@ -568,15 +512,77 @@ export function EnemyForm({
           </div>
         </div>
 
-        {/* ── Right: Per-tier loot tables ─────────────────────────────────── */}
-        <div className="space-y-3">
+        {/* ── Right: Combat stats + loot ──────────────────────────────────── */}
+        <div className="space-y-4">
+
+          {/* Combat stats card */}
+          <div className="bg-card border border-border rounded-lg p-5 space-y-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Combat Stats</p>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Damage Type">
+                <select value={enemy.damage_type}
+                  onChange={e => setEnemy(p => ({ ...p, damage_type: e.target.value }))}
+                  className={inputCls}>
+                  {DAMAGE_TYPES.map(dt => (
+                    <option key={dt.key} value={dt.key}>{dt.emoji} {dt.label}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Attack Speed (hits/sec)">
+                <input type="number" step="0.05" min="0.1" value={enemy.attack_speed}
+                  onChange={e => setEnemy(p => ({ ...p, attack_speed: Number(e.target.value) }))}
+                  className={inputCls} />
+              </Field>
+              <Field label="Base HP">
+                <input type="number" min={1} value={enemy.base_hp}
+                  onChange={e => setEnemy(p => ({ ...p, base_hp: Number(e.target.value) }))}
+                  className={inputCls} />
+              </Field>
+              <Field label="Base Attack">
+                <input type="number" min={1} value={enemy.base_attack}
+                  onChange={e => setEnemy(p => ({ ...p, base_attack: Number(e.target.value) }))}
+                  className={inputCls} />
+              </Field>
+            </div>
+
+            <div className="border-t border-border pt-4 space-y-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Resistances</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Positive = resist · Negative = weakness</p>
+              </div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-2">
+                {RESIST_TYPES.map(rt => {
+                  const entry = resistances[rt.key];
+                  const val = entry?.value ?? 0;
+                  const col = val > 0 ? 'text-green-400' : val < 0 ? 'text-red-400' : 'text-muted-foreground';
+                  return (
+                    <div key={rt.key} className="flex items-center gap-1.5">
+                      <span className="text-sm w-20 shrink-0 text-body">{rt.emoji} {rt.label}</span>
+                      <input type="number" value={val}
+                        onChange={e => setResist(rt.key, 'value', Number(e.target.value))}
+                        className={`w-14 px-2 py-1.5 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-ring text-center ${col}`} />
+                      <select value={entry?.mode ?? 'percent'}
+                        onChange={e => setResist(rt.key, 'mode', e.target.value as ResistanceMode)}
+                        className="px-2 py-1.5 text-xs bg-background border border-border rounded-md focus:outline-none text-muted-foreground">
+                        <option value="percent">%</option>
+                        <option value="flat">flat</option>
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Loot drops */}
           {isNew ? (
             <div className="bg-card border border-border rounded-lg p-10 text-center text-muted-foreground">
               <p className="text-4xl mb-3">🗡️</p>
               <p className="text-sm">Create the enemy first, then set up loot drops per tier.</p>
             </div>
           ) : (
-            <>
+            <div className="space-y-3">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 Loot Drops by Tier
               </p>
@@ -590,7 +596,7 @@ export function EnemyForm({
                   maxTier={maxTier}
                 />
               ))}
-            </>
+            </div>
           )}
         </div>
       </div>
