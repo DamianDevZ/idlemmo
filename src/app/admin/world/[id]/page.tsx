@@ -18,14 +18,17 @@ export default async function AreaEditPage({ params }: { params: Promise<{ id: s
 
   let items: { id: string; display_name: string; type: string; name: string; is_tiered: boolean }[] = [];
   let maxTier = 5;
+  let allEnemies: { id: string; display_name: string; icon: string }[] = [];
 
   try {
-    const [itemsResult, maxTierResult] = await Promise.all([
+    const [itemsResult, maxTierResult, enemiesResult] = await Promise.all([
       db.from('item_definitions').select('id, display_name, type, name, is_tiered').order('display_name'),
       db.from('game_config').select('value').eq('key', 'max_tier').maybeSingle(),
+      db.from('enemies').select('id, display_name, icon').order('display_name'),
     ]);
     items = (itemsResult.data ?? []) as typeof items;
     maxTier = Number((maxTierResult.data as { value: number } | null)?.value ?? 5) || 5;
+    allEnemies = (enemiesResult.data ?? []) as typeof allEnemies;
   } catch (e) {
     console.error('[world/[id]] setup query failed:', e);
   }
@@ -38,7 +41,9 @@ export default async function AreaEditPage({ params }: { params: Promise<{ id: s
     item_tier: number | null;
     weight: number;
   };
+  type EncounterRow = { id: string; tier: number; enemy_id: string; weight: number };
   let lootRows: TierLootRow[] = [];
+  let encounterRows: EncounterRow[] = [];
 
   if (!isNew) {
     try {
@@ -50,13 +55,20 @@ export default async function AreaEditPage({ params }: { params: Promise<{ id: s
       if (!areaData) notFound();
       area = areaData;
 
-      const { data: loot } = await db
-        .from('area_tier_loot')
-        .select('id, tier, item_id, item_tier, weight')
-        .eq('area_id', id)
-        .order('tier')
-        .order('weight', { ascending: false });
-      lootRows = (loot ?? []) as TierLootRow[];
+      const [lootResult, encResult] = await Promise.all([
+        db.from('area_tier_loot')
+          .select('id, tier, item_id, item_tier, weight')
+          .eq('area_id', id)
+          .order('tier')
+          .order('weight', { ascending: false }),
+        db.from('area_tier_enemies')
+          .select('id, tier, enemy_id, weight')
+          .eq('area_id', id)
+          .order('tier')
+          .order('weight', { ascending: false }),
+      ]);
+      lootRows = (lootResult.data ?? []) as TierLootRow[];
+      encounterRows = (encResult.data ?? []) as EncounterRow[];
     } catch (e) {
       console.error('[world/[id]] area query failed:', e);
       notFound();
@@ -77,7 +89,9 @@ export default async function AreaEditPage({ params }: { params: Promise<{ id: s
         areaId={isNew ? null : id}
         initial={{ name: area.name, display_name: area.display_name, description: area.description, icon: area.icon, sort_order: area.sort_order }}
         lootRows={lootRows}
+        encounterRows={encounterRows}
         allItems={(items ?? []) as { id: string; display_name: string; type: string; name: string; is_tiered: boolean }[]}
+        allEnemies={allEnemies}
         maxTier={maxTier}
         imageUrl={area.image_url}
       />

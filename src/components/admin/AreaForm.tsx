@@ -7,6 +7,8 @@ import {
   deleteArea,
   upsertAreaTierLoot,
   deleteAreaTierLoot,
+  upsertAreaTierEnemy,
+  deleteAreaTierEnemy,
   uploadAreaImage,
 } from '@/features/admin/world-actions';
 
@@ -28,7 +30,10 @@ type TierLootRow = {
   weight: number;
 };
 
+type EncounterRow = { id: string; tier: number; enemy_id: string; weight: number };
+
 type Item = { id: string; display_name: string; type: string; name: string; is_tiered: boolean };
+type SimpleEnemy = { id: string; display_name: string; icon: string };
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
 
@@ -360,20 +365,257 @@ function TierSection({
   );
 }
 
+// ─── Add encounter row ───────────────────────────────────────────────────────
+
+function AddEncounterRow({
+  areaId,
+  tier,
+  enemies,
+  onDone,
+}: {
+  areaId: string;
+  tier: number;
+  enemies: SimpleEnemy[];
+  onDone: () => void;
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [form, setForm] = useState({ enemy_id: '', weight: 10 });
+  const tiny = `${inputCls} py-1 text-xs`;
+
+  function handleAdd() {
+    if (!form.enemy_id) return;
+    startTransition(async () => {
+      await upsertAreaTierEnemy({ area_id: areaId, tier, enemy_id: form.enemy_id, weight: form.weight });
+      router.refresh();
+      onDone();
+    });
+  }
+
+  return (
+    <tr className="bg-primary/5">
+      <td className="py-1.5 pr-2">
+        <select
+          value={form.enemy_id}
+          onChange={e => setForm(p => ({ ...p, enemy_id: e.target.value }))}
+          className={`${tiny} flex-1 min-w-0 w-full`}
+        >
+          <option value="">Pick enemy…</option>
+          {enemies.map(en => (
+            <option key={en.id} value={en.id}>{en.icon} {en.display_name}</option>
+          ))}
+        </select>
+      </td>
+      <td className="py-1.5 pr-2">
+        <input type="number" min={1} value={form.weight}
+          onChange={e => setForm(p => ({ ...p, weight: Number(e.target.value) }))}
+          className={`${tiny} w-16`} />
+      </td>
+      <td className="py-1.5 text-right">
+        <div className="flex gap-3 justify-end">
+          <button onClick={handleAdd} disabled={isPending || !form.enemy_id} className={btnSecondary}>
+            {isPending ? '…' : 'Add'}
+          </button>
+          <button onClick={onDone} className="px-2 py-1 text-xs text-muted-foreground hover:text-body">✕</button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// ─── Edit encounter row ───────────────────────────────────────────────────────
+
+function EditEncounterRow({
+  row,
+  areaId,
+  enemies,
+  onDone,
+}: {
+  row: EncounterRow;
+  areaId: string;
+  enemies: SimpleEnemy[];
+  onDone: () => void;
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [form, setForm] = useState({ enemy_id: row.enemy_id, weight: row.weight });
+  const tiny = `${inputCls} py-1 text-xs`;
+
+  function handleSave() {
+    startTransition(async () => {
+      await upsertAreaTierEnemy({ id: row.id, area_id: areaId, tier: row.tier, enemy_id: form.enemy_id, weight: form.weight });
+      router.refresh();
+      onDone();
+    });
+  }
+
+  return (
+    <tr className="bg-primary/5">
+      <td className="py-1.5 pr-2">
+        <select
+          value={form.enemy_id}
+          onChange={e => setForm(p => ({ ...p, enemy_id: e.target.value }))}
+          className={`${tiny} flex-1 min-w-0 w-full`}
+        >
+          {enemies.map(en => (
+            <option key={en.id} value={en.id}>{en.icon} {en.display_name}</option>
+          ))}
+        </select>
+      </td>
+      <td className="py-1.5 pr-2">
+        <input type="number" min={1} value={form.weight}
+          onChange={e => setForm(p => ({ ...p, weight: Number(e.target.value) }))}
+          className={`${tiny} w-16`} />
+      </td>
+      <td className="py-1.5 text-right">
+        <div className="flex gap-3 justify-end">
+          <button onClick={handleSave} disabled={isPending} className={btnSecondary}>
+            {isPending ? '…' : 'Save'}
+          </button>
+          <button onClick={onDone} className="px-2 py-1 text-xs text-muted-foreground hover:text-body">
+            Cancel
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// ─── Per-tier enemy encounters section ───────────────────────────────────────
+
+function TierEnemySection({
+  tier,
+  rows,
+  areaId,
+  allEnemies,
+}: {
+  tier: number;
+  rows: EncounterRow[];
+  areaId: string;
+  allEnemies: SimpleEnemy[];
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const enemyMap = Object.fromEntries(allEnemies.map(e => [e.id, e]));
+
+  return (
+    <div className="bg-background border border-border rounded-lg overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-accent/20">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">T{tier}</span>
+          <span className="text-sm font-semibold text-heading">Tier {tier}</span>
+          <span className="text-xs text-muted-foreground">({rows.length} enemy{rows.length !== 1 ? ' types' : ''})</span>
+        </div>
+        {!adding && (
+          <button onClick={() => setAdding(true)} className="text-xs text-primary hover:underline">
+            + Add Enemy
+          </button>
+        )}
+      </div>
+
+      <div className="p-3">
+        {rows.length === 0 && !adding && (
+          <p className="text-xs text-muted-foreground italic py-2">No enemies for T{tier} yet.</p>
+        )}
+
+        {(rows.length > 0 || adding) && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-muted-foreground border-b border-border/50">
+                  <th className="pb-1.5 text-left font-semibold">Enemy</th>
+                  <th className="pb-1.5 text-left font-semibold">Weight</th>
+                  <th className="pb-1.5 text-right" />
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(row => {
+                  const enemy = enemyMap[row.enemy_id];
+                  if (editingId === row.id) {
+                    return (
+                      <EditEncounterRow
+                        key={row.id}
+                        row={row}
+                        areaId={areaId}
+                        enemies={allEnemies}
+                        onDone={() => setEditingId(null)}
+                      />
+                    );
+                  }
+                  return (
+                    <tr key={row.id} className="border-b border-border/30 last:border-0">
+                      <td className="py-1.5 pr-2 font-medium text-body">
+                        {enemy ? `${enemy.icon} ${enemy.display_name}` : row.enemy_id}
+                      </td>
+                      <td className="py-1.5 pr-2 text-muted-foreground">{row.weight}</td>
+                      <td className="py-1.5 text-right">
+                        <div className="flex gap-3 justify-end">
+                          <button
+                            onClick={() => setEditingId(row.id)}
+                            className="text-xs text-primary hover:underline"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              startTransition(async () => {
+                                await deleteAreaTierEnemy(row.id, areaId);
+                                router.refresh();
+                              });
+                            }}
+                            disabled={isPending}
+                            className="text-xs text-destructive hover:underline disabled:opacity-30"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {adding && (
+                  <AddEncounterRow
+                    areaId={areaId}
+                    tier={tier}
+                    enemies={allEnemies}
+                    onDone={() => setAdding(false)}
+                  />
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {!adding && rows.length === 0 && (
+          <button onClick={() => setAdding(true)} className="mt-1 text-xs text-primary hover:underline">
+            + Add Enemy
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main AreaForm ────────────────────────────────────────────────────────────
 
 export function AreaForm({
   areaId,
   initial,
   lootRows,
+  encounterRows,
   allItems,
+  allEnemies,
   maxTier,
   imageUrl: initialImageUrl,
 }: {
   areaId: string | null;
   initial: AreaData;
   lootRows: TierLootRow[];
+  encounterRows: EncounterRow[];
   allItems: Item[];
+  allEnemies: SimpleEnemy[];
   maxTier: number;
   imageUrl: string | null;
 }) {
@@ -392,6 +634,12 @@ export function AreaForm({
   const lootByTier: Record<number, TierLootRow[]> = {};
   for (const row of lootRows) {
     (lootByTier[row.tier] ??= []).push(row);
+  }
+
+  // Group encounter rows by tier for rendering
+  const encountersByTier: Record<number, EncounterRow[]> = {};
+  for (const row of encounterRows) {
+    (encountersByTier[row.tier] ??= []).push(row);
   }
 
   function notify(msg: string) {
@@ -529,7 +777,7 @@ export function AreaForm({
         </div>
 
         {/* ── Right: Per-tier loot tables ────────────────────────────────── */}
-        <div className="space-y-3">
+        <div className="space-y-6">
           {isNew ? (
             <div className="bg-card border border-border rounded-lg p-10 text-center text-muted-foreground">
               <p className="text-4xl mb-3">📋</p>
@@ -537,19 +785,36 @@ export function AreaForm({
             </div>
           ) : (
             <>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Loot Drops by Tier
-              </p>
-              {tiers.map(t => (
-                <TierSection
-                  key={t}
-                  tier={t}
-                  rows={lootByTier[t] ?? []}
-                  areaId={areaId}
-                  allItems={allItems}
-                  maxTier={maxTier}
-                />
-              ))}
+              <div className="space-y-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Loot Drops by Tier
+                </p>
+                {tiers.map(t => (
+                  <TierSection
+                    key={t}
+                    tier={t}
+                    rows={lootByTier[t] ?? []}
+                    areaId={areaId}
+                    allItems={allItems}
+                    maxTier={maxTier}
+                  />
+                ))}
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Enemy Encounters by Tier
+                </p>
+                {tiers.map(t => (
+                  <TierEnemySection
+                    key={t}
+                    tier={t}
+                    rows={encountersByTier[t] ?? []}
+                    areaId={areaId}
+                    allEnemies={allEnemies}
+                  />
+                ))}
+              </div>
             </>
           )}
         </div>

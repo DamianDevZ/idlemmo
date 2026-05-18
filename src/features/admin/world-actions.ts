@@ -97,3 +97,35 @@ export async function deleteAreaTierLoot(id: string, areaId: string) {
   revalidatePath(`/admin/world/${areaId}`);
 }
 
+/** Add or update an enemy encounter for a specific area+tier. */
+export async function upsertAreaTierEnemy(row: {
+  id?: string;
+  area_id: string;
+  tier: number;
+  enemy_id: string;
+  weight: number;
+}): Promise<string> {
+  await requireAdmin();
+  const db = createAdminClient();
+  const { id, ...rest } = row;
+  if (id) {
+    const { error } = await db.from('area_tier_enemies').update(rest).eq('id', id);
+    if (error) throw new Error(error.message);
+    revalidatePath(`/admin/world/${rest.area_id}`);
+    return id;
+  }
+  const { data, error } = await db.from('area_tier_enemies').insert(rest).select('id').single();
+  if (error || !data) throw new Error(error?.message ?? 'Insert failed');
+  revalidatePath(`/admin/world/${rest.area_id}`);
+  return data.id;
+}
+
+/** Remove an enemy encounter row. */
+export async function deleteAreaTierEnemy(id: string, areaId: string) {
+  await requireAdmin();
+  const db = createAdminClient();
+  const { error } = await db.from('area_tier_enemies').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+  revalidatePath(`/admin/world/${areaId}`);
+}
+
