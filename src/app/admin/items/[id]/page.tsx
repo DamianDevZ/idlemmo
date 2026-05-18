@@ -19,6 +19,7 @@ const BLANK = {
   tool_config: {},
   weapon_type_id: null,
   compatible_weapon_type_ids: [],
+  attack_speed: 1.0,
 };
 
 export default async function ItemEditorPage({

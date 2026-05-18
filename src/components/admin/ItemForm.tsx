@@ -48,6 +48,7 @@ type Item = {
   tool_config: ToolConfig;
   weapon_type_id: string | null;
   compatible_weapon_type_ids: string[];
+  attack_speed: number;
 };
 
 type ToolConfig = {
@@ -486,6 +487,10 @@ export function ItemForm({
                 <Field label="Base Damage">
                   <Input type="number" step="0.01" value={item.base_damage ?? ''} onChange={e => set('base_damage', e.target.value ? Number(e.target.value) : null)} />
                 </Field>
+                <Field label="Attack Speed (hits/sec)">
+                  <Input type="number" step="0.05" min="0.1" value={item.attack_speed ?? 1}
+                    onChange={e => set('attack_speed', e.target.value ? Number(e.target.value) : 1)} />
+                </Field>
                 <Field label="Damage Type">
                   <Select value={item.primary_damage_type ?? ''} onChange={e => set('primary_damage_type', e.target.value || null)}>
                     <option value="">None</option>
@@ -507,6 +512,24 @@ export function ItemForm({
                   </Select>
                 </Field>
               </div>
+
+              {/* DPS preview */}
+              {(item.base_damage ?? 0) > 0 && (
+                <div className="rounded-md bg-background border border-border p-3 space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">DPS Preview (base, before scaling)</p>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-muted-foreground">{item.base_damage} dmg</span>
+                    <span className="text-muted-foreground">&times;</span>
+                    <span className="text-muted-foreground">{item.attack_speed ?? 1} hits/s</span>
+                    <span className="text-muted-foreground">=</span>
+                    <span className="font-semibold text-body">{((item.base_damage ?? 0) * (item.attack_speed ?? 1)).toFixed(1)} DPS</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Attack interval: {(1 / (item.attack_speed ?? 1)).toFixed(2)}s &middot;
+                    Speed reference: 0.5=very slow &middot; 0.75=slow &middot; 1.0=normal &middot; 1.5=fast &middot; 2.0=very fast
+                  </p>
+                </div>
+              )}
 
               <div className="border-t border-border pt-4 space-y-3">
                 <div>
