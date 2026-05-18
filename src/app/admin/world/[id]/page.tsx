@@ -16,26 +16,23 @@ export default async function AreaEditPage({ params }: { params: Promise<{ id: s
   const isNew = id === 'new';
   const db = createAdminClient();
 
-  const [{ data: biomes }, { data: items }] = await Promise.all([
-    db.from('biomes').select('id, name, display_name, icon').order('name'),
-    db.from('item_definitions').select('id, display_name, type, name').order('display_name'),
-  ]);
+  const { data: items } = await db
+    .from('item_definitions')
+    .select('id, display_name, type, name')
+    .order('display_name');
 
   let area = BLANK;
-  type AreaBiome = {
+  type TierLootRow = {
     id: string;
-    biome_id: string;
-    area_biome_loot: {
-      id: string;
-      item_id: string;
-      weight: number;
-      quantity_min: number;
-      quantity_max: number;
-      gather_time_ms: number;
-      required_skill_name: string | null;
-    }[];
+    tier: number;
+    item_id: string;
+    weight: number;
+    quantity_min: number;
+    quantity_max: number;
+    gather_time_ms: number;
+    required_skill_name: string | null;
   };
-  let areaBiomes: AreaBiome[] = [];
+  let lootRows: TierLootRow[] = [];
 
   if (!isNew) {
     const { data: areaData } = await db
@@ -46,11 +43,13 @@ export default async function AreaEditPage({ params }: { params: Promise<{ id: s
     if (!areaData) notFound();
     area = areaData;
 
-    const { data: biomesData } = await db
-      .from('area_biomes')
-      .select('id, biome_id, area_biome_loot(id, item_id, weight, quantity_min, quantity_max, gather_time_ms, required_skill_name)')
-      .eq('area_id', id);
-    areaBiomes = (biomesData ?? []) as AreaBiome[];
+    const { data: loot } = await db
+      .from('area_tier_loot')
+      .select('id, tier, item_id, weight, quantity_min, quantity_max, gather_time_ms, required_skill_name')
+      .eq('area_id', id)
+      .order('tier')
+      .order('weight', { ascending: false });
+    lootRows = (loot ?? []) as TierLootRow[];
   }
 
   return (
@@ -66,10 +65,11 @@ export default async function AreaEditPage({ params }: { params: Promise<{ id: s
       <AreaForm
         areaId={isNew ? null : id}
         initial={area}
-        allBiomes={(biomes ?? []) as { id: string; name: string; display_name: string; icon: string }[]}
-        areaBiomes={areaBiomes}
+        lootRows={lootRows}
         allItems={(items ?? []) as { id: string; display_name: string; type: string; name: string }[]}
       />
     </div>
   );
 }
+
+

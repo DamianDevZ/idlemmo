@@ -38,61 +38,39 @@ export async function deleteArea(id: string) {
   revalidatePath('/admin/world');
 }
 
-/** Add a biome type to an area. Returns the area_biome row id. */
-export async function addBiomeToArea(areaId: string, biomeId: string): Promise<string> {
-  await requireAdmin();
-  const db = createAdminClient();
-  const { data, error } = await db
-    .from('area_biomes')
-    .insert({ area_id: areaId, biome_id: biomeId })
-    .select('id')
-    .single();
-  if (error || !data) throw new Error(error?.message ?? 'Insert failed');
-  revalidatePath(`/admin/world/${areaId}`);
-  return data.id;
-}
-
-/** Remove a biome from an area (cascades its loot rows). */
-export async function removeBiomeFromArea(areaBiomeId: string, areaId: string) {
-  await requireAdmin();
-  const db = createAdminClient();
-  const { error } = await db.from('area_biomes').delete().eq('id', areaBiomeId);
-  if (error) throw new Error(error.message);
-  revalidatePath(`/admin/world/${areaId}`);
-}
-
-/** Add or update a loot drop row for an area+biome. Returns the row id. */
-export async function upsertAreaBiomeLoot(row: {
+/** Add or update a loot drop for a specific area+tier. Returns the row id. */
+export async function upsertAreaTierLoot(row: {
   id?: string;
-  area_biome_id: string;
+  area_id: string;
+  tier: number;
   item_id: string;
   weight: number;
   quantity_min: number;
   quantity_max: number;
   gather_time_ms: number;
   required_skill_name: string | null;
-  areaId: string;
 }): Promise<string> {
   await requireAdmin();
   const db = createAdminClient();
-  const { id, areaId, ...rest } = row;
+  const { id, ...rest } = row;
   if (id) {
-    const { error } = await db.from('area_biome_loot').update(rest).eq('id', id);
+    const { error } = await db.from('area_tier_loot').update(rest).eq('id', id);
     if (error) throw new Error(error.message);
-    revalidatePath(`/admin/world/${areaId}`);
+    revalidatePath(`/admin/world/${rest.area_id}`);
     return id;
   }
-  const { data, error } = await db.from('area_biome_loot').insert(rest).select('id').single();
+  const { data, error } = await db.from('area_tier_loot').insert(rest).select('id').single();
   if (error || !data) throw new Error(error?.message ?? 'Insert failed');
-  revalidatePath(`/admin/world/${areaId}`);
+  revalidatePath(`/admin/world/${rest.area_id}`);
   return data.id;
 }
 
 /** Remove a single loot drop row. */
-export async function deleteAreaBiomeLoot(id: string, areaId: string) {
+export async function deleteAreaTierLoot(id: string, areaId: string) {
   await requireAdmin();
   const db = createAdminClient();
-  const { error } = await db.from('area_biome_loot').delete().eq('id', id);
+  const { error } = await db.from('area_tier_loot').delete().eq('id', id);
   if (error) throw new Error(error.message);
   revalidatePath(`/admin/world/${areaId}`);
 }
+

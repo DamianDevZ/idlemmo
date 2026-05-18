@@ -5,10 +5,8 @@ import { useRouter } from 'next/navigation';
 import {
   upsertArea,
   deleteArea,
-  addBiomeToArea,
-  removeBiomeFromArea,
-  upsertAreaBiomeLoot,
-  deleteAreaBiomeLoot,
+  upsertAreaTierLoot,
+  deleteAreaTierLoot,
 } from '@/features/admin/world-actions';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -22,8 +20,9 @@ type AreaData = {
   sort_order: number;
 };
 
-type LootRow = {
+type TierLootRow = {
   id: string;
+  tier: number;
   item_id: string;
   weight: number;
   quantity_min: number;
@@ -32,14 +31,10 @@ type LootRow = {
   required_skill_name: string | null;
 };
 
-type AreaBiome = {
-  id: string;
-  biome_id: string;
-  area_biome_loot: LootRow[];
-};
+type Item = { id: string; display_name: string; type: string; name: string };
 
-type Biome = { id: string; name: string; display_name: string; icon: string };
-type Item  = { id: string; display_name: string; type: string; name: string };
+const MAX_TIERS = 5;
+const TIERS = [1, 2, 3, 4, 5];
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
 
@@ -52,9 +47,6 @@ const btnPrimary =
 const btnSecondary =
   'px-3 py-1.5 text-xs bg-accent text-accent-foreground rounded ' +
   'hover:opacity-90 transition-opacity disabled:opacity-50';
-const btnDestructive =
-  'px-3 py-1.5 text-xs text-destructive border border-destructive/30 rounded ' +
-  'hover:bg-destructive/10 transition-colors disabled:opacity-50';
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -65,16 +57,16 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-// ─── Inline add-loot form (shown as a table row) ─────────────────────────────
+// ─── Inline form to add a new loot row for a tier ─────────────────────────────
 
 function AddLootRow({
-  areaBiomeId,
   areaId,
+  tier,
   items,
   onDone,
 }: {
-  areaBiomeId: string;
   areaId: string;
+  tier: number;
   items: Item[];
   onDone: () => void;
 }) {
@@ -92,27 +84,26 @@ function AddLootRow({
   function handleAdd() {
     if (!form.item_id) return;
     startTransition(async () => {
-      await upsertAreaBiomeLoot({
-        area_biome_id: areaBiomeId,
+      await upsertAreaTierLoot({
+        area_id: areaId,
+        tier,
         item_id: form.item_id,
         weight: form.weight,
         quantity_min: form.quantity_min,
         quantity_max: form.quantity_max,
         gather_time_ms: form.gather_time_ms,
         required_skill_name: form.required_skill_name || null,
-        areaId,
       });
       router.refresh();
       onDone();
     });
   }
 
-  const cell = 'py-1.5 pr-2';
   const tiny = `${inputCls} py-1 text-xs`;
 
   return (
     <tr className="bg-primary/5">
-      <td className={cell}>
+      <td className="py-1.5 pr-2">
         <select
           value={form.item_id}
           onChange={e => setForm(p => ({ ...p, item_id: e.target.value }))}
@@ -126,27 +117,27 @@ function AddLootRow({
           ))}
         </select>
       </td>
-      <td className={cell}>
+      <td className="py-1.5 pr-2">
         <input type="number" min={1} value={form.weight}
           onChange={e => setForm(p => ({ ...p, weight: Number(e.target.value) }))}
           className={`${tiny} w-16`} />
       </td>
-      <td className={cell}>
+      <td className="py-1.5 pr-2">
         <input type="number" min={1} value={form.quantity_min}
           onChange={e => setForm(p => ({ ...p, quantity_min: Number(e.target.value) }))}
           className={`${tiny} w-16`} />
       </td>
-      <td className={cell}>
+      <td className="py-1.5 pr-2">
         <input type="number" min={1} value={form.quantity_max}
           onChange={e => setForm(p => ({ ...p, quantity_max: Number(e.target.value) }))}
           className={`${tiny} w-16`} />
       </td>
-      <td className={cell}>
+      <td className="py-1.5 pr-2">
         <input type="number" min={100} step={500} value={form.gather_time_ms}
           onChange={e => setForm(p => ({ ...p, gather_time_ms: Number(e.target.value) }))}
           className={`${tiny} w-24`} />
       </td>
-      <td className={cell}>
+      <td className="py-1.5 pr-2">
         <input type="text" value={form.required_skill_name}
           onChange={e => setForm(p => ({ ...p, required_skill_name: e.target.value }))}
           placeholder="woodcutting…"
@@ -164,63 +155,53 @@ function AddLootRow({
   );
 }
 
-// ─── Biome card (shows one biome's loot drops) ────────────────────────────────
+// ─── A single tier section with its loot drops ───────────────────────────────
 
-function BiomeCard({
-  areaBiome,
-  biome,
+function TierSection({
+  tier,
+  rows,
   areaId,
   allItems,
 }: {
-  areaBiome: AreaBiome;
-  biome: Biome;
+  tier: number;
+  rows: TierLootRow[];
   areaId: string;
   allItems: Item[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [addingLoot, setAddingLoot] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   const itemMap = Object.fromEntries(allItems.map(it => [it.id, it]));
 
-  function handleRemoveBiome() {
-    if (!confirm(`Remove ${biome.display_name} from this area? All its loot drops will be deleted.`)) return;
+  function handleRemove(lootId: string) {
     startTransition(async () => {
-      await removeBiomeFromArea(areaBiome.id, areaId);
-      router.refresh();
-    });
-  }
-
-  function handleRemoveLoot(lootId: string) {
-    startTransition(async () => {
-      await deleteAreaBiomeLoot(lootId, areaId);
+      await deleteAreaTierLoot(lootId, areaId);
       router.refresh();
     });
   }
 
   return (
     <div className="bg-background border border-border rounded-lg overflow-hidden">
-      {/* Biome header */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-accent/20">
         <div className="flex items-center gap-2">
-          <span className="text-lg leading-none">{biome.icon}</span>
-          <span className="font-semibold text-sm text-heading">{biome.display_name}</span>
-          <span className="text-xs text-muted-foreground">
-            ({areaBiome.area_biome_loot.length} drop{areaBiome.area_biome_loot.length !== 1 ? 's' : ''})
-          </span>
+          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">T{tier}</span>
+          <span className="text-sm font-semibold text-heading">Tier {tier}</span>
+          <span className="text-xs text-muted-foreground">({rows.length} drop{rows.length !== 1 ? 's' : ''})</span>
         </div>
-        <button onClick={handleRemoveBiome} disabled={isPending} className={btnDestructive}>
-          Remove
-        </button>
+        {!adding && (
+          <button onClick={() => setAdding(true)} className="text-xs text-primary hover:underline">
+            + Add Drop
+          </button>
+        )}
       </div>
 
-      {/* Loot table */}
       <div className="p-3">
-        {areaBiome.area_biome_loot.length === 0 && !addingLoot && (
-          <p className="text-xs text-muted-foreground italic py-2 px-1">No loot drops yet.</p>
+        {rows.length === 0 && !adding && (
+          <p className="text-xs text-muted-foreground italic py-2">No drops for T{tier} yet.</p>
         )}
 
-        {(areaBiome.area_biome_loot.length > 0 || addingLoot) && (
+        {(rows.length > 0 || adding) && (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
@@ -235,11 +216,11 @@ function BiomeCard({
                 </tr>
               </thead>
               <tbody>
-                {areaBiome.area_biome_loot.map(row => {
+                {rows.map(row => {
                   const item = itemMap[row.item_id];
                   return (
                     <tr key={row.id} className="border-b border-border/30 last:border-0">
-                      <td className="py-1.5 pr-2 text-body font-medium">{item?.display_name ?? row.item_id}</td>
+                      <td className="py-1.5 pr-2 font-medium text-body">{item?.display_name ?? row.item_id}</td>
                       <td className="py-1.5 pr-2 text-muted-foreground">{row.weight}</td>
                       <td className="py-1.5 pr-2 text-muted-foreground">{row.quantity_min}</td>
                       <td className="py-1.5 pr-2 text-muted-foreground">{row.quantity_max}</td>
@@ -247,7 +228,7 @@ function BiomeCard({
                       <td className="py-1.5 pr-2 text-muted-foreground">{row.required_skill_name ?? '—'}</td>
                       <td className="py-1.5">
                         <button
-                          onClick={() => handleRemoveLoot(row.id)}
+                          onClick={() => handleRemove(row.id)}
                           disabled={isPending}
                           className="text-destructive hover:opacity-70 disabled:opacity-30 text-base leading-none"
                         >
@@ -257,12 +238,12 @@ function BiomeCard({
                     </tr>
                   );
                 })}
-                {addingLoot && (
+                {adding && (
                   <AddLootRow
-                    areaBiomeId={areaBiome.id}
                     areaId={areaId}
+                    tier={tier}
                     items={allItems}
-                    onDone={() => setAddingLoot(false)}
+                    onDone={() => setAdding(false)}
                   />
                 )}
               </tbody>
@@ -270,12 +251,9 @@ function BiomeCard({
           </div>
         )}
 
-        {!addingLoot && (
-          <button
-            onClick={() => setAddingLoot(true)}
-            className="mt-2 text-xs text-primary hover:underline"
-          >
-            + Add Loot Drop
+        {!adding && rows.length === 0 && (
+          <button onClick={() => setAdding(true)} className="mt-1 text-xs text-primary hover:underline">
+            + Add Drop
           </button>
         )}
       </div>
@@ -283,19 +261,17 @@ function BiomeCard({
   );
 }
 
-// ─── Main AreaForm component ──────────────────────────────────────────────────
+// ─── Main AreaForm ────────────────────────────────────────────────────────────
 
 export function AreaForm({
   areaId,
   initial,
-  allBiomes,
-  areaBiomes,
+  lootRows,
   allItems,
 }: {
   areaId: string | null;
   initial: AreaData;
-  allBiomes: Biome[];
-  areaBiomes: AreaBiome[];
+  lootRows: TierLootRow[];
   allItems: Item[];
 }) {
   const router = useRouter();
@@ -303,12 +279,14 @@ export function AreaForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [area, setArea] = useState<AreaData>(initial);
-  const [addBiomeId, setAddBiomeId] = useState('');
 
   const isNew = !areaId;
-  const biomeMap = Object.fromEntries(allBiomes.map(b => [b.id, b]));
-  const existingBiomeIds = new Set(areaBiomes.map(ab => ab.biome_id));
-  const availableBiomesToAdd = allBiomes.filter(b => !existingBiomeIds.has(b.id));
+
+  // Group loot rows by tier for rendering
+  const lootByTier: Record<number, TierLootRow[]> = {};
+  for (const row of lootRows) {
+    (lootByTier[row.tier] ??= []).push(row);
+  }
 
   function notify(msg: string) {
     setSuccess(msg);
@@ -322,7 +300,7 @@ export function AreaForm({
         if (isNew) {
           router.push(`/admin/world/${id}`);
         } else {
-          notify('Area saved');
+          notify('Saved');
         }
       } catch (e) {
         setError((e as Error).message);
@@ -332,25 +310,11 @@ export function AreaForm({
 
   function handleDelete() {
     if (!areaId) return;
-    if (!confirm(`Delete "${area.display_name}"? All biomes and loot for this area will be removed.`)) return;
+    if (!confirm(`Delete "${area.display_name}"? All its loot drops will be removed.`)) return;
     startTransition(async () => {
       try {
         await deleteArea(areaId);
         router.push('/admin/world');
-      } catch (e) {
-        setError((e as Error).message);
-      }
-    });
-  }
-
-  function handleAddBiome() {
-    if (!addBiomeId || !areaId) return;
-    startTransition(async () => {
-      try {
-        await addBiomeToArea(areaId, addBiomeId);
-        setAddBiomeId('');
-        router.refresh();
-        notify('Biome added');
       } catch (e) {
         setError((e as Error).message);
       }
@@ -370,68 +334,44 @@ export function AreaForm({
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-5 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-[300px_1fr] gap-5 items-start">
 
         {/* ── Left: Area details ─────────────────────────────────────────── */}
         <div className="bg-card border border-border rounded-lg p-5 space-y-4">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Area Details</p>
 
           <Field label="Display Name">
-            <input
-              type="text"
-              value={area.display_name}
+            <input type="text" value={area.display_name}
               onChange={e => setArea(p => ({ ...p, display_name: e.target.value }))}
-              placeholder="Verdant Valley"
-              className={inputCls}
-            />
+              placeholder="Eldervale Forest" className={inputCls} />
           </Field>
           <Field label="Internal Name">
-            <input
-              type="text"
-              value={area.name}
+            <input type="text" value={area.name}
               onChange={e => setArea(p => ({ ...p, name: e.target.value }))}
-              placeholder="verdant_valley"
-              className={inputCls}
-            />
+              placeholder="eldervale_forest" className={inputCls} />
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Tier">
-              <input
-                type="number"
-                min={1}
-                max={20}
-                value={area.tier}
+              <input type="number" min={1} max={10} value={area.tier}
                 onChange={e => setArea(p => ({ ...p, tier: Number(e.target.value) }))}
-                className={inputCls}
-              />
+                className={inputCls} />
             </Field>
-            <Field label="Icon (emoji)">
-              <input
-                type="text"
-                value={area.icon}
+            <Field label="Icon">
+              <input type="text" value={area.icon}
                 onChange={e => setArea(p => ({ ...p, icon: e.target.value }))}
-                placeholder="🗺️"
-                className={inputCls}
-              />
+                placeholder="🌲" className={inputCls} />
             </Field>
           </div>
           <Field label="Sort Order">
-            <input
-              type="number"
-              min={0}
-              value={area.sort_order}
+            <input type="number" min={0} value={area.sort_order}
               onChange={e => setArea(p => ({ ...p, sort_order: Number(e.target.value) }))}
-              className={inputCls}
-            />
+              className={inputCls} />
           </Field>
           <Field label="Description">
-            <textarea
-              rows={3}
-              value={area.description}
+            <textarea rows={3} value={area.description}
               onChange={e => setArea(p => ({ ...p, description: e.target.value }))}
-              placeholder="A lush valley home to…"
-              className={`${inputCls} resize-y`}
-            />
+              placeholder="Ancient woodland filled with…"
+              className={`${inputCls} resize-y`} />
           </Field>
 
           <div className="flex gap-2 pt-2 border-t border-border">
@@ -439,80 +379,35 @@ export function AreaForm({
               {isPending ? 'Saving…' : isNew ? 'Create Area' : 'Save Changes'}
             </button>
             {!isNew && (
-              <button
-                onClick={handleDelete}
-                disabled={isPending}
-                className="px-3 py-2 text-sm text-destructive border border-destructive/30 rounded-md hover:bg-destructive/10 transition-colors disabled:opacity-50"
-              >
+              <button onClick={handleDelete} disabled={isPending}
+                className="px-3 py-2 text-sm text-destructive border border-destructive/30 rounded-md hover:bg-destructive/10 transition-colors disabled:opacity-50">
                 Delete
               </button>
             )}
           </div>
         </div>
 
-        {/* ── Right: Biomes + Loot ───────────────────────────────────────── */}
-        <div className="space-y-4">
+        {/* ── Right: Per-tier loot tables ────────────────────────────────── */}
+        <div className="space-y-3">
           {isNew ? (
             <div className="bg-card border border-border rounded-lg p-10 text-center text-muted-foreground">
-              <p className="text-4xl mb-3">🌍</p>
-              <p className="text-sm">Save the area first, then add biomes and loot drops.</p>
+              <p className="text-4xl mb-3">📋</p>
+              <p className="text-sm">Create the area first, then set up loot drops per tier.</p>
             </div>
           ) : (
             <>
-              {/* Header row with "Add biome" control */}
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Biomes ({areaBiomes.length})
-                </p>
-                {availableBiomesToAdd.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={addBiomeId}
-                      onChange={e => setAddBiomeId(e.target.value)}
-                      className={`${inputCls} py-1.5 text-xs`}
-                    >
-                      <option value="">Add biome…</option>
-                      {availableBiomesToAdd.map(b => (
-                        <option key={b.id} value={b.id}>
-                          {b.icon} {b.display_name}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={handleAddBiome}
-                      disabled={!addBiomeId || isPending}
-                      className={`${btnSecondary} whitespace-nowrap`}
-                    >
-                      + Add
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {areaBiomes.length === 0 ? (
-                <div className="bg-card border border-border rounded-lg p-10 text-center text-muted-foreground">
-                  <p className="text-3xl mb-2">🌿</p>
-                  <p className="text-sm">
-                    No biomes yet. Add a biome to define what players encounter in this area.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {areaBiomes.map(ab => {
-                    const biome = biomeMap[ab.biome_id];
-                    if (!biome) return null;
-                    return (
-                      <BiomeCard
-                        key={ab.id}
-                        areaBiome={ab}
-                        biome={biome}
-                        areaId={areaId}
-                        allItems={allItems}
-                      />
-                    );
-                  })}
-                </div>
-              )}
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Loot Drops by Tier
+              </p>
+              {TIERS.map(t => (
+                <TierSection
+                  key={t}
+                  tier={t}
+                  rows={lootByTier[t] ?? []}
+                  areaId={areaId}
+                  allItems={allItems}
+                />
+              ))}
             </>
           )}
         </div>
@@ -520,3 +415,4 @@ export function AreaForm({
     </div>
   );
 }
+
