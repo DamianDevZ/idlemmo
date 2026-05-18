@@ -24,6 +24,7 @@ export default async function ExplorePage() {
     { data: skills },
     { data: equippedTools },
     { data: consumableInventory },
+    { data: areas },
   ] = await Promise.all([
     supabase.from('biomes').select('*').neq('name', 'ocean').order('sort_order'),
     supabase.from('biome_tiers').select('*').order('tier'),
@@ -39,6 +40,10 @@ export default async function ExplorePage() {
       .select('instance_id, quantity, item_definitions(name, display_name, type, stats, image_url)')
       .eq('character_id', character.id)
       .is('equipped_slot', null),
+    supabase
+      .from('areas')
+      .select('id, name, display_name, description, icon, sort_order, image_url')
+      .order('sort_order'),
   ]);
 
   // Build skill_name → level map
@@ -89,6 +94,7 @@ export default async function ExplorePage() {
   return (
     <ExploreClient
       character={character as DbCharacter & { character_attributes: DbCharacterAttributes }}
+      areas={(areas ?? []) as { id: string; name: string; display_name: string; description: string; icon: string; sort_order: number; image_url: string | null }[]}
       biomes={(biomes ?? []) as DbBiome[]}
       biomeTiers={(biomeTiers ?? []) as DbBiomeTier[]}
       activeSession={(activeSession ?? null) as DbExplorationSession | null}

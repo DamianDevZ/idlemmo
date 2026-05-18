@@ -12,7 +12,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import type {
   DbBiome, DbBiomeTier, DbCharacter, DbCharacterAttributes,
@@ -25,8 +24,19 @@ interface ConsumableItem {
   item_definitions: { name: string; display_name: string; type: string; stats: { heal_amount?: number } | null; image_url: string | null } | null;
 }
 
+interface Area {
+  id: string;
+  name: string;
+  display_name: string;
+  description: string;
+  icon: string;
+  sort_order: number;
+  image_url: string | null;
+}
+
 interface Props {
   character: DbCharacter & { character_attributes: DbCharacterAttributes };
+  areas: Area[];
   biomes: DbBiome[];
   biomeTiers: DbBiomeTier[];
   activeSession: DbExplorationSession | null;
@@ -179,11 +189,11 @@ function DepthTimer({ startedAt }: { startedAt: string }) {
 }
 
 
-export default function ExploreClient({ character, biomes, biomeTiers, activeSession: initialSession, initialEvents, characterSkills, playerToolTier, initialConsumables = [] }: Props) {
+export default function ExploreClient({ character, areas, biomes, biomeTiers, activeSession: initialSession, initialEvents, characterSkills, playerToolTier, initialConsumables = [] }: Props) {
   const attrs = character.character_attributes;
 
   // ── State ──────────────────────────────────────────────────────────────────
-  const [selectedBiome, setSelectedBiome] = useState<string>(biomes[0]?.id ?? '');
+  const [selectedArea, setSelectedArea] = useState<string>(areas[0]?.id ?? '');
   const [selectedTier, setSelectedTier] = useState(1);
 
   const [retreatHp, setRetreatHp] = useState(20);
@@ -462,7 +472,9 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
   }, [autoApprove]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Derived ────────────────────────────────────────────────────────────────
-  const biomeTiersForSelected = biomeTiers.filter(bt => bt.biome_id === selectedBiome);
+  const selectedAreaData = areas.find(a => a.id === selectedArea);
+  const matchingBiome = biomes.find(b => b.name === selectedAreaData?.name);
+  const biomeTiersForSelected = biomeTiers.filter(bt => bt.biome_id === matchingBiome?.id);
 
   function getTierAccess(tier: DbBiomeTier) {
     return checkBiomeTierAccess(tier, attrs, 0, 0);
@@ -591,6 +603,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
   if (activeSession) {
     const activeTier  = biomeTiers.find(bt => bt.id === activeSession.biome_tier_id);
     const activeBiome = biomes.find(b => b.id === activeTier?.biome_id);
+    const activeArea  = areas.find(a => a.name === activeBiome?.name);
     const maxHp = GAME_CONFIG.attributes.baseHp + attrs.vigor * GAME_CONFIG.attributes.hpPerVigor;
 
     const currentEvent = events[0] ?? null;
@@ -609,7 +622,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
           <div className="min-w-0">
             <h2 className="text-xl md:text-2xl font-bold text-primary leading-tight">Exploring</h2>
             <p className="text-muted-foreground text-sm truncate">
-              {activeBiome?.icon} {activeBiome?.display_name} — {activeTier?.display_name}
+              {(activeArea ?? activeBiome)?.icon} {(activeArea ?? activeBiome)?.display_name}{activeTier?.display_name ? ` — ${activeTier.display_name}` : ''}
             </p>
           </div>
           <div className="text-xs text-muted-foreground shrink-0">
@@ -990,68 +1003,99 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
         </div>
       )}
 
-      {/* Biome tabs */}
-      <Tabs value={selectedBiome} onValueChange={v => { setSelectedBiome(v); setSelectedTier(1); }}>
-        <TabsList className="flex flex-wrap h-auto gap-1">
-          {biomes.map(b => (
-            <TabsTrigger key={b.id} value={b.id} className="text-xs">
-              {b.icon} {b.display_name}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      {/* Area cards */}
+      {areas.length === 0 ? (
+        <p className="text-sm text-muted-foreground italic">No areas have been configured yet.</p>
+      ) : (
+        <div className="space-y-3">
+          {areas.map(area => {
+            const isSelected = selectedArea === area.id;
+            const areaBiome = biomes.find(b => b.name === area.name);
+            const tiersForArea = biomeTiers.filter(bt => bt.biome_id === areaBiome?.id);
+            return (
+              <div
+                key={area.id}
+                className={`rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
+                  isSelected ? 'border-primary' : 'border-border hover:border-primary/40'
+                }`}
+                onClick={() => { setSelectedArea(area.id); setSelectedTier(1); }}
+              >
+                {/* Image banner with text overlay */}
+                <div className="relative" style={{ minHeight: '88px' }}>
+                  {area.image_url
+                    ? <img src={area.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                    : <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-accent/30" />
+                  }
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent" />
+                  <div className="relative px-4 py-3 flex items-end min-h-[88px]">
+                    <span className="text-2xl mr-3 leading-none drop-shadow">{area.icon}</span>
+                    <div>
+                      <h3 className="font-bold text-white leading-tight drop-shadow">{area.display_name}</h3>
+                      {area.description && (
+                        <p className="text-xs text-white/75 line-clamp-1 drop-shadow">{area.description}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
 
-        {biomes.map(b => (
-          <TabsContent key={b.id} value={b.id} className="mt-3">
-            <p className="text-muted-foreground text-sm mb-3">{b.description}</p>
-
-            {/* Tier picker */}
-            <div className="grid grid-cols-5 gap-2">
-              {biomeTiers.filter(bt => bt.biome_id === b.id).map(bt => {
-                const access = getTierAccess(bt);
-                const active = selectedTier === bt.tier && selectedBiome === b.id;
-                return (
-                  <button
-                    key={bt.id}
-                    onClick={() => access.canDo && setSelectedTier(bt.tier)}
-                    disabled={!access.canDo}
-                    className={`rounded-md border p-2.5 text-center transition-colors text-xs min-h-[64px] ${
-                      active
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : access.canDo
-                          ? 'border-border hover:border-primary/50 text-foreground'
-                          : 'border-border opacity-40 cursor-not-allowed text-muted-foreground'
-                    }`}
-                  >
-                    <div className="font-semibold">T{bt.tier}</div>
-                    <div className="truncate">{bt.display_name.split(' ').slice(-1)[0]}</div>
-                    {!access.canDo && <div className="text-[10px] mt-0.5">🔒</div>}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Selected tier details */}
-            {biomeTiers.filter(bt => bt.biome_id === b.id && bt.tier === selectedTier).map(bt => (
-              <Card key={bt.id} className="mt-3">
-                <CardContent className="pt-3 text-sm space-y-1">
-                  <div className="font-medium">{bt.display_name}</div>
-                  <p className="text-muted-foreground text-xs">{bt.description}</p>
-                  <div className="text-xs text-muted-foreground pt-1 space-x-3">
-                    <span>Enemies lv {bt.enemy_level_min}–{bt.enemy_level_max}</span>
-                    {bt.required_skill_level > 0 && <span>Skill ≥{bt.required_skill_level}</span>}
-                    {bt.required_tool_tier > 0 && <span>Tool T{bt.required_tool_tier}+</span>}
-                    {bt.required_attribute && (
-                      <span className="capitalize">
-                        {(bt.required_attribute as { stat: string; value: number }).stat} ≥{(bt.required_attribute as { stat: string; value: number }).value}
-                      </span>
+                {/* Expanded: tier picker (only when selected) */}
+                {isSelected && (
+                  <div className="bg-card p-3 space-y-3" onClick={e => e.stopPropagation()}>
+                    {tiersForArea.length > 0 ? (
+                      <>
+                        <div className="grid grid-cols-5 gap-2">
+                          {tiersForArea.map(bt => {
+                            const access = getTierAccess(bt);
+                            const active = selectedTier === bt.tier;
+                            return (
+                              <button
+                                key={bt.id}
+                                onClick={() => access.canDo && setSelectedTier(bt.tier)}
+                                disabled={!access.canDo}
+                                className={`rounded-md border p-2.5 text-center transition-colors text-xs min-h-[60px] ${
+                                  active
+                                    ? 'border-primary bg-primary/10 text-primary'
+                                    : access.canDo
+                                      ? 'border-border hover:border-primary/50 text-foreground'
+                                      : 'border-border opacity-40 cursor-not-allowed text-muted-foreground'
+                                }`}
+                              >
+                                <div className="font-semibold">T{bt.tier}</div>
+                                <div className="truncate text-[10px]">{bt.display_name.split(' ').slice(-1)[0]}</div>
+                                {!access.canDo && <div className="text-[10px] mt-0.5">🔒</div>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {tiersForArea.filter(bt => bt.tier === selectedTier).map(bt => (
+                          <Card key={bt.id}>
+                            <CardContent className="pt-3 text-sm space-y-1">
+                              <div className="font-medium">{bt.display_name}</div>
+                              <p className="text-muted-foreground text-xs">{bt.description}</p>
+                              <div className="text-xs text-muted-foreground pt-1 space-x-3">
+                                <span>Enemies lv {bt.enemy_level_min}–{bt.enemy_level_max}</span>
+                                {bt.required_skill_level > 0 && <span>Skill ≥{bt.required_skill_level}</span>}
+                                {bt.required_tool_tier > 0 && <span>Tool T{bt.required_tool_tier}+</span>}
+                                {bt.required_attribute && (
+                                  <span className="capitalize">
+                                    {(bt.required_attribute as { stat: string; value: number }).stat} ≥{(bt.required_attribute as { stat: string; value: number }).value}
+                                  </span>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic py-1">This area is not yet available for exploration.</p>
                     )}
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </TabsContent>
-        ))}
-      </Tabs>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Retreat HP */}
       <div className="space-y-2">
@@ -1075,7 +1119,7 @@ export default function ExploreClient({ character, biomes, biomeTiers, activeSes
         className="w-full"
         size="lg"
         onClick={handleStart}
-        disabled={pending || !selectedBiome}
+        disabled={pending || !selectedArea || biomeTiersForSelected.length === 0}
       >
         {pending ? 'Starting…' : '⚔️ Begin Exploration'}
       </Button>
