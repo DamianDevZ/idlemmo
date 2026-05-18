@@ -8,18 +8,10 @@ export default async function WorldPage() {
   await requireAdmin();
   const db = createAdminClient();
 
-  const [{ data: areas }, { data: biomeCounts }] = await Promise.all([
-    db.from('areas')
-      .select('id, name, display_name, tier, description, icon, sort_order')
-      .order('sort_order')
-      .order('tier'),
-    db.from('area_biomes').select('area_id'),
-  ]);
-
-  const biomeCountMap: Record<string, number> = {};
-  for (const row of biomeCounts ?? []) {
-    biomeCountMap[row.area_id] = (biomeCountMap[row.area_id] ?? 0) + 1;
-  }
+  const { data: areas } = await db
+    .from('areas')
+    .select('id, name, display_name, description, icon, sort_order')
+    .order('sort_order');
 
   return (
     <div className="space-y-6">
@@ -51,27 +43,19 @@ export default async function WorldPage() {
             href={`/admin/world/${area.id}`}
             className="group bg-card border border-border rounded-xl p-5 hover:border-primary/50 transition-all flex flex-col gap-3"
           >
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-3xl leading-none">{area.icon}</span>
-                <div>
-                  <h3 className="font-bold text-heading">{area.display_name}</h3>
-                  <p className="text-xs text-muted-foreground">{area.name}</p>
-                </div>
+            <div className="flex items-center gap-3">
+              <span className="text-3xl leading-none">{area.icon}</span>
+              <div>
+                <h3 className="font-bold text-heading">{area.display_name}</h3>
+                <p className="text-xs text-muted-foreground">{area.name}</p>
               </div>
-              <span className="shrink-0 text-xs font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                T{area.tier}
-              </span>
             </div>
 
             {area.description && (
               <p className="text-xs text-muted-foreground line-clamp-2">{area.description}</p>
             )}
 
-            <div className="flex items-center justify-between text-xs mt-auto">
-              <span className="text-muted-foreground">
-                {biomeCountMap[area.id] ?? 0} biome{biomeCountMap[area.id] !== 1 ? 's' : ''}
-              </span>
+            <div className="flex items-center justify-end text-xs mt-auto">
               <span className="text-muted-foreground group-hover:text-primary transition-colors">→</span>
             </div>
           </Link>
