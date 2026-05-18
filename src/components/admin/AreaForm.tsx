@@ -14,7 +14,6 @@ import {
 type AreaData = {
   name: string;
   display_name: string;
-  tier: number;
   description: string;
   icon: string;
   sort_order: number;
@@ -32,9 +31,6 @@ type TierLootRow = {
 };
 
 type Item = { id: string; display_name: string; type: string; name: string };
-
-const MAX_TIERS = 5;
-const TIERS = [1, 2, 3, 4, 5];
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
 
@@ -268,12 +264,15 @@ export function AreaForm({
   initial,
   lootRows,
   allItems,
+  maxTier,
 }: {
   areaId: string | null;
   initial: AreaData;
   lootRows: TierLootRow[];
   allItems: Item[];
+  maxTier: number;
 }) {
+  const tiers = Array.from({ length: maxTier }, (_, i) => i + 1);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -350,18 +349,11 @@ export function AreaForm({
               onChange={e => setArea(p => ({ ...p, name: e.target.value }))}
               placeholder="eldervale_forest" className={inputCls} />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Tier">
-              <input type="number" min={1} max={10} value={area.tier}
-                onChange={e => setArea(p => ({ ...p, tier: Number(e.target.value) }))}
-                className={inputCls} />
-            </Field>
-            <Field label="Icon">
-              <input type="text" value={area.icon}
-                onChange={e => setArea(p => ({ ...p, icon: e.target.value }))}
-                placeholder="🌲" className={inputCls} />
-            </Field>
-          </div>
+          <Field label="Icon">
+            <input type="text" value={area.icon}
+              onChange={e => setArea(p => ({ ...p, icon: e.target.value }))}
+              placeholder="🌲" className={inputCls} />
+          </Field>
           <Field label="Sort Order">
             <input type="number" min={0} value={area.sort_order}
               onChange={e => setArea(p => ({ ...p, sort_order: Number(e.target.value) }))}
@@ -399,7 +391,7 @@ export function AreaForm({
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                 Loot Drops by Tier
               </p>
-              {TIERS.map(t => (
+              {tiers.map(t => (
                 <TierSection
                   key={t}
                   tier={t}

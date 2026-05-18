@@ -7,7 +7,6 @@ import { revalidatePath } from 'next/cache';
 export type AreaData = {
   name: string;
   display_name: string;
-  tier: number;
   description: string;
   icon: string;
   sort_order: number;

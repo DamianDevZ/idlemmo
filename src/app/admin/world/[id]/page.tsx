@@ -7,7 +7,7 @@ import { AreaForm } from '@/components/admin/AreaForm';
 export const dynamic = 'force-dynamic';
 
 const BLANK = {
-  name: '', display_name: '', tier: 1, description: '', icon: '🗺️', sort_order: 0,
+  name: '', display_name: '', description: '', icon: '🗺️', sort_order: 0,
 };
 
 export default async function AreaEditPage({ params }: { params: Promise<{ id: string }> }) {
@@ -16,10 +16,11 @@ export default async function AreaEditPage({ params }: { params: Promise<{ id: s
   const isNew = id === 'new';
   const db = createAdminClient();
 
-  const { data: items } = await db
-    .from('item_definitions')
-    .select('id, display_name, type, name')
-    .order('display_name');
+  const [{ data: items }, { data: maxTierRow }] = await Promise.all([
+    db.from('item_definitions').select('id, display_name, type, name').order('display_name'),
+    db.from('game_config').select('value').eq('key', 'max_tier').single(),
+  ]);
+  const maxTier = Number((maxTierRow as { value: number } | null)?.value ?? 5);
 
   let area = BLANK;
   type TierLootRow = {
@@ -37,7 +38,7 @@ export default async function AreaEditPage({ params }: { params: Promise<{ id: s
   if (!isNew) {
     const { data: areaData } = await db
       .from('areas')
-      .select('name, display_name, tier, description, icon, sort_order')
+      .select('name, display_name, description, icon, sort_order')
       .eq('id', id)
       .single();
     if (!areaData) notFound();
@@ -67,6 +68,7 @@ export default async function AreaEditPage({ params }: { params: Promise<{ id: s
         initial={area}
         lootRows={lootRows}
         allItems={(items ?? []) as { id: string; display_name: string; type: string; name: string }[]}
+        maxTier={maxTier}
       />
     </div>
   );
