@@ -11,7 +11,6 @@ export interface EquipItemData {
   display_name: string;
   name: string;
   type: string;
-  rarity: string;
   stats: Record<string, number>;
   equipment_tier: number | null;
   source: 'inventory' | 'stash';
@@ -23,7 +22,6 @@ export interface EquippedData {
   display_name: string;
   name: string;
   type: string;
-  rarity: string;
   stats: Record<string, number>;
   equipment_tier: number | null;
 }
@@ -46,13 +44,6 @@ const SLOT_META = [
   { slot: 'tool_hammer',  label: 'Hammer',   icon: '🔨',  hint: 'Smithing & crafting' },
 ] as const;
 
-const RARITY_COLORS: Record<string, string> = {
-  common:    '',
-  uncommon:  'text-green-400',
-  rare:      'text-blue-400',
-  epic:      'text-purple-400',
-  legendary: 'text-amber-400',
-};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -145,7 +136,7 @@ export function EquipmentPanel({ characterId, equipped, available }: Props) {
                 <span className="text-[11px] font-medium text-muted-foreground leading-none">{label}</span>
               </div>
               {eq ? (
-                <p className={`text-[11px] font-semibold leading-snug truncate w-full ${RARITY_COLORS[eq.rarity] || ''}`}>
+                <p className="text-[11px] font-semibold leading-snug truncate w-full">
                   {eq.display_name}
                 </p>
               ) : (
@@ -205,7 +196,7 @@ export function EquipmentPanel({ characterId, equipped, available }: Props) {
                   className="w-full flex items-center justify-between rounded-md border border-border bg-card px-3 py-2 text-left hover:border-primary/40 hover:bg-primary/5 transition-colors disabled:opacity-40"
                 >
                   <div className="flex-1 min-w-0">
-                    <span className={`text-sm font-medium ${RARITY_COLORS[item.rarity] || ''}`}>
+                    <span className="text-sm font-medium">
                       {item.display_name}
                     </span>
                     {statLine(item) && (

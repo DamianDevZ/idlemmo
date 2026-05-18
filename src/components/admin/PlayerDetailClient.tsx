@@ -13,7 +13,7 @@ type InventoryRow = {
   equipped_slot: string | null;
   item_rating: string | null;
   tier: number;
-  item_definitions: { display_name: string; type: string; rarity: string; equipment_tier: number | null } | null;
+  item_definitions: { display_name: string; type: string; equipment_tier: number | null } | null;
 };
 
 type StashRow = {
@@ -21,7 +21,7 @@ type StashRow = {
   item_id: string;
   quantity: number;
   item_rating: string | null;
-  item_definitions: { display_name: string; type: string; rarity: string } | null;
+  item_definitions: { display_name: string; type: string } | null;
 };
 
 type SkillRow = {

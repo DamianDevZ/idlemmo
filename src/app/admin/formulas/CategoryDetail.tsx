@@ -111,7 +111,7 @@ const CAT_META: Record<string, { title: string; icon: string; formula: string; d
     title: 'Drop Weight Multipliers',
     icon: '🎲',
     formula:
-      'P(rarity) ∝ basePoolWeight × dropWeightMult\nWeights normalised across all eligible items in the loot pool.\nCommon = 1.00 baseline.',
+      'weight ∝ item drop probability\nWeights normalised across all eligible items in the loot pool.',
     desc: 'Lower weight = rarer. These multiply each item\'s base pool weight before the final draw.',
   },
 };

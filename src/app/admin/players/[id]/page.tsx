@@ -22,11 +22,11 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
     db.from('characters').select('*').eq('id', characterId).single(),
     db.from('character_attributes').select('*').eq('character_id', characterId).single(),
     db.from('character_inventory')
-      .select('instance_id, item_id, quantity, equipped_slot, item_rating, tier, item_definitions(display_name, type, rarity, equipment_tier)')
+      .select('instance_id, item_id, quantity, equipped_slot, item_rating, tier, item_definitions(display_name, type, equipment_tier)')
       .eq('character_id', characterId)
       .order('equipped_slot', { ascending: false, nullsFirst: false }),
     db.from('character_stash')
-      .select('instance_id, item_id, quantity, item_rating, item_definitions(display_name, type, rarity)')
+      .select('instance_id, item_id, quantity, item_rating, item_definitions(display_name, type)')
       .eq('character_id', characterId),
     db.from('character_skills')
       .select('skill_id, level, xp_toward_next_level, skills(display_name)')

@@ -25,7 +25,6 @@ type Item = {
   name: string;
   display_name: string;
   type: string;
-  rarity: string;
   description: string;
   stackable: boolean;
   equipment_tier: number | null;
@@ -68,7 +67,6 @@ export type TierScalingRow = { id?: string; item_type: string; stat_key: string;
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const TYPES = ['material','tool','weapon','armor','consumable','misc','special_attack'];
-const RARITIES = ['common','uncommon','rare','epic','legendary'];
 const DAMAGE_TYPES = ['slash','pierce','blunt','bleed','fire','ice','poison','lightning','true'];
 // Resistance grid excludes 'true' — true damage bypasses all armor
 const RESIST_TYPES: { key: string; label: string; emoji: string }[] = [
@@ -401,18 +399,11 @@ export function ItemForm({
             <Input value={item.display_name} onChange={e => set('display_name', e.target.value)} placeholder="Iron Sword" />
           </Field>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Type">
-              <Select value={item.type} onChange={e => set('type', e.target.value)}>
-                {TYPES.map(t => <option key={t} value={t}>{TYPES_LABELS[t] ?? t}</option>)}
-              </Select>
-            </Field>
-            <Field label="Rarity">
-              <Select value={item.rarity} onChange={e => set('rarity', e.target.value)}>
-                {RARITIES.map(r => <option key={r} value={r}>{r}</option>)}
-              </Select>
-            </Field>
-          </div>
+          <Field label="Type">
+            <Select value={item.type} onChange={e => set('type', e.target.value)}>
+              {TYPES.map(t => <option key={t} value={t}>{TYPES_LABELS[t] ?? t}</option>)}
+            </Select>
+          </Field>
 
           <Field label="Description">
             <textarea

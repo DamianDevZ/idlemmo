@@ -108,8 +108,8 @@ const CAT_META: Record<string, { title: string; icon: string; formula: string; d
   rarities: {
     title: 'Drop Weight Multipliers',
     icon: '🎲',
-    formula: 'P(rarity) ∝ basePoolWeight × dropWeightMult\n— weights are normalised across all items in the loot pool',
-    desc: 'Each rarity\'s weight is relative to the others. Common = 1.0 baseline. All weights are normalised before the final draw, so only the ratios between values matter.',
+    formula: 'weight ∝ item drop probability\n— weights are normalised across all items in the loot pool',
+    desc: 'Per-item weights are relative to each other. All weights are normalised before the final draw, so only the ratios between values matter.',
   },
   items: {
     title: 'Items & Tiers',

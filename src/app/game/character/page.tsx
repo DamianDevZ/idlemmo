@@ -59,21 +59,21 @@ export default async function CharacterPage() {
   const [{ data: rawInv }, { data: rawStash }] = await Promise.all([
     supabase
       .from('character_inventory')
-      .select('item_id, quantity, equipped_slot, item_definitions(id, name, display_name, type, rarity, stats, equipment_tier)')
+      .select('item_id, quantity, equipped_slot, item_definitions(id, name, display_name, type, stats, equipment_tier)')
       .eq('character_id', character.id),
     supabase
       .from('character_stash')
-      .select('item_id, quantity, item_definitions(id, name, display_name, type, rarity, stats, equipment_tier)')
+      .select('item_id, quantity, item_definitions(id, name, display_name, type, stats, equipment_tier)')
       .eq('character_id', character.id),
   ]);
 
   type RawInvRow = {
     item_id: string; quantity: number; equipped_slot: string | null;
-    item_definitions: { id: string; name: string; display_name: string; type: string; rarity: string; stats: Record<string, number>; equipment_tier: number | null } | null;
+    item_definitions: { id: string; name: string; display_name: string; type: string; stats: Record<string, number>; equipment_tier: number | null } | null;
   };
   type RawStashRow = {
     item_id: string; quantity: number;
-    item_definitions: { id: string; name: string; display_name: string; type: string; rarity: string; stats: Record<string, number>; equipment_tier: number | null } | null;
+    item_definitions: { id: string; name: string; display_name: string; type: string; stats: Record<string, number>; equipment_tier: number | null } | null;
   };
 
   const invRows   = (rawInv   ?? []) as unknown as RawInvRow[];
@@ -88,7 +88,6 @@ export default async function CharacterPage() {
       display_name: r.item_definitions!.display_name,
       name:         r.item_definitions!.name,
       type:         r.item_definitions!.type,
-      rarity:       r.item_definitions!.rarity,
       stats:        r.item_definitions!.stats,
       equipment_tier: r.item_definitions!.equipment_tier,
     }));

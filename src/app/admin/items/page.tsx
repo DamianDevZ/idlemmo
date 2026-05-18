@@ -13,10 +13,6 @@ const ITEM_TYPES = [
   { key: 'misc',           label: 'Misc',        emoji: '📦' },
 ] as const;
 
-const RARITY_ORDER = ['common','uncommon','rare','epic','legendary'];
-const RARITY_HEX: Record<string,string> = {
-  common:'#64748b', uncommon:'#22c55e', rare:'#3b82f6', epic:'#a855f7', legendary:'#f59e0b',
-};
 const SCALING_HEX: Record<string,string> = {
   str:'#ef4444', dex:'#22c55e', int:'#3b82f6',
   fth:'#f59e0b', arc:'#a855f7', vig:'#ec4899', end:'#06b6d4',
@@ -86,18 +82,10 @@ const TYPE_COLORS: Record<string, string> = {
   special_attack: 'text-orange-400',
 };
 
-const RARITY_COLORS: Record<string, string> = {
-  common: 'text-body',
-  uncommon: 'text-green-400',
-  rare: 'text-blue-400',
-  epic: 'text-purple-400',
-  legendary: 'text-amber-400',
-};
-
 export default async function AdminItemsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; subtype?: string; q?: string; sort?: string; rarity?: string }>;
+  searchParams: Promise<{ type?: string; subtype?: string; q?: string; sort?: string }>;
 }) {
   await requireAdmin();
   const params = await searchParams;
@@ -107,7 +95,7 @@ export default async function AdminItemsPage({
   if (params.type === 'material' && !params.subtype) {
     const { data: mats } = await db
       .from('item_definitions')
-      .select('id, material_subtype, rarity')
+      .select('id, material_subtype')
       .eq('type', 'material');
     const all = mats ?? [];
     const bySubtype = { raw: 0, refined: 0, unique: 0 } as Record<string, number>;
@@ -157,7 +145,7 @@ export default async function AdminItemsPage({
   if (!params.type) {
     const { data: all } = await db
       .from('item_definitions')
-      .select('id, type, rarity, primary_damage_type, primary_scaling_attr, secondary_scaling_attr, material_type');
+      .select('id, type, primary_damage_type, primary_scaling_attr, secondary_scaling_attr, material_type');
 
     const rows = all ?? [];
     const byType: Record<string, typeof rows> = {};
@@ -220,9 +208,6 @@ export default async function AdminItemsPage({
           {ITEM_TYPES.map(tc => {
             const items = byType[tc.key] ?? [];
             const count = items.length;
-            const raritySegs: Seg[] = RARITY_ORDER
-              .map(r => ({ label: r, value: items.filter(i => i.rarity === r).length, color: RARITY_HEX[r] }))
-              .filter(s => s.value > 0);
 
             return (
               <Link key={tc.key} href={`/admin/items?type=${tc.key}`}
@@ -247,10 +232,6 @@ export default async function AdminItemsPage({
                   <div className="flex justify-center">
                     <DonutChart segs={matSegs} title="Material" center={`${count}`} />
                   </div>
-                ) : raritySegs.length > 0 ? (
-                  <div className="flex justify-center">
-                    <DonutChart segs={raritySegs} title="Rarity" center={`${count}`} />
-                  </div>
                 ) : (
                   <div className="flex-1 flex items-center justify-center py-4">
                     <span className="text-4xl font-black text-heading opacity-10">{count}</span>
@@ -265,18 +246,6 @@ export default async function AdminItemsPage({
         <div className="bg-card border border-border rounded-lg p-4 space-y-3">
           <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">System Key</p>
           <div className="flex flex-wrap gap-6 text-xs">
-            <div>
-              <p className="font-semibold text-body mb-1">Rarity — base drop chance of the item definition</p>
-              <div className="flex gap-3 flex-wrap">
-                {[['common','most common'],['uncommon',''],['rare',''],['epic',''],['legendary','rarest']].map(([r, note]) => (
-                  <span key={r} className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full" style={{ background: RARITY_HEX[r] }} />
-                    <span style={{ color: RARITY_HEX[r] }}>{r}</span>
-                    {note && <span className="text-muted-foreground">({note})</span>}
-                  </span>
-                ))}
-              </div>
-            </div>
             <div>
               <p className="font-semibold text-body mb-1">Rating — quality of a specific dropped instance</p>
               <div className="flex items-center gap-2">
@@ -293,22 +262,19 @@ export default async function AdminItemsPage({
   }
 
   // ── LIST MODE ───────────────────────────────────────────────────────────
-  const { type: typeKey, subtype, q, sort, rarity } = params;
+  const { type: typeKey, subtype, q, sort } = params;
   const tc = ITEM_TYPES.find(t => t.key === typeKey);
 
   let query = db
     .from('item_definitions')
-    .select('id, name, display_name, type, rarity, equipment_tier, base_damage, base_defense, primary_damage_type, primary_scaling_attr, primary_scaling_grade, secondary_scaling_attr, secondary_scaling_grade, material_type, material_subtype, stackable, image_url')
+    .select('id, name, display_name, type, equipment_tier, base_damage, base_defense, primary_damage_type, primary_scaling_attr, primary_scaling_grade, secondary_scaling_attr, secondary_scaling_grade, material_type, material_subtype, stackable, image_url')
     .eq('type', typeKey!);
   if (subtype) query = query.eq('material_subtype', subtype);
   if (q) query = query.ilike('display_name', `%${q}%`);
-  if (rarity) query = query.eq('rarity', rarity);
-  if (sort !== 'rarity') query = query.order(sort === 'tier' ? 'equipment_tier' : 'display_name');
+  query = query.order(sort === 'tier' ? 'equipment_tier' : 'display_name');
 
   const { data: rawItems } = await query;
-  const items = sort === 'rarity'
-    ? [...(rawItems ?? [])].sort((a, b) => RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity))
-    : rawItems ?? [];
+  const items = rawItems ?? [];
 
   return (
     <div className="space-y-4">
@@ -339,15 +305,9 @@ export default async function AdminItemsPage({
         {subtype && <input type="hidden" name="subtype" value={subtype} />}
         <input name="q" defaultValue={q} placeholder="Search name…"
           className="px-3 py-1.5 text-sm bg-card border border-border rounded-md text-body placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
-        <select name="rarity" defaultValue={rarity ?? ''}
-          className="px-3 py-1.5 text-sm bg-card border border-border rounded-md text-body focus:outline-none focus:ring-1 focus:ring-ring">
-          <option value="">All rarities</option>
-          {RARITY_ORDER.map(r => <option key={r} value={r}>{r}</option>)}
-        </select>
         <select name="sort" defaultValue={sort ?? 'name'}
           className="px-3 py-1.5 text-sm bg-card border border-border rounded-md text-body focus:outline-none focus:ring-1 focus:ring-ring">
           <option value="name">Sort: Name</option>
-          <option value="rarity">Sort: Rarity</option>
           <option value="tier">Sort: Tier</option>
         </select>
         <button type="submit" className="px-3 py-1.5 text-sm bg-card border border-border rounded-md text-body hover:bg-accent transition-colors">Filter</button>
@@ -360,7 +320,6 @@ export default async function AdminItemsPage({
             <tr className="border-b border-border bg-accent/30">
               <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Icon</th>
               <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name</th>
-              <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Rarity</th>
               <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tier</th>
               {typeKey === 'weapon' && <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Damage Type</th>}
               {typeKey === 'weapon' && <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Scaling</th>}
@@ -382,7 +341,6 @@ export default async function AdminItemsPage({
                   <div className="font-medium text-heading">{item.display_name}</div>
                   <div className="text-xs text-muted-foreground">{item.name}</div>
                 </td>
-                <td className="px-4 py-2"><span style={{ color: RARITY_HEX[item.rarity] }}>{item.rarity}</span></td>
                 <td className="px-4 py-2 text-muted-foreground">{item.equipment_tier ? `T${item.equipment_tier}` : '—'}</td>
                 {typeKey === 'weapon' && (
                   <td className="px-4 py-2">

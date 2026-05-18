@@ -8,7 +8,6 @@ export type ItemFormData = {
   name: string;
   display_name: string;
   type: string;
-  rarity: string;
   description: string;
   stackable: boolean;
   equipment_tier: number | null;

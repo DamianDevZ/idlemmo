@@ -37,22 +37,6 @@ function stripMaterialPrefix(displayName: string): string {
   return words.slice(i).join(' ');
 }
 
-const RARITY_COLORS: Record<string, string> = {
-  common:    'text-foreground',
-  uncommon:  'text-green-400',
-  rare:      'text-blue-400',
-  epic:      'text-purple-400',
-  legendary: 'text-yellow-400',
-};
-
-const RARITY_BORDERS: Record<string, string> = {
-  common:    'border-border',
-  uncommon:  'border-green-500/40',
-  rare:      'border-blue-500/40',
-  epic:      'border-purple-500/40',
-  legendary: 'border-yellow-500/40',
-};
-
 export default async function HomeBasePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -84,12 +68,12 @@ export default async function HomeBasePage() {
       .order('quantity', { ascending: false }),
     supabase
       .from('character_known_recipes')
-      .select('learned_at, recipes(*, item_definitions(id, display_name, rarity))')
+      .select('learned_at, recipes(*, item_definitions(id, display_name))') 
       .eq('character_id', character.id)
       .order('learned_at', { ascending: false }),
     supabase
       .from('recipes')
-      .select('*, item_definitions!output_item_id(id, name, display_name, rarity), skills!required_skill_id(name)')
+      .select('*, item_definitions!output_item_id(id, name, display_name), skills!required_skill_id(name)')
       .eq('category', 'refining')
       .order('tier'),
   ]);
@@ -107,7 +91,6 @@ export default async function HomeBasePage() {
       display_name: i.item_definitions.display_name,
       name:         i.item_definitions.name,
       type:         i.item_definitions.type,
-      rarity:       i.item_definitions.rarity,
       stats:        i.item_definitions.stats,
       equipment_tier: i.item_definitions.equipment_tier,
     }));
@@ -138,7 +121,7 @@ export default async function HomeBasePage() {
     ingredients: unknown;
     tier: number;
     category: string;
-    item_definitions: { id: string; name?: string; display_name: string; rarity: string } | null;
+    item_definitions: { id: string; name?: string; display_name: string } | null;
   };
   const recipeList = ((knownRecipeRows ?? [])
     .map((r: Record<string, unknown>) => r.recipes)
@@ -235,7 +218,7 @@ export default async function HomeBasePage() {
                         return null;
                       })()}
                       <div>
-                        <span className={`font-semibold text-sm ${RARITY_COLORS[def?.rarity ?? 'common']}`}>
+                        <span className="font-semibold text-sm text-foreground">
                           {displayLabel}
                         </span>
                         <span className="text-muted-foreground text-xs ml-2 capitalize">{subLabel}</span>
@@ -248,9 +231,6 @@ export default async function HomeBasePage() {
                       {item.equipped_slot && (
                         <Badge variant="outline" className="text-xs">{formatSlot(item.equipped_slot!)}</Badge>
                       )}
-                      <Badge variant="secondary" className={`text-xs capitalize ${RARITY_COLORS[def?.rarity ?? 'common']}`}>
-                        {def?.rarity}
-                      </Badge>
                       {!item.equipped_slot && (
                         <DepositButton characterId={character.id} itemId={item.item_id} />
                       )}
@@ -279,7 +259,7 @@ export default async function HomeBasePage() {
                       return (
                         <div
                           key={item.item_id}
-                          className={`flex items-center gap-3 px-3 py-3 rounded-lg border bg-card ${RARITY_BORDERS[def?.rarity ?? 'common']}`}
+                          className={`flex items-center gap-3 px-3 py-3 rounded-lg border bg-card border-border`}
                         >
                         <ItemSprite
                             imageUrl={def?.image_url}
@@ -289,7 +269,7 @@ export default async function HomeBasePage() {
                             fallback={<span className="text-xl">{def?.type === 'tool' ? '⛏️' : def?.type === 'weapon' ? '⚔️' : '🛡️'}</span>}
                           />
                           <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-semibold truncate ${RARITY_COLORS[def?.rarity ?? 'common']}`}>
+                            <p className="text-sm font-semibold truncate text-foreground">
                               {def?.display_name ?? 'Unknown'}
                             </p>
                             <p className="text-xs text-muted-foreground capitalize">{def?.type}</p>
@@ -331,9 +311,7 @@ export default async function HomeBasePage() {
                         <div
                           key={item.item_id}
                           title={def?.display_name ?? ''}
-                          className={`relative aspect-square rounded-lg border bg-card overflow-hidden ${
-                            RARITY_BORDERS[def?.rarity ?? 'common']
-                          }`}
+                          className={`relative aspect-square rounded-lg border bg-card overflow-hidden border-border`}
                         >
                           {/* Icon fills the cell */}
                           <div className="absolute inset-0 flex items-center justify-center p-2">

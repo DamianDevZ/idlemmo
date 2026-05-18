@@ -7,7 +7,7 @@ import type { TierScalingRow } from '@/features/admin/tier-scaling-actions';
 import Link from 'next/link';
 
 const BLANK = {
-  name: '', display_name: '', type: 'weapon', rarity: 'common',
+  name: '', display_name: '', type: 'weapon',
   description: '', stackable: false, equipment_tier: 1,
   base_damage: null, base_defense: null, primary_damage_type: null,
   material_type: null, primary_scaling_attr: 'str', primary_scaling_grade: 'F',

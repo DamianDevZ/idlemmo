@@ -417,7 +417,7 @@ export async function getExploreInventory(characterId: string) {
 
   const { data: items } = await supabase
     .from('character_inventory')
-    .select('instance_id, quantity, equipped_slot, item_definitions(name, display_name, type, rarity, image_url, stackable)')
+    .select('instance_id, quantity, equipped_slot, item_definitions(name, display_name, type, image_url, stackable)')
     .eq('character_id', characterId)
     .order('item_definitions(type)');
 
@@ -429,7 +429,6 @@ export async function getExploreInventory(characterId: string) {
       name: string;
       display_name: string;
       type: string;
-      rarity: string;
       image_url: string | null;
       stackable: boolean;
     } | null;

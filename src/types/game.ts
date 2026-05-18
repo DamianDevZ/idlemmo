@@ -30,8 +30,6 @@ export type ScalingAttr = 'str' | 'dex' | 'int';
 
 export type ItemRating = 'S' | 'A' | 'B' | 'C' | 'D' | 'F';
 
-export type ItemRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
-
 export type ArmorPresetId =
   | 'unarmored' | 'leather' | 'plate' | 'chainmail' | 'cloth'
   | 'stone_hide' | 'beast_fur' | 'scaled' | 'undead' | 'arcane_shell';
@@ -161,7 +159,6 @@ export interface DbItemDefinition {
   name: string;
   display_name: string;
   type: ItemType;
-  rarity: ItemRarity;
   description: string;
   /** Legacy JSON blob. New fields use dedicated columns below. */
   stats: Record<string, number>;
@@ -358,7 +355,6 @@ export interface ResourceFoundPayload {
   item_id: string;
   item_name: string;
   quantity: number;
-  rarity: ItemRarity;
   collected: boolean | null; // null = awaiting player response
 }
 
@@ -380,7 +376,7 @@ export interface PlayerEncounteredPayload {
 }
 
 export interface TreasureFoundPayload {
-  items: { item_id: string; item_name: string; quantity: number; rarity: ItemRarity }[];
+  items: { item_id: string; item_name: string; quantity: number }[];
 }
 
 export interface LevelUpPayload {

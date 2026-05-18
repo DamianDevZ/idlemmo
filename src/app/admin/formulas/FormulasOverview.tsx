@@ -79,8 +79,8 @@ const CAT_META: Record<string, { title: string; icon: string; desc: string; snip
   rarities: {
     title: 'Drop Weight Multipliers',
     icon: '🎲',
-    desc: 'Relative drop probability per rarity tier. Common = 1.0 baseline.',
-    snippet: 'P(rarity) ∝ baseWeight × dropWeightMult',
+    desc: 'Relative drop probability per item. Weights are normalised before the final draw.',
+    snippet: 'weight ∝ drop probability (normalised)',
   },
 };
 

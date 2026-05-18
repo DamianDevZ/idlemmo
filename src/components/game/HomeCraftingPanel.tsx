@@ -17,14 +17,6 @@ function stripMaterialPrefix(displayName: string): string {
   return words.slice(i).join(' ');
 }
 
-const RARITY_COLORS: Record<string, string> = {
-  common:    'text-foreground',
-  uncommon:  'text-green-400',
-  rare:      'text-blue-400',
-  epic:      'text-purple-400',
-  legendary: 'text-yellow-400',
-};
-
 const CAT_META: Record<string, { label: string; icon: string }> = {
   weapon: { label: 'Weapons', icon: '⚔️' },
   armor:  { label: 'Armor',   icon: '🛡️' },
@@ -40,7 +32,7 @@ type Recipe = {
   ingredients: unknown;
   tier: number;
   category: string;
-  item_definitions: { id: string; display_name: string; rarity: string } | null;
+  item_definitions: { id: string; display_name: string } | null;
 };
 
 interface Props {
@@ -112,7 +104,6 @@ export default function HomeCraftingPanel({ recipeList, qtyMap, characterId }: P
         <div className="space-y-2">
           {filteredRecipes.map(recipe => {
             const outputDef   = recipe.item_definitions;
-            const rarity      = outputDef?.rarity ?? 'common';
             const ingredients = (recipe.ingredients as Ingredient[]) ?? [];
             const canCraft    = ingredients.every(ing => (qtyMap[ing.name] ?? 0) >= ing.qty);
             return (
@@ -124,7 +115,7 @@ export default function HomeCraftingPanel({ recipeList, qtyMap, characterId }: P
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className={`font-semibold text-sm ${RARITY_COLORS[rarity]}`}>
+                    <span className="font-semibold text-sm">
                       {stripMaterialPrefix(recipe.display_name)} · Tier {recipe.tier}
                     </span>
                     <span className="text-muted-foreground text-xs ml-2">

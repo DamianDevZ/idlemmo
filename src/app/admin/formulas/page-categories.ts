@@ -36,7 +36,7 @@ export const PAGE_CATEGORIES = [
     slug: 'loot',
     title: 'Loot & Risk',
     icon: '🎲',
-    desc: 'Item drop-on-death probability — what you risk when you die carrying items. Drop-weight multipliers that control how often each rarity tier appears across all loot pools.',
+    desc: 'Item drop-on-death probability — what you risk when you die carrying items. Global drop weight multipliers for fine-tuning loot pool probabilities.',
     dbCats: ['death', 'rarities'],
   },
   {
