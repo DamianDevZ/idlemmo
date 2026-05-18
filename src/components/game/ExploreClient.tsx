@@ -1021,18 +1021,18 @@ export default function ExploreClient({ character, areas, biomes, biomeTiers, ac
                 onClick={() => { setSelectedArea(area.id); setSelectedTier(1); }}
               >
                 {/* Image banner with text overlay */}
-                <div className="relative" style={{ minHeight: '88px' }}>
+                <div className="relative">
                   {area.image_url
-                    ? <img src={area.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                    : <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-accent/30" />
+                    ? <img src={area.image_url} alt="" className="w-full block" />
+                    : <div className="w-full bg-gradient-to-r from-primary/20 to-accent/30" style={{ paddingBottom: '40%' }} />
                   }
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent" />
-                  <div className="relative px-4 py-3 flex items-end min-h-[88px]">
-                    <span className="text-2xl mr-3 leading-none drop-shadow">{area.icon}</span>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                  <div className="absolute inset-0 px-4 py-3 flex items-end">
+                    <span className="text-3xl mr-3 leading-none drop-shadow">{area.icon}</span>
                     <div>
-                      <h3 className="font-bold text-white leading-tight drop-shadow">{area.display_name}</h3>
+                      <h3 className="font-bold text-white text-lg leading-tight drop-shadow">{area.display_name}</h3>
                       {area.description && (
-                        <p className="text-xs text-white/75 line-clamp-1 drop-shadow">{area.description}</p>
+                        <p className="text-sm text-white/75 line-clamp-1 drop-shadow">{area.description}</p>
                       )}
                     </div>
                   </div>
