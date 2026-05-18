@@ -56,94 +56,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-// ─── Inline form to add a new loot row for a tier ─────────────────────────────
-
-function AddLootRow({
-  areaId,
-  tier,
-  items,
-  maxTier,
-  onDone,
-}: {
-  areaId: string;
-  tier: number;
-  items: Item[];
-  maxTier: number;
-  onDone: () => void;
-}) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [form, setForm] = useState({
-    item_id: '',
-    item_tier: tier,
-    weight: 10,
-  });
-
-  const selectedItem = items.find(i => i.id === form.item_id);
-
-  function handleAdd() {
-    if (!form.item_id) return;
-    startTransition(async () => {
-      await upsertAreaTierLoot({
-        area_id: areaId,
-        tier,
-        item_id: form.item_id,
-        item_tier: selectedItem?.is_tiered ? form.item_tier : null,
-        weight: form.weight,
-      });
-      router.refresh();
-      onDone();
-    });
-  }
-
-  const tiny = `${inputCls} py-1 text-xs`;
-
-  return (
-    <tr className="bg-primary/5">
-      <td className="py-1.5 pr-2">
-        <div className="flex gap-1">
-          <select
-            value={form.item_id}
-            onChange={e => setForm(p => ({ ...p, item_id: e.target.value, item_tier: tier }))}
-            className={`${tiny} flex-1 min-w-0`}
-          >
-            <option value="">Pick item…</option>
-            {items.map(it => (
-              <option key={it.id} value={it.id}>
-                {it.display_name} ({it.type})
-              </option>
-            ))}
-          </select>
-          {selectedItem?.is_tiered && (
-            <select
-              value={form.item_tier}
-              onChange={e => setForm(p => ({ ...p, item_tier: Number(e.target.value) }))}
-              className={`${tiny} w-14 shrink-0`}
-            >
-              {Array.from({ length: maxTier }, (_, i) => i + 1).map(t => (
-                <option key={t} value={t}>T{t}</option>
-              ))}
-            </select>
-          )}
-        </div>
-      </td>
-      <td className="py-1.5 pr-2">
-        <input type="number" min={1} value={form.weight}
-          onChange={e => setForm(p => ({ ...p, weight: Number(e.target.value) }))}
-          className={`${tiny} w-16`} />
-      </td>
-      <td className="py-1.5 text-right">
-        <div className="flex gap-3 justify-end">
-          <button onClick={handleAdd} disabled={isPending || !form.item_id} className={btnSecondary}>
-            {isPending ? '…' : 'Add'}
-          </button>
-          <button onClick={onDone} className="px-2 py-1 text-xs text-muted-foreground hover:text-body">✕</button>
-        </div>
-      </td>
-    </tr>
-  );
-}
-
 // ─── Inline edit form for an existing loot row ───────────────────────────────
 
 function EditLootRow({
@@ -152,12 +64,14 @@ function EditLootRow({
   items,
   maxTier,
   onDone,
+  leadCell,
 }: {
   row: TierLootRow;
   areaId: string;
   items: Item[];
   maxTier: number;
   onDone: () => void;
+  leadCell?: React.ReactNode;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -188,6 +102,7 @@ function EditLootRow({
 
   return (
     <tr className="bg-primary/5">
+      {leadCell !== undefined && <td className="py-1.5 pr-2">{leadCell}</td>}
       <td className="py-1.5 pr-2">
         <div className="flex gap-1">
           <select
@@ -233,208 +148,20 @@ function EditLootRow({
   );
 }
 
-// ─── A single tier section with its loot drops ───────────────────────────────
-
-function TierSection({
-  tier,
-  rows,
-  areaId,
-  allItems,
-  maxTier,
-}: {
-  tier: number;
-  rows: TierLootRow[];
-  areaId: string;
-  allItems: Item[];
-  maxTier: number;
-}) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [adding, setAdding] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-
-  const itemMap = Object.fromEntries(allItems.map(it => [it.id, it]));
-
-  function handleRemove(lootId: string) {
-    startTransition(async () => {
-      await deleteAreaTierLoot(lootId, areaId);
-      router.refresh();
-    });
-  }
-
-  return (
-    <div className="bg-background border border-border rounded-lg overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-accent/20">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">T{tier}</span>
-          <span className="text-sm font-semibold text-heading">Tier {tier}</span>
-          <span className="text-xs text-muted-foreground">({rows.length} drop{rows.length !== 1 ? 's' : ''})</span>
-        </div>
-        {!adding && (
-          <button onClick={() => setAdding(true)} className="text-xs text-primary hover:underline">
-            + Add Drop
-          </button>
-        )}
-      </div>
-
-      <div className="p-3">
-        {rows.length === 0 && !adding && (
-          <p className="text-xs text-muted-foreground italic py-2">No drops for T{tier} yet.</p>
-        )}
-
-        {(rows.length > 0 || adding) && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-muted-foreground border-b border-border/50">
-                  <th className="pb-1.5 text-left font-semibold">Item</th>
-                  <th className="pb-1.5 text-left font-semibold">Weight</th>
-                  <th className="pb-1.5 text-right" />
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(row => {
-                  const item = itemMap[row.item_id];
-                  if (editingId === row.id) {
-                    return (
-                      <EditLootRow
-                        key={row.id}
-                        row={row}
-                        areaId={areaId}
-                        items={allItems}
-                        maxTier={maxTier}
-                        onDone={() => setEditingId(null)}
-                      />
-                    );
-                  }
-                  return (
-                    <tr key={row.id} className="border-b border-border/30 last:border-0">
-                      <td className="py-1.5 pr-2 font-medium text-body">
-                        {item?.display_name ?? row.item_id}
-                        {row.item_tier != null && (
-                          <span className="ml-1.5 text-xs font-normal text-muted-foreground">(T{row.item_tier})</span>
-                        )}
-                      </td>
-                      <td className="py-1.5 pr-2 text-muted-foreground">{row.weight}</td>
-                      <td className="py-1.5 text-right">
-                        <div className="flex gap-3 justify-end">
-                          <button
-                            onClick={() => setEditingId(row.id)}
-                            className="text-xs text-primary hover:underline"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => {
-                              startTransition(async () => {
-                                await deleteAreaTierLoot(row.id, areaId);
-                                router.refresh();
-                              });
-                            }}
-                            disabled={isPending}
-                            className="text-xs text-destructive hover:underline disabled:opacity-30"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {adding && (
-                  <AddLootRow
-                    areaId={areaId}
-                    tier={tier}
-                    items={allItems}
-                    maxTier={maxTier}
-                    onDone={() => setAdding(false)}
-                  />
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {!adding && rows.length === 0 && (
-          <button onClick={() => setAdding(true)} className="mt-1 text-xs text-primary hover:underline">
-            + Add Drop
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Add encounter row ───────────────────────────────────────────────────────
-
-function AddEncounterRow({
-  areaId,
-  tier,
-  enemies,
-  onDone,
-}: {
-  areaId: string;
-  tier: number;
-  enemies: SimpleEnemy[];
-  onDone: () => void;
-}) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [form, setForm] = useState({ enemy_id: '', weight: 10 });
-  const tiny = `${inputCls} py-1 text-xs`;
-
-  function handleAdd() {
-    if (!form.enemy_id) return;
-    startTransition(async () => {
-      await upsertAreaTierEnemy({ area_id: areaId, tier, enemy_id: form.enemy_id, weight: form.weight });
-      router.refresh();
-      onDone();
-    });
-  }
-
-  return (
-    <tr className="bg-primary/5">
-      <td className="py-1.5 pr-2">
-        <select
-          value={form.enemy_id}
-          onChange={e => setForm(p => ({ ...p, enemy_id: e.target.value }))}
-          className={`${tiny} flex-1 min-w-0 w-full`}
-        >
-          <option value="">Pick enemy…</option>
-          {enemies.map(en => (
-            <option key={en.id} value={en.id}>{en.icon} {en.display_name}</option>
-          ))}
-        </select>
-      </td>
-      <td className="py-1.5 pr-2">
-        <input type="number" min={1} value={form.weight}
-          onChange={e => setForm(p => ({ ...p, weight: Number(e.target.value) }))}
-          className={`${tiny} w-16`} />
-      </td>
-      <td className="py-1.5 text-right">
-        <div className="flex gap-3 justify-end">
-          <button onClick={handleAdd} disabled={isPending || !form.enemy_id} className={btnSecondary}>
-            {isPending ? '…' : 'Add'}
-          </button>
-          <button onClick={onDone} className="px-2 py-1 text-xs text-muted-foreground hover:text-body">✕</button>
-        </div>
-      </td>
-    </tr>
-  );
-}
-
-// ─── Edit encounter row ───────────────────────────────────────────────────────
+// ─── Inline edit form for an existing encounter row ──────────────────────────
 
 function EditEncounterRow({
   row,
   areaId,
   enemies,
   onDone,
+  leadCell,
 }: {
   row: EncounterRow;
   areaId: string;
   enemies: SimpleEnemy[];
   onDone: () => void;
+  leadCell?: React.ReactNode;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -451,6 +178,7 @@ function EditEncounterRow({
 
   return (
     <tr className="bg-primary/5">
+      {leadCell !== undefined && <td className="py-1.5 pr-2">{leadCell}</td>}
       <td className="py-1.5 pr-2">
         <select
           value={form.enemy_id}
@@ -481,24 +209,132 @@ function EditEncounterRow({
   );
 }
 
-// ─── Per-tier enemy encounters section ───────────────────────────────────────
+// ─── Add form for a new tier outcome ─────────────────────────────────────────
 
-function TierEnemySection({
-  tier,
-  rows,
+function AddUnifiedRow({
   areaId,
+  tier,
+  items,
+  enemies,
+  maxTier,
+  onDone,
+}: {
+  areaId: string;
+  tier: number;
+  items: Item[];
+  enemies: SimpleEnemy[];
+  maxTier: number;
+  onDone: () => void;
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [type, setType] = useState<'item' | 'enemy'>('item');
+  const [itemId, setItemId] = useState('');
+  const [itemTier, setItemTier] = useState(tier);
+  const [enemyId, setEnemyId] = useState('');
+  const [weight, setWeight] = useState(10);
+
+  const selectedItem = items.find(i => i.id === itemId);
+  const tiny = `${inputCls} py-1 text-xs`;
+
+  function handleAdd() {
+    if (type === 'item' && !itemId) return;
+    if (type === 'enemy' && !enemyId) return;
+    startTransition(async () => {
+      if (type === 'item') {
+        await upsertAreaTierLoot({
+          area_id: areaId, tier,
+          item_id: itemId,
+          item_tier: selectedItem?.is_tiered ? itemTier : null,
+          weight,
+        });
+      } else {
+        await upsertAreaTierEnemy({ area_id: areaId, tier, enemy_id: enemyId, weight });
+      }
+      router.refresh();
+      onDone();
+    });
+  }
+
+  return (
+    <tr className="bg-primary/5">
+      <td className="py-1.5 pr-2 w-24">
+        <select value={type} onChange={e => setType(e.target.value as 'item' | 'enemy')} className={`${tiny} w-full`}>
+          <option value="item">📦 Item</option>
+          <option value="enemy">⚔️ Enemy</option>
+        </select>
+      </td>
+      <td className="py-1.5 pr-2">
+        {type === 'item' ? (
+          <div className="flex gap-1">
+            <select value={itemId} onChange={e => setItemId(e.target.value)} className={`${tiny} flex-1 min-w-0`}>
+              <option value="">Pick item…</option>
+              {items.map(it => (
+                <option key={it.id} value={it.id}>{it.display_name} ({it.type})</option>
+              ))}
+            </select>
+            {selectedItem?.is_tiered && (
+              <select value={itemTier} onChange={e => setItemTier(Number(e.target.value))} className={`${tiny} w-14 shrink-0`}>
+                {Array.from({ length: maxTier }, (_, i) => i + 1).map(t => (
+                  <option key={t} value={t}>T{t}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        ) : (
+          <select value={enemyId} onChange={e => setEnemyId(e.target.value)} className={`${tiny} w-full`}>
+            <option value="">Pick enemy…</option>
+            {enemies.map(en => (
+              <option key={en.id} value={en.id}>{en.icon} {en.display_name}</option>
+            ))}
+          </select>
+        )}
+      </td>
+      <td className="py-1.5 pr-2">
+        <input type="number" min={1} value={weight}
+          onChange={e => setWeight(Number(e.target.value))}
+          className={`${tiny} w-16`} />
+      </td>
+      <td className="py-1.5 text-right">
+        <div className="flex gap-2 justify-end">
+          <button onClick={handleAdd} disabled={isPending || (type === 'item' ? !itemId : !enemyId)} className={btnSecondary}>
+            {isPending ? '…' : 'Add'}
+          </button>
+          <button onClick={onDone} className="px-2 py-1 text-xs text-muted-foreground hover:text-body">✕</button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// ─── Unified tier section (items + enemies in one table) ─────────────────────
+
+function UnifiedTierSection({
+  tier,
+  lootRows,
+  encounterRows,
+  areaId,
+  allItems,
   allEnemies,
+  maxTier,
 }: {
   tier: number;
-  rows: EncounterRow[];
+  lootRows: TierLootRow[];
+  encounterRows: EncounterRow[];
   areaId: string;
+  allItems: Item[];
   allEnemies: SimpleEnemy[];
+  maxTier: number;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [adding, setAdding] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingLootId, setEditingLootId] = useState<string | null>(null);
+  const [editingEnemyId, setEditingEnemyId] = useState<string | null>(null);
+
+  const itemMap = Object.fromEntries(allItems.map(it => [it.id, it]));
   const enemyMap = Object.fromEntries(allEnemies.map(e => [e.id, e]));
+  const total = lootRows.length + encounterRows.length;
 
   return (
     <div className="bg-background border border-border rounded-lg overflow-hidden">
@@ -506,80 +342,111 @@ function TierEnemySection({
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">T{tier}</span>
           <span className="text-sm font-semibold text-heading">Tier {tier}</span>
-          <span className="text-xs text-muted-foreground">({rows.length} enemy{rows.length !== 1 ? ' types' : ''})</span>
+          <span className="text-xs text-muted-foreground">({total} outcome{total !== 1 ? 's' : ''})</span>
         </div>
         {!adding && (
-          <button onClick={() => setAdding(true)} className="text-xs text-primary hover:underline">
-            + Add Enemy
-          </button>
+          <button onClick={() => setAdding(true)} className="text-xs text-primary hover:underline">+ Add</button>
         )}
       </div>
 
       <div className="p-3">
-        {rows.length === 0 && !adding && (
-          <p className="text-xs text-muted-foreground italic py-2">No enemies for T{tier} yet.</p>
+        {total === 0 && !adding && (
+          <p className="text-xs text-muted-foreground italic py-2">Nothing configured for T{tier} yet.</p>
         )}
 
-        {(rows.length > 0 || adding) && (
+        {(total > 0 || adding) && (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-muted-foreground border-b border-border/50">
-                  <th className="pb-1.5 text-left font-semibold">Enemy</th>
+                  <th className="pb-1.5 text-left font-semibold w-24">Type</th>
+                  <th className="pb-1.5 text-left font-semibold">Outcome</th>
                   <th className="pb-1.5 text-left font-semibold">Weight</th>
                   <th className="pb-1.5 text-right" />
                 </tr>
               </thead>
               <tbody>
-                {rows.map(row => {
+                {lootRows.map(row => {
+                  const item = itemMap[row.item_id];
+                  if (editingLootId === row.id) {
+                    return (
+                      <EditLootRow
+                        key={row.id}
+                        row={row}
+                        areaId={areaId}
+                        items={allItems}
+                        maxTier={maxTier}
+                        onDone={() => setEditingLootId(null)}
+                        leadCell={<span className="px-1.5 py-0.5 text-[10px] rounded bg-accent text-muted-foreground">📦 Item</span>}
+                      />
+                    );
+                  }
+                  return (
+                    <tr key={row.id} className="border-b border-border/30 last:border-0">
+                      <td className="py-1.5 pr-2">
+                        <span className="px-1.5 py-0.5 text-[10px] rounded bg-accent text-muted-foreground">📦 Item</span>
+                      </td>
+                      <td className="py-1.5 pr-2 font-medium text-body">
+                        {item?.display_name ?? row.item_id}
+                        {row.item_tier != null && <span className="ml-1.5 font-normal text-muted-foreground">(T{row.item_tier})</span>}
+                      </td>
+                      <td className="py-1.5 pr-2 text-muted-foreground">{row.weight}</td>
+                      <td className="py-1.5 text-right">
+                        <div className="flex gap-3 justify-end">
+                          <button onClick={() => setEditingLootId(row.id)} className="text-xs text-primary hover:underline">Edit</button>
+                          <button
+                            onClick={() => startTransition(async () => { await deleteAreaTierLoot(row.id, areaId); router.refresh(); })}
+                            disabled={isPending}
+                            className="text-xs text-destructive hover:underline disabled:opacity-30"
+                          >Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {encounterRows.map(row => {
                   const enemy = enemyMap[row.enemy_id];
-                  if (editingId === row.id) {
+                  if (editingEnemyId === row.id) {
                     return (
                       <EditEncounterRow
                         key={row.id}
                         row={row}
                         areaId={areaId}
                         enemies={allEnemies}
-                        onDone={() => setEditingId(null)}
+                        onDone={() => setEditingEnemyId(null)}
+                        leadCell={<span className="px-1.5 py-0.5 text-[10px] rounded bg-destructive/10 text-destructive">⚔️ Enemy</span>}
                       />
                     );
                   }
                   return (
                     <tr key={row.id} className="border-b border-border/30 last:border-0">
+                      <td className="py-1.5 pr-2">
+                        <span className="px-1.5 py-0.5 text-[10px] rounded bg-destructive/10 text-destructive">⚔️ Enemy</span>
+                      </td>
                       <td className="py-1.5 pr-2 font-medium text-body">
                         {enemy ? `${enemy.icon} ${enemy.display_name}` : row.enemy_id}
                       </td>
                       <td className="py-1.5 pr-2 text-muted-foreground">{row.weight}</td>
                       <td className="py-1.5 text-right">
                         <div className="flex gap-3 justify-end">
+                          <button onClick={() => setEditingEnemyId(row.id)} className="text-xs text-primary hover:underline">Edit</button>
                           <button
-                            onClick={() => setEditingId(row.id)}
-                            className="text-xs text-primary hover:underline"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => {
-                              startTransition(async () => {
-                                await deleteAreaTierEnemy(row.id, areaId);
-                                router.refresh();
-                              });
-                            }}
+                            onClick={() => startTransition(async () => { await deleteAreaTierEnemy(row.id, areaId); router.refresh(); })}
                             disabled={isPending}
                             className="text-xs text-destructive hover:underline disabled:opacity-30"
-                          >
-                            Delete
-                          </button>
+                          >Delete</button>
                         </div>
                       </td>
                     </tr>
                   );
                 })}
                 {adding && (
-                  <AddEncounterRow
+                  <AddUnifiedRow
                     areaId={areaId}
                     tier={tier}
+                    items={allItems}
                     enemies={allEnemies}
+                    maxTier={maxTier}
                     onDone={() => setAdding(false)}
                   />
                 )}
@@ -588,10 +455,8 @@ function TierEnemySection({
           </div>
         )}
 
-        {!adding && rows.length === 0 && (
-          <button onClick={() => setAdding(true)} className="mt-1 text-xs text-primary hover:underline">
-            + Add Enemy
-          </button>
+        {!adding && total === 0 && (
+          <button onClick={() => setAdding(true)} className="mt-1 text-xs text-primary hover:underline">+ Add</button>
         )}
       </div>
     </div>
@@ -776,58 +641,34 @@ export function AreaForm({
           </div>
         </div>
 
-        {/* ── Right: Per-tier loot tables ────────────────────────────────── */}
+        {/* ── Right: Per-tier encounter tables ───────────────────────────── */}
         <div className="space-y-6">
           {isNew ? (
             <div className="bg-card border border-border rounded-lg p-10 text-center text-muted-foreground">
               <p className="text-4xl mb-3">📋</p>
-              <p className="text-sm">Create the area first, then set up loot drops per tier.</p>
+              <p className="text-sm">Create the area first, then set up encounters per tier.</p>
             </div>
           ) : (
-            <>
-              <div className="space-y-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Loot Drops by Tier
-                </p>
-                {tiers.map(t => (
-                  <TierSection
-                    key={t}
-                    tier={t}
-                    rows={lootByTier[t] ?? []}
-                    areaId={areaId}
-                    allItems={allItems}
-                    maxTier={maxTier}
-                  />
-                ))}
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    Enemy Encounters by Tier
-                  </p>
-                  <a
-                    href={`/admin/enemies/new?from_area=${areaId}`}
-                    className="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
-                  >
-                    + New Enemy
-                  </a>
-                </div>
-                {tiers.map(t => (
-                  <TierEnemySection
-                    key={t}
-                    tier={t}
-                    rows={encountersByTier[t] ?? []}
-                    areaId={areaId}
-                    allEnemies={allEnemies}
-                  />
-                ))}
-              </div>
-            </>
+            <div className="space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Encounters by Tier
+              </p>
+              {tiers.map(t => (
+                <UnifiedTierSection
+                  key={t}
+                  tier={t}
+                  lootRows={lootByTier[t] ?? []}
+                  encounterRows={encountersByTier[t] ?? []}
+                  areaId={areaId!}
+                  allItems={allItems}
+                  allEnemies={allEnemies}
+                  maxTier={maxTier}
+                />
+              ))}
+            </div>
           )}
         </div>
       </div>
     </div>
   );
 }
-
