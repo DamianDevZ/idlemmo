@@ -8,6 +8,7 @@ const NAV = [
   { href: '/admin/items',         label: '⚔️  Items' },
   { href: '/admin/weapon-types',  label: '🗡️  Weapon Types' },
   { href: '/admin/tier-scaling',  label: '📈  Tier Scaling' },
+  { href: '/admin/world',         label: '🗺️  World' },
   { href: '/admin/enemies',       label: '👹 Enemies' },
   { href: '/admin/formulas',    label: '⚙️  Formulas & Config' },
   { label: '── Players ──',     href: null },

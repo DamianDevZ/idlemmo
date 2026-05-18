@@ -4,10 +4,12 @@ import { notFound } from 'next/navigation';
 import { EnemyForm } from '@/components/admin/EnemyForm';
 import Link from 'next/link';
 
+export const dynamic = 'force-dynamic';
+
 const BLANK = {
-  name: '', display_name: '', biome_id: '', tier: 1, level: 1,
+  name: '', display_name: '', area_id: null, biome_id: '', tier: 1, level: 1,
   base_hp: 20, base_attack: 5, base_armor: 0, base_speed: 1.0,
-  xp_reward: 10, armor_preset_id: 'unarmored', loot_table: [],
+  xp_reward: 10, armor_preset_id: 'unarmored',
 };
 
 export default async function EnemyEditorPage({ params }: { params: Promise<{ id: string }> }) {
@@ -16,16 +18,25 @@ export default async function EnemyEditorPage({ params }: { params: Promise<{ id
   const isNew = id === 'new';
   const db = createAdminClient();
 
-  const [{ data: biomes }, { data: presets }] = await Promise.all([
+  const [{ data: biomes }, { data: presets }, { data: areas }, { data: items }] = await Promise.all([
     db.from('biomes').select('id, name').order('name'),
     db.from('armor_presets').select('id, display_name').order('display_name'),
+    db.from('areas').select('id, display_name, icon, tier').order('tier'),
+    db.from('item_definitions').select('id, display_name, type, name').order('display_name'),
   ]);
 
   let enemy = BLANK;
+  let lootRows: { id: string; item_id: string; weight: number; quantity_min: number; quantity_max: number }[] = [];
+
   if (!isNew) {
     const { data } = await db.from('enemy_types').select('*').eq('id', id).single();
     if (!data) notFound();
     enemy = data;
+    const { data: loot } = await db
+      .from('enemy_loot')
+      .select('id, item_id, weight, quantity_min, quantity_max')
+      .eq('enemy_type_id', id);
+    lootRows = loot ?? [];
   }
 
   return (
@@ -39,6 +50,9 @@ export default async function EnemyEditorPage({ params }: { params: Promise<{ id
         initial={{ ...enemy, id: isNew ? undefined : id } as Parameters<typeof EnemyForm>[0]['initial']}
         biomes={biomes ?? []}
         presets={presets ?? []}
+        areas={(areas ?? []) as { id: string; display_name: string; icon: string; tier: number }[]}
+        allItems={(items ?? []) as { id: string; display_name: string; type: string; name: string }[]}
+        initialLoot={lootRows}
       />
     </div>
   );
