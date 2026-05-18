@@ -127,8 +127,8 @@ function AddLootRow({
           onChange={e => setForm(p => ({ ...p, weight: Number(e.target.value) }))}
           className={`${tiny} w-16`} />
       </td>
-      <td className="py-1.5">
-        <div className="flex gap-1">
+      <td className="py-1.5 text-right">
+        <div className="flex gap-3 justify-end">
           <button onClick={handleAdd} disabled={isPending || !form.item_id} className={btnSecondary}>
             {isPending ? '…' : 'Add'}
           </button>
@@ -214,8 +214,8 @@ function EditLootRow({
           onChange={e => setForm(p => ({ ...p, weight: Number(e.target.value) }))}
           className={`${tiny} w-16`} />
       </td>
-      <td className="py-1.5">
-        <div className="flex gap-1">
+      <td className="py-1.5 text-right">
+        <div className="flex gap-3 justify-end">
           <button onClick={handleSave} disabled={isPending} className={btnSecondary}>
             {isPending ? '…' : 'Save'}
           </button>
@@ -284,7 +284,7 @@ function TierSection({
                 <tr className="text-muted-foreground border-b border-border/50">
                   <th className="pb-1.5 text-left font-semibold">Item</th>
                   <th className="pb-1.5 text-left font-semibold">Weight</th>
-                  <th className="pb-1.5" />
+                  <th className="pb-1.5 text-right" />
                 </tr>
               </thead>
               <tbody>
@@ -311,8 +311,8 @@ function TierSection({
                         )}
                       </td>
                       <td className="py-1.5 pr-2 text-muted-foreground">{row.weight}</td>
-                      <td className="py-1.5">
-                        <div className="flex gap-2">
+                      <td className="py-1.5 text-right">
+                        <div className="flex gap-3 justify-end">
                           <button
                             onClick={() => setEditingId(row.id)}
                             className="text-xs text-primary hover:underline"
