@@ -35,11 +35,8 @@ export default async function AreaEditPage({ params }: { params: Promise<{ id: s
     id: string;
     tier: number;
     item_id: string;
+    item_tier: number | null;
     weight: number;
-    quantity_min: number;
-    quantity_max: number;
-    gather_time_ms: number;
-    required_skill_name: string | null;
   };
   let lootRows: TierLootRow[] = [];
 
@@ -55,7 +52,7 @@ export default async function AreaEditPage({ params }: { params: Promise<{ id: s
 
       const { data: loot } = await db
         .from('area_tier_loot')
-        .select('id, tier, item_id, weight, quantity_min, quantity_max, gather_time_ms, required_skill_name')
+        .select('id, tier, item_id, item_tier, weight')
         .eq('area_id', id)
         .order('tier')
         .order('weight', { ascending: false });

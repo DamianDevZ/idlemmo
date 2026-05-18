@@ -43,11 +43,8 @@ export async function upsertAreaTierLoot(row: {
   area_id: string;
   tier: number;
   item_id: string;
+  item_tier: number | null;
   weight: number;
-  quantity_min: number;
-  quantity_max: number;
-  gather_time_ms: number;
-  required_skill_name: string | null;
 }): Promise<string> {
   await requireAdmin();
   const db = createAdminClient();

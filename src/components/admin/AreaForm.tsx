@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useMemo } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   upsertArea,
@@ -24,11 +24,8 @@ type TierLootRow = {
   id: string;
   tier: number;
   item_id: string;
+  item_tier: number | null;
   weight: number;
-  quantity_min: number;
-  quantity_max: number;
-  gather_time_ms: number;
-  required_skill_name: string | null;
 };
 
 type Item = { id: string; display_name: string; type: string; name: string; is_tiered: boolean };
@@ -73,63 +70,11 @@ function AddLootRow({
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState({
     item_id: '',
-    baseName: '',    // only set for tiered items
-    isTiered: false,
-    itemTier: tier,  // which tier variant to use (defaults to zone tier)
+    item_tier: tier,
     weight: 10,
-    quantity_min: 1,
-    quantity_max: 3,
-    gather_time_ms: 5000,
-    required_skill_name: '',
   });
 
-  // Deduplicate tiered items — show one entry per base item, not one per tier variant
-  const dedupedItems = useMemo(() => {
-    const seen = new Set<string>();
-    return items.reduce<Array<{ value: string; label: string; isTiered: boolean; baseName: string }>>((acc, item) => {
-      const isTieredVariant = item.is_tiered && /_t\d+$/.test(item.name);
-      if (isTieredVariant) {
-        const base = item.name.replace(/_t\d+$/, '');
-        if (!seen.has(base)) {
-          seen.add(base);
-          const baseLabel = item.display_name.replace(/\s+T\d+$/i, '').trim();
-          acc.push({ value: base, label: `${baseLabel} (${item.type})`, isTiered: true, baseName: base });
-        }
-      } else {
-        acc.push({ value: item.id, label: `${item.display_name} (${item.type})`, isTiered: false, baseName: '' });
-      }
-      return acc;
-    }, []);
-  }, [items]);
-
-  // Tiers that actually exist in the DB for the selected base item
-  const availableTiers = useMemo(() => {
-    if (!form.isTiered || !form.baseName) return [];
-    return Array.from({ length: maxTier }, (_, i) => i + 1).filter(t =>
-      items.some(i => i.name === `${form.baseName}_t${t}`)
-    );
-  }, [form.isTiered, form.baseName, items, maxTier]);
-
-  function handleItemSelect(value: string) {
-    if (!value) {
-      setForm(p => ({ ...p, item_id: '', baseName: '', isTiered: false }));
-      return;
-    }
-    const entry = dedupedItems.find(d => d.value === value);
-    if (!entry) return;
-    if (entry.isTiered) {
-      // Auto-pick the tier variant matching the current zone tier
-      const targetItem = items.find(i => i.name === `${entry.baseName}_t${tier}`);
-      setForm(p => ({ ...p, baseName: entry.baseName, isTiered: true, itemTier: tier, item_id: targetItem?.id ?? '' }));
-    } else {
-      setForm(p => ({ ...p, item_id: value, baseName: '', isTiered: false }));
-    }
-  }
-
-  function handleTierChange(t: number) {
-    const targetItem = items.find(i => i.name === `${form.baseName}_t${t}`);
-    setForm(p => ({ ...p, itemTier: t, item_id: targetItem?.id ?? '' }));
-  }
+  const selectedItem = items.find(i => i.id === form.item_id);
 
   function handleAdd() {
     if (!form.item_id) return;
@@ -138,11 +83,8 @@ function AddLootRow({
         area_id: areaId,
         tier,
         item_id: form.item_id,
+        item_tier: selectedItem?.is_tiered ? form.item_tier : null,
         weight: form.weight,
-        quantity_min: form.quantity_min,
-        quantity_max: form.quantity_max,
-        gather_time_ms: form.gather_time_ms,
-        required_skill_name: form.required_skill_name || null,
       });
       router.refresh();
       onDone();
@@ -150,37 +92,33 @@ function AddLootRow({
   }
 
   const tiny = `${inputCls} py-1 text-xs`;
-  const dropdownValue = form.isTiered ? form.baseName : form.item_id;
 
   return (
     <tr className="bg-primary/5">
       <td className="py-1.5 pr-2">
         <div className="flex flex-col gap-1">
           <select
-            value={dropdownValue}
-            onChange={e => handleItemSelect(e.target.value)}
+            value={form.item_id}
+            onChange={e => setForm(p => ({ ...p, item_id: e.target.value, item_tier: tier }))}
             className={`${tiny} w-full`}
           >
             <option value="">Pick item…</option>
-            {dedupedItems.map(d => (
-              <option key={d.value} value={d.value}>
-                {d.label}
+            {items.map(it => (
+              <option key={it.id} value={it.id}>
+                {it.display_name} ({it.type})
               </option>
             ))}
           </select>
-          {form.isTiered && availableTiers.length > 0 && (
+          {selectedItem?.is_tiered && (
             <select
-              value={form.itemTier}
-              onChange={e => handleTierChange(Number(e.target.value))}
-              className={`${tiny} w-full`}
+              value={form.item_tier}
+              onChange={e => setForm(p => ({ ...p, item_tier: Number(e.target.value) }))}
+              className={`${tiny} w-28`}
             >
-              {availableTiers.map(t => (
+              {Array.from({ length: maxTier }, (_, i) => i + 1).map(t => (
                 <option key={t} value={t}>T{t}</option>
               ))}
             </select>
-          )}
-          {form.isTiered && !form.item_id && (
-            <span className="text-xs text-destructive">T{form.itemTier} variant not in DB</span>
           )}
         </div>
       </td>
@@ -188,27 +126,6 @@ function AddLootRow({
         <input type="number" min={1} value={form.weight}
           onChange={e => setForm(p => ({ ...p, weight: Number(e.target.value) }))}
           className={`${tiny} w-16`} />
-      </td>
-      <td className="py-1.5 pr-2">
-        <input type="number" min={1} value={form.quantity_min}
-          onChange={e => setForm(p => ({ ...p, quantity_min: Number(e.target.value) }))}
-          className={`${tiny} w-16`} />
-      </td>
-      <td className="py-1.5 pr-2">
-        <input type="number" min={1} value={form.quantity_max}
-          onChange={e => setForm(p => ({ ...p, quantity_max: Number(e.target.value) }))}
-          className={`${tiny} w-16`} />
-      </td>
-      <td className="py-1.5 pr-2">
-        <input type="number" min={100} step={500} value={form.gather_time_ms}
-          onChange={e => setForm(p => ({ ...p, gather_time_ms: Number(e.target.value) }))}
-          className={`${tiny} w-24`} />
-      </td>
-      <td className="py-1.5 pr-2">
-        <input type="text" value={form.required_skill_name}
-          onChange={e => setForm(p => ({ ...p, required_skill_name: e.target.value }))}
-          placeholder="woodcutting…"
-          className={`${tiny} w-28`} />
       </td>
       <td className="py-1.5">
         <div className="flex gap-1">
@@ -277,10 +194,6 @@ function TierSection({
                 <tr className="text-muted-foreground border-b border-border/50">
                   <th className="pb-1.5 text-left font-semibold">Item</th>
                   <th className="pb-1.5 text-left font-semibold">Weight</th>
-                  <th className="pb-1.5 text-left font-semibold">Min</th>
-                  <th className="pb-1.5 text-left font-semibold">Max</th>
-                  <th className="pb-1.5 text-left font-semibold">Time (ms)</th>
-                  <th className="pb-1.5 text-left font-semibold">Skill</th>
                   <th className="pb-1.5" />
                 </tr>
               </thead>
@@ -289,12 +202,13 @@ function TierSection({
                   const item = itemMap[row.item_id];
                   return (
                     <tr key={row.id} className="border-b border-border/30 last:border-0">
-                      <td className="py-1.5 pr-2 font-medium text-body">{item?.display_name ?? row.item_id}</td>
+                      <td className="py-1.5 pr-2 font-medium text-body">
+                        {item?.display_name ?? row.item_id}
+                        {row.item_tier != null && (
+                          <span className="ml-1.5 text-xs font-normal text-muted-foreground">(T{row.item_tier})</span>
+                        )}
+                      </td>
                       <td className="py-1.5 pr-2 text-muted-foreground">{row.weight}</td>
-                      <td className="py-1.5 pr-2 text-muted-foreground">{row.quantity_min}</td>
-                      <td className="py-1.5 pr-2 text-muted-foreground">{row.quantity_max}</td>
-                      <td className="py-1.5 pr-2 text-muted-foreground">{row.gather_time_ms}</td>
-                      <td className="py-1.5 pr-2 text-muted-foreground">{row.required_skill_name ?? '—'}</td>
                       <td className="py-1.5">
                         <button
                           onClick={() => handleRemove(row.id)}
