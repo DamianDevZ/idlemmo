@@ -389,12 +389,14 @@ export function EnemyForm({
   lootRows,
   allItems,
   maxTier,
+  fromAreaId,
 }: {
   enemyId: string | null;
   initial: EnemyData;
   lootRows: TierLootRow[];
   allItems: Item[];
   maxTier: number;
+  fromAreaId: string | null;
 }) {
   const tiers = Array.from({ length: maxTier }, (_, i) => i + 1);
   const router = useRouter();
@@ -424,7 +426,9 @@ export function EnemyForm({
       try {
         const id = await upsertEnemyDef(enemyId, { ...enemy, resistances });
         if (isNew) {
-          router.push(`/admin/enemies/${id}`);
+          // If created from an area page, go back there so they can assign tiers/weights.
+          // Otherwise stay on the new enemy editor to set up loot drops.
+          router.push(fromAreaId ? `/admin/world/${fromAreaId}` : `/admin/enemies/${id}`);
         } else {
           notify('Saved');
         }
@@ -440,7 +444,7 @@ export function EnemyForm({
     startTransition(async () => {
       try {
         await deleteEnemyDef(enemyId);
-        router.push('/admin/enemies');
+        router.push(fromAreaId ? `/admin/world/${fromAreaId}` : '/admin/enemies');
       } catch (e) {
         setError((e as Error).message);
       }

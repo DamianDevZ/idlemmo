@@ -802,9 +802,17 @@ export function AreaForm({
               </div>
 
               <div className="space-y-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Enemy Encounters by Tier
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    Enemy Encounters by Tier
+                  </p>
+                  <a
+                    href={`/admin/enemies/new?from_area=${areaId}`}
+                    className="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity"
+                  >
+                    + New Enemy
+                  </a>
+                </div>
                 {tiers.map(t => (
                   <TierEnemySection
                     key={t}

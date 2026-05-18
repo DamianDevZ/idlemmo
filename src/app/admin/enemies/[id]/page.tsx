@@ -11,19 +11,30 @@ const BLANK = {
   damage_type: 'slash', attack_speed: 1.0, base_hp: 20, base_attack: 5, resistances: {},
 };
 
-export default async function EnemyEditorPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EnemyEditorPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ from_area?: string }>;
+}) {
   await requireAdmin();
-  const { id } = await params;
+  const [{ id }, sp] = await Promise.all([params, searchParams]);
   const isNew = id === 'new';
+  const fromAreaId = sp.from_area ?? null;
   const db = createAdminClient();
 
-  const [itemsResult, maxTierResult] = await Promise.all([
+  const [itemsResult, maxTierResult, fromAreaResult] = await Promise.all([
     db.from('item_definitions').select('id, display_name, type, name, is_tiered').order('display_name'),
     db.from('game_config').select('value').eq('key', 'max_tier').maybeSingle(),
+    fromAreaId
+      ? db.from('areas').select('id, display_name').eq('id', fromAreaId).single()
+      : Promise.resolve({ data: null }),
   ]);
 
   const items = (itemsResult.data ?? []) as { id: string; display_name: string; type: string; name: string; is_tiered: boolean }[];
   const maxTier = Number((maxTierResult.data as { value: number } | null)?.value ?? 5) || 5;
+  const fromArea = fromAreaResult.data as { id: string; display_name: string } | null;
 
   let enemy = BLANK;
   type TierLootRow = { id: string; tier: number; item_id: string; item_tier: number | null; weight: number };
@@ -45,10 +56,21 @@ export default async function EnemyEditorPage({ params }: { params: Promise<{ id
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
-        <Link href="/admin/enemies" className="text-sm text-muted-foreground hover:text-body transition-colors">
-          ← Enemies
-        </Link>
-        <span className="text-muted-foreground">/</span>
+        {fromArea ? (
+          <>
+            <Link href={`/admin/world/${fromArea.id}`} className="text-sm text-muted-foreground hover:text-body transition-colors">
+              ← {fromArea.display_name}
+            </Link>
+            <span className="text-muted-foreground">/</span>
+          </>
+        ) : (
+          <>
+            <Link href="/admin/enemies" className="text-sm text-muted-foreground hover:text-body transition-colors">
+              ← Enemies
+            </Link>
+            <span className="text-muted-foreground">/</span>
+          </>
+        )}
         <h1 className="text-2xl font-bold text-heading">{isNew ? 'New Enemy' : enemy.display_name}</h1>
       </div>
       <EnemyForm
@@ -57,6 +79,7 @@ export default async function EnemyEditorPage({ params }: { params: Promise<{ id
         lootRows={lootRows}
         allItems={items}
         maxTier={maxTier}
+        fromAreaId={fromAreaId}
       />
     </div>
   );
