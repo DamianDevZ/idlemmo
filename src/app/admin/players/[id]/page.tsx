@@ -17,11 +17,12 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
     { data: skills },
     { data: authUsers },
     { data: items },
+    maxTierRow,
   ] = await Promise.all([
     db.from('characters').select('*').eq('id', characterId).single(),
     db.from('character_attributes').select('*').eq('character_id', characterId).single(),
     db.from('character_inventory')
-      .select('instance_id, item_id, quantity, equipped_slot, item_rating, item_definitions(display_name, type, rarity, equipment_tier)')
+      .select('instance_id, item_id, quantity, equipped_slot, item_rating, tier, item_definitions(display_name, type, rarity, equipment_tier)')
       .eq('character_id', characterId)
       .order('equipped_slot', { ascending: false, nullsFirst: false }),
     db.from('character_stash')
@@ -33,9 +34,12 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
       .order('level', { ascending: false }),
     db.auth.admin.listUsers(),
     db.from('item_definitions').select('id, display_name, type').order('display_name'),
+    db.from('game_config').select('value').eq('key', 'max_tier').single(),
   ]);
 
   if (!character) notFound();
+
+  const maxTier = (maxTierRow?.data?.value as number | null) ?? 10;
 
   const user = (authUsers?.users ?? []).find(u => u.id === character.user_id);
 
@@ -85,6 +89,7 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
         stash={((stash ?? []) as unknown as Parameters<typeof PlayerDetailClient>[0]['stash'])}
         skills={((skills ?? []) as unknown as Parameters<typeof PlayerDetailClient>[0]['skills'])}
         allItems={items ?? []}
+        maxTier={maxTier}
       />
     </div>
   );

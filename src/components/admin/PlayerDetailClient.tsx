@@ -12,6 +12,7 @@ type InventoryRow = {
   quantity: number;
   equipped_slot: string | null;
   item_rating: string | null;
+  tier: number;
   item_definitions: { display_name: string; type: string; rarity: string; equipment_tier: number | null } | null;
 };
 
@@ -49,7 +50,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export function PlayerDetailClient({
-  characterId, character, attrs, inventory, stash, skills, allItems,
+  characterId, character, attrs, inventory, stash, skills, allItems, maxTier = 10,
 }: {
   characterId: string;
   character: Character;
@@ -58,6 +59,7 @@ export function PlayerDetailClient({
   stash: StashRow[];
   skills: SkillRow[];
   allItems: { id: string; display_name: string; type: string }[];
+  maxTier?: number;
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +83,7 @@ export function PlayerDetailClient({
   const [giveItemId, setGiveItemId] = useState('');
   const [giveQty, setGiveQty] = useState(1);
   const [giveRating, setGiveRating] = useState('');
+  const [giveTier, setGiveTier] = useState(1);
 
   function notify(msg: string) {
     setSuccess(msg);
@@ -109,7 +112,7 @@ export function PlayerDetailClient({
     if (!giveItemId) return;
     startTransition(async () => {
       try {
-        await adminGiveItem(characterId, giveItemId, giveQty, giveRating || undefined);
+        await adminGiveItem(characterId, giveItemId, giveQty, giveRating || undefined, giveTier);
         notify('Item added to inventory');
       } catch (e) { setError((e as Error).message); }
     });
@@ -213,6 +216,12 @@ export function PlayerDetailClient({
               {RATINGS.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted-foreground">Tier</span>
+            <input type="number" min={1} max={maxTier} value={giveTier}
+              onChange={e => setGiveTier(Math.min(maxTier, Math.max(1, Number(e.target.value))))}
+              className="px-2 py-1.5 text-sm bg-background border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-ring w-20" />
+          </div>
           <button onClick={handleGiveItem} disabled={isPending || !giveItemId} className={`${btnCls} px-4 py-2`}>
             Give Item
           </button>
@@ -229,6 +238,7 @@ export function PlayerDetailClient({
                 <th className="pb-1 text-left font-semibold">Type</th>
                 <th className="pb-1 text-left font-semibold">Qty</th>
                 <th className="pb-1 text-left font-semibold">Rating</th>
+                <th className="pb-1 text-left font-semibold">Tier</th>
                 <th className="pb-1 text-left font-semibold">Slot</th>
                 <th className="pb-1 text-right font-semibold">Remove</th>
               </tr>
@@ -240,6 +250,7 @@ export function PlayerDetailClient({
                   <td className="py-1 text-muted-foreground">{row.item_definitions?.type ?? '?'}</td>
                   <td className="py-1 text-muted-foreground">{row.quantity}</td>
                   <td className="py-1 text-amber-400">{row.item_rating ?? '—'}</td>
+                  <td className="py-1 text-muted-foreground">T{row.tier ?? 1}</td>
                   <td className="py-1 text-muted-foreground">{row.equipped_slot ?? 'bag'}</td>
                   <td className="py-1 text-right">
                     <button onClick={() => handleRemove(row.instance_id)} disabled={isPending}
@@ -248,7 +259,7 @@ export function PlayerDetailClient({
                 </tr>
               ))}
               {inventory.length === 0 && (
-                <tr><td colSpan={6} className="py-4 text-center text-muted-foreground">Empty inventory</td></tr>
+                <tr><td colSpan={7} className="py-4 text-center text-muted-foreground">Empty inventory</td></tr>
               )}
             </tbody>
           </table>

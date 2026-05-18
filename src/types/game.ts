@@ -187,6 +187,7 @@ export interface DbInventoryItem {
   quantity: number;
   equipped_slot: EquipmentSlot | null;
   item_rating: ItemRating | null;
+  tier: number;
 }
 
 export interface DbStashItem {
@@ -195,6 +196,7 @@ export interface DbStashItem {
   item_id: string;
   quantity: number;
   item_rating: ItemRating | null;
+  tier: number;
 }
 
 export interface DbArmorPreset {

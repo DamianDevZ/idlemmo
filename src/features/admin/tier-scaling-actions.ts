@@ -52,8 +52,9 @@ export async function uploadTierFrame(tier: number, formData: FormData): Promise
   const file = formData.get('frame') as File;
   if (!file || file.size === 0) throw new Error('No file provided');
 
-  const ext = file.name.split('.').pop() ?? 'png';
-  const path = `tier-frames/t${tier}.${ext}`;
+  // Always store as t{tier}.png so the game can construct the URL predictably.
+  // The browser renders by MIME type, not file extension, so WebP uploads work fine.
+  const path = `tier-frames/t${tier}.png`;
 
   // Remove old frame files for this tier (any extension) to avoid orphans
   const { data: existing } = await db.storage.from('icons').list('tier-frames', { search: `t${tier}.` });

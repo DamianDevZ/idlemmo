@@ -4,8 +4,8 @@ import { requireAdmin } from '@/lib/admin-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
-/** Add any item to a player's inventory. Rating optional for equipment. */
-export async function adminGiveItem(characterId: string, itemId: string, quantity: number, itemRating?: string) {
+/** Add any item to a player's inventory. Rating optional for equipment, tier defaults to 1. */
+export async function adminGiveItem(characterId: string, itemId: string, quantity: number, itemRating?: string, tier = 1) {
   await requireAdmin();
   const db = createAdminClient();
 
@@ -15,6 +15,7 @@ export async function adminGiveItem(characterId: string, itemId: string, quantit
     quantity,
     item_rating: itemRating ?? null,
     equipped_slot: null,
+    tier,
   });
   if (error) throw new Error(error.message);
   revalidatePath(`/admin/players/${characterId}`);

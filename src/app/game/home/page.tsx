@@ -10,6 +10,7 @@ import { DepositButton, DepositAllButton } from '@/components/game/DepositButton
 import HomeRefiningPanel from '@/components/game/HomeRefiningPanel';
 import HomeCraftingPanel from '@/components/game/HomeCraftingPanel';
 import { EquipmentModal } from '@/components/game/EquipmentModal';
+import { ItemSprite } from '@/components/game/ItemSprite';
 import type { EquippedData, EquipItemData } from '@/components/game/EquipmentPanel';
 import type { DbInventoryItem, DbStashItem, DbItemDefinition } from '@/types/game';
 
@@ -229,9 +230,9 @@ export default async function HomeBasePage() {
                     <div className="flex-1 min-w-0 flex items-center gap-2.5">
                       {(() => {
                         const path = getResourceIconPath(def?.name ?? '');
-                        return path
-                          ? <Image src={path} alt="" width={28} height={28} className="w-7 h-7 object-contain shrink-0" />
-                          : null;
+                        if (path) return <Image src={path} alt="" width={28} height={28} className="w-7 h-7 object-contain shrink-0" />;
+                        if (def?.image_url) return <ItemSprite imageUrl={def.image_url} tier={item.tier} size={28} className="shrink-0" />;
+                        return null;
                       })()}
                       <div>
                         <span className={`font-semibold text-sm ${RARITY_COLORS[def?.rarity ?? 'common']}`}>
@@ -280,9 +281,13 @@ export default async function HomeBasePage() {
                           key={item.item_id}
                           className={`flex items-center gap-3 px-3 py-3 rounded-lg border bg-card ${RARITY_BORDERS[def?.rarity ?? 'common']}`}
                         >
-                          <span className="text-xl shrink-0">
-                            {def?.type === 'tool' ? '⛏️' : def?.type === 'weapon' ? '⚔️' : '🛡️'}
-                          </span>
+                        <ItemSprite
+                            imageUrl={def?.image_url}
+                            tier={item.tier}
+                            size={40}
+                            className="shrink-0"
+                            fallback={<span className="text-xl">{def?.type === 'tool' ? '⛏️' : def?.type === 'weapon' ? '⚔️' : '🛡️'}</span>}
+                          />
                           <div className="flex-1 min-w-0">
                             <p className={`text-sm font-semibold truncate ${RARITY_COLORS[def?.rarity ?? 'common']}`}>
                               {def?.display_name ?? 'Unknown'}
@@ -332,9 +337,13 @@ export default async function HomeBasePage() {
                         >
                           {/* Icon fills the cell */}
                           <div className="absolute inset-0 flex items-center justify-center p-2">
-                            {iconPath
-                              ? <Image src={iconPath} alt="" width={56} height={56} className="w-full h-full object-contain" />
-                              : <span className="text-3xl">{typeIcon}</span>}
+                            {iconPath ? (
+                              <Image src={iconPath} alt="" width={56} height={56} className="w-full h-full object-contain" />
+                            ) : def?.image_url ? (
+                              <ItemSprite imageUrl={def.image_url} tier={item.tier} size={56} />
+                            ) : (
+                              <span className="text-3xl">{typeIcon}</span>
+                            )}
                           </div>
                           {/* Quantity — top-right */}
                           {qtyLabel && (
