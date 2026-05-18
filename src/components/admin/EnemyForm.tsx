@@ -486,32 +486,3 @@ export function EnemyForm({
 }
 
 
-// ─── Shared primitives ────────────────────────────────────────────────────────
-
-const inputCls =
-  'px-3 py-2 text-sm bg-background border border-border rounded-md text-body ' +
-  'placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring';
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-function Inp(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={inputCls} />;
-}
-
-function Sel({ children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement> & { children: React.ReactNode }) {
-  return (
-    <select {...props} className={inputCls}>
-      {children}
-    </select>
-  );
-}
-
-// ─── EnemyForm ────────────────────────────────────────────────────────────────
-
