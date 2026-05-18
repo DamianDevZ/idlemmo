@@ -551,7 +551,7 @@ export function EnemyForm({
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Resistances</p>
                 <p className="text-xs text-muted-foreground mt-0.5">Positive = resist · Negative = weakness</p>
               </div>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-2">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                 {RESIST_TYPES.map(rt => {
                   const entry = resistances[rt.key];
                   const val = entry?.value ?? 0;
