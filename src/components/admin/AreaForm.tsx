@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   upsertArea,
@@ -31,7 +31,7 @@ type TierLootRow = {
   required_skill_name: string | null;
 };
 
-type Item = { id: string; display_name: string; type: string; name: string };
+type Item = { id: string; display_name: string; type: string; name: string; is_tiered: boolean };
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
 
@@ -60,23 +60,76 @@ function AddLootRow({
   areaId,
   tier,
   items,
+  maxTier,
   onDone,
 }: {
   areaId: string;
   tier: number;
   items: Item[];
+  maxTier: number;
   onDone: () => void;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState({
     item_id: '',
+    baseName: '',    // only set for tiered items
+    isTiered: false,
+    itemTier: tier,  // which tier variant to use (defaults to zone tier)
     weight: 10,
     quantity_min: 1,
     quantity_max: 3,
     gather_time_ms: 5000,
     required_skill_name: '',
   });
+
+  // Deduplicate tiered items — show one entry per base item, not one per tier variant
+  const dedupedItems = useMemo(() => {
+    const seen = new Set<string>();
+    return items.reduce<Array<{ value: string; label: string; isTiered: boolean; baseName: string }>>((acc, item) => {
+      const isTieredVariant = item.is_tiered && /_t\d+$/.test(item.name);
+      if (isTieredVariant) {
+        const base = item.name.replace(/_t\d+$/, '');
+        if (!seen.has(base)) {
+          seen.add(base);
+          const baseLabel = item.display_name.replace(/\s+T\d+$/i, '').trim();
+          acc.push({ value: base, label: `${baseLabel} (${item.type})`, isTiered: true, baseName: base });
+        }
+      } else {
+        acc.push({ value: item.id, label: `${item.display_name} (${item.type})`, isTiered: false, baseName: '' });
+      }
+      return acc;
+    }, []);
+  }, [items]);
+
+  // Tiers that actually exist in the DB for the selected base item
+  const availableTiers = useMemo(() => {
+    if (!form.isTiered || !form.baseName) return [];
+    return Array.from({ length: maxTier }, (_, i) => i + 1).filter(t =>
+      items.some(i => i.name === `${form.baseName}_t${t}`)
+    );
+  }, [form.isTiered, form.baseName, items, maxTier]);
+
+  function handleItemSelect(value: string) {
+    if (!value) {
+      setForm(p => ({ ...p, item_id: '', baseName: '', isTiered: false }));
+      return;
+    }
+    const entry = dedupedItems.find(d => d.value === value);
+    if (!entry) return;
+    if (entry.isTiered) {
+      // Auto-pick the tier variant matching the current zone tier
+      const targetItem = items.find(i => i.name === `${entry.baseName}_t${tier}`);
+      setForm(p => ({ ...p, baseName: entry.baseName, isTiered: true, itemTier: tier, item_id: targetItem?.id ?? '' }));
+    } else {
+      setForm(p => ({ ...p, item_id: value, baseName: '', isTiered: false }));
+    }
+  }
+
+  function handleTierChange(t: number) {
+    const targetItem = items.find(i => i.name === `${form.baseName}_t${t}`);
+    setForm(p => ({ ...p, itemTier: t, item_id: targetItem?.id ?? '' }));
+  }
 
   function handleAdd() {
     if (!form.item_id) return;
@@ -97,22 +150,39 @@ function AddLootRow({
   }
 
   const tiny = `${inputCls} py-1 text-xs`;
+  const dropdownValue = form.isTiered ? form.baseName : form.item_id;
 
   return (
     <tr className="bg-primary/5">
       <td className="py-1.5 pr-2">
-        <select
-          value={form.item_id}
-          onChange={e => setForm(p => ({ ...p, item_id: e.target.value }))}
-          className={`${tiny} w-full`}
-        >
-          <option value="">Pick item…</option>
-          {items.map(it => (
-            <option key={it.id} value={it.id}>
-              {it.display_name} ({it.type})
-            </option>
-          ))}
-        </select>
+        <div className="flex flex-col gap-1">
+          <select
+            value={dropdownValue}
+            onChange={e => handleItemSelect(e.target.value)}
+            className={`${tiny} w-full`}
+          >
+            <option value="">Pick item…</option>
+            {dedupedItems.map(d => (
+              <option key={d.value} value={d.value}>
+                {d.label}
+              </option>
+            ))}
+          </select>
+          {form.isTiered && availableTiers.length > 0 && (
+            <select
+              value={form.itemTier}
+              onChange={e => handleTierChange(Number(e.target.value))}
+              className={`${tiny} w-full`}
+            >
+              {availableTiers.map(t => (
+                <option key={t} value={t}>T{t}</option>
+              ))}
+            </select>
+          )}
+          {form.isTiered && !form.item_id && (
+            <span className="text-xs text-destructive">T{form.itemTier} variant not in DB</span>
+          )}
+        </div>
       </td>
       <td className="py-1.5 pr-2">
         <input type="number" min={1} value={form.weight}
@@ -159,11 +229,13 @@ function TierSection({
   rows,
   areaId,
   allItems,
+  maxTier,
 }: {
   tier: number;
   rows: TierLootRow[];
   areaId: string;
   allItems: Item[];
+  maxTier: number;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -240,6 +312,7 @@ function TierSection({
                     areaId={areaId}
                     tier={tier}
                     items={allItems}
+                    maxTier={maxTier}
                     onDone={() => setAdding(false)}
                   />
                 )}
@@ -445,6 +518,7 @@ export function AreaForm({
                   rows={lootByTier[t] ?? []}
                   areaId={areaId}
                   allItems={allItems}
+                  maxTier={maxTier}
                 />
               ))}
             </>

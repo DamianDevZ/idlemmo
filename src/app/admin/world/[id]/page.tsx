@@ -16,12 +16,12 @@ export default async function AreaEditPage({ params }: { params: Promise<{ id: s
   const isNew = id === 'new';
   const db = createAdminClient();
 
-  let items: { id: string; display_name: string; type: string; name: string }[] = [];
+  let items: { id: string; display_name: string; type: string; name: string; is_tiered: boolean }[] = [];
   let maxTier = 5;
 
   try {
     const [itemsResult, maxTierResult] = await Promise.all([
-      db.from('item_definitions').select('id, display_name, type, name').order('display_name'),
+      db.from('item_definitions').select('id, display_name, type, name, is_tiered').order('display_name'),
       db.from('game_config').select('value').eq('key', 'max_tier').maybeSingle(),
     ]);
     items = (itemsResult.data ?? []) as typeof items;
@@ -80,7 +80,7 @@ export default async function AreaEditPage({ params }: { params: Promise<{ id: s
         areaId={isNew ? null : id}
         initial={{ name: area.name, display_name: area.display_name, description: area.description, icon: area.icon, sort_order: area.sort_order }}
         lootRows={lootRows}
-        allItems={(items ?? []) as { id: string; display_name: string; type: string; name: string }[]}
+        allItems={(items ?? []) as { id: string; display_name: string; type: string; name: string; is_tiered: boolean }[]}
         maxTier={maxTier}
         imageUrl={area.image_url}
       />
