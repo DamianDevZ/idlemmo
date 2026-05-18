@@ -9,8 +9,8 @@ const ITEM_TYPES = [
   { key: 'tool',           label: 'Tools',       emoji: '⛏️' },
   { key: 'material',       label: 'Materials',   emoji: '🪨' },
   { key: 'consumable',     label: 'Consumables', emoji: '🧪' },
+  { key: 'special_attack', label: 'Ultimates',   emoji: '✨' },
   { key: 'misc',           label: 'Misc',        emoji: '📦' },
-  { key: 'special_attack', label: 'Specials',    emoji: '✨' },
 ] as const;
 
 const RARITY_ORDER = ['common','uncommon','rare','epic','legendary'];
