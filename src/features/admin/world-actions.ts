@@ -64,6 +64,33 @@ export async function upsertAreaTierLoot(row: {
   return data.id;
 }
 
+/** Upload and store a landscape banner image for an area. Returns the public URL. */
+export async function uploadAreaImage(areaId: string, formData: FormData): Promise<string> {
+  await requireAdmin();
+  const db = createAdminClient();
+  const file = formData.get('image') as File;
+  if (!file || file.size === 0) throw new Error('No file provided');
+
+  const ext = file.name.split('.').pop();
+  const path = `areas/${areaId}.${ext}`;
+
+  // Remove existing area images (may have a different extension)
+  const { data: existing } = await db.storage.from('icons').list('areas', { search: `${areaId}.` });
+  if (existing?.length) {
+    await db.storage.from('icons').remove(existing.map(f => `areas/${f.name}`));
+  }
+
+  const { error } = await db.storage
+    .from('icons')
+    .upload(path, file, { upsert: true, contentType: file.type });
+  if (error) throw new Error(error.message);
+
+  const { data: { publicUrl } } = db.storage.from('icons').getPublicUrl(path);
+  await db.from('areas').update({ image_url: publicUrl }).eq('id', areaId);
+  revalidatePath(`/admin/world/${areaId}`);
+  return publicUrl;
+}
+
 /** Remove a single loot drop row. */
 export async function deleteAreaTierLoot(id: string, areaId: string) {
   await requireAdmin();

@@ -30,7 +30,7 @@ export default async function AreaEditPage({ params }: { params: Promise<{ id: s
     console.error('[world/[id]] setup query failed:', e);
   }
 
-  let area = BLANK;
+  let area: { name: string; display_name: string; description: string; icon: string; sort_order: number; image_url: string | null } = { ...BLANK, image_url: null };
   type TierLootRow = {
     id: string;
     tier: number;
@@ -47,7 +47,7 @@ export default async function AreaEditPage({ params }: { params: Promise<{ id: s
     try {
       const { data: areaData } = await db
       .from('areas')
-      .select('name, display_name, description, icon, sort_order')
+      .select('name, display_name, description, icon, sort_order, image_url')
       .eq('id', id)
       .single();
       if (!areaData) notFound();
@@ -78,10 +78,11 @@ export default async function AreaEditPage({ params }: { params: Promise<{ id: s
 
       <AreaForm
         areaId={isNew ? null : id}
-        initial={area}
+        initial={{ name: area.name, display_name: area.display_name, description: area.description, icon: area.icon, sort_order: area.sort_order }}
         lootRows={lootRows}
         allItems={(items ?? []) as { id: string; display_name: string; type: string; name: string }[]}
         maxTier={maxTier}
+        imageUrl={area.image_url}
       />
     </div>
   );

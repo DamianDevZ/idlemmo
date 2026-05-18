@@ -7,6 +7,7 @@ import {
   deleteArea,
   upsertAreaTierLoot,
   deleteAreaTierLoot,
+  uploadAreaImage,
 } from '@/features/admin/world-actions';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -265,19 +266,23 @@ export function AreaForm({
   lootRows,
   allItems,
   maxTier,
+  imageUrl: initialImageUrl,
 }: {
   areaId: string | null;
   initial: AreaData;
   lootRows: TierLootRow[];
   allItems: Item[];
   maxTier: number;
+  imageUrl: string | null;
 }) {
   const tiers = Array.from({ length: maxTier }, (_, i) => i + 1);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [imgPending, startImgTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [area, setArea] = useState<AreaData>(initial);
+  const [imgUrl, setImgUrl] = useState<string | null>(initialImageUrl);
 
   const isNew = !areaId;
 
@@ -303,6 +308,22 @@ export function AreaForm({
         }
       } catch (e) {
         setError((e as Error).message);
+      }
+    });
+  }
+
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !areaId) return;
+    const fd = new FormData();
+    fd.append('image', file);
+    startImgTransition(async () => {
+      try {
+        const url = await uploadAreaImage(areaId, fd);
+        setImgUrl(url);
+        notify('Image uploaded');
+      } catch (err) {
+        setError((err as Error).message);
       }
     });
   }
@@ -364,6 +385,32 @@ export function AreaForm({
               onChange={e => setArea(p => ({ ...p, description: e.target.value }))}
               placeholder="Ancient woodland filled with…"
               className={`${inputCls} resize-y`} />
+          </Field>
+
+          <Field label="Area Image">
+            {isNew ? (
+              <p className="text-xs text-muted-foreground italic">Save the area first to upload an image.</p>
+            ) : (
+              <div className="space-y-2">
+                {imgUrl ? (
+                  <img src={imgUrl} alt="" className="w-full rounded-md object-cover" style={{ maxHeight: '96px' }} />
+                ) : (
+                  <div className="w-full rounded-md border border-dashed border-border flex items-center justify-center text-muted-foreground text-xs" style={{ height: '80px' }}>
+                    No image yet
+                  </div>
+                )}
+                <label className={`${btnSecondary} cursor-pointer inline-block ${imgPending ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {imgPending ? 'Uploading…' : imgUrl ? 'Replace Image' : 'Upload Image'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={imgPending}
+                    onChange={handleImageChange}
+                  />
+                </label>
+              </div>
+            )}
           </Field>
 
           <div className="flex gap-2 pt-2 border-t border-border">
