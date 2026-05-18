@@ -11,6 +11,7 @@ const ITEM_TYPES = [
   { key: 'consumable',     label: '🧪  Consumable' },
   { key: 'special_attack', label: '✨  Ultimate' },
   { key: 'material',       label: '🪵  Material' },
+  { key: 'enemy',          label: '👹  Enemy' },
 ];
 
 // Suggested stat keys when adding a new stat row
@@ -21,6 +22,7 @@ const STAT_SUGGESTIONS: Record<string, { key: string; label: string }[]> = {
   consumable:     [{ key: 'effect_value', label: 'Effect Value' }],
   special_attack: [{ key: 'base_damage', label: 'Base Damage' }],
   material:       [],
+  enemy:          [{ key: 'base_hp', label: 'Base HP' }, { key: 'base_attack', label: 'Base Attack' }],
 };
 
 type StatMap = Record<string, { label: string; tiers: Record<number, number> }>;

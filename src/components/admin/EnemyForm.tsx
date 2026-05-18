@@ -11,13 +11,59 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type ResistanceMode = 'percent' | 'flat';
+type ResistanceEntry = { value: number; mode: ResistanceMode };
+type ResistancesMap = Record<string, ResistanceEntry>;
+
 type EnemyData = {
   name: string;
   display_name: string;
   description: string;
   icon: string;
   sort_order: number;
+  damage_type: string;
+  attack_speed: number;
+  base_hp: number;
+  base_attack: number;
+  resistances: ResistancesMap;
 };
+
+const DAMAGE_TYPES = [
+  { key: 'slash',     label: 'Slash',     emoji: '⚔️' },
+  { key: 'blunt',     label: 'Blunt',     emoji: '🔨' },
+  { key: 'pierce',    label: 'Pierce',    emoji: '🏹' },
+  { key: 'bleed',     label: 'Bleed',     emoji: '🩸' },
+  { key: 'fire',      label: 'Fire',      emoji: '🔥' },
+  { key: 'ice',       label: 'Ice',       emoji: '❄️' },
+  { key: 'lightning', label: 'Lightning', emoji: '⚡' },
+  { key: 'poison',    label: 'Poison',    emoji: '☠️' },
+  { key: 'true',      label: 'True',      emoji: '⭐' },
+];
+
+const RESIST_TYPES = [
+  { key: 'slash',     label: 'Slash',     emoji: '⚔️' },
+  { key: 'fire',      label: 'Fire',      emoji: '🔥' },
+  { key: 'pierce',    label: 'Pierce',    emoji: '🏹' },
+  { key: 'ice',       label: 'Ice',       emoji: '❄️' },
+  { key: 'blunt',     label: 'Blunt',     emoji: '🔨' },
+  { key: 'poison',    label: 'Poison',    emoji: '☠️' },
+  { key: 'bleed',     label: 'Bleed',     emoji: '🩸' },
+  { key: 'lightning', label: 'Lightning', emoji: '⚡' },
+];
+
+function initResistances(raw?: ResistancesMap): ResistancesMap {
+  const base: ResistancesMap = {};
+  for (const { key } of RESIST_TYPES) {
+    base[key] = { value: 0, mode: 'percent' };
+  }
+  if (raw && typeof raw === 'object') {
+    for (const { key } of RESIST_TYPES) {
+      const entry = (raw as ResistancesMap)[key];
+      if (entry) base[key] = entry;
+    }
+  }
+  return base;
+}
 
 type TierLootRow = {
   id: string;
@@ -356,7 +402,12 @@ export function EnemyForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [enemy, setEnemy] = useState<EnemyData>(initial);
+  const [resistances, setResistances] = useState<ResistancesMap>(() => initResistances(initial.resistances));
   const isNew = !enemyId;
+
+  function setResist(dmgType: string, field: keyof ResistanceEntry, value: string | number) {
+    setResistances(prev => ({ ...prev, [dmgType]: { ...prev[dmgType], [field]: value } }));
+  }
 
   const lootByTier: Record<number, TierLootRow[]> = {};
   for (const row of lootRows) {
@@ -371,7 +422,7 @@ export function EnemyForm({
   function handleSave() {
     startTransition(async () => {
       try {
-        const id = await upsertEnemyDef(enemyId, enemy);
+        const id = await upsertEnemyDef(enemyId, { ...enemy, resistances });
         if (isNew) {
           router.push(`/admin/enemies/${id}`);
         } else {
@@ -441,6 +492,64 @@ export function EnemyForm({
               placeholder="A fierce wolf lurking in the woods…"
               className={`${inputCls} resize-y`} />
           </Field>
+
+          <div className="border-t border-border pt-4 space-y-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Combat Stats</p>
+            <Field label="Damage Type">
+              <select value={enemy.damage_type}
+                onChange={e => setEnemy(p => ({ ...p, damage_type: e.target.value }))}
+                className={inputCls}>
+                {DAMAGE_TYPES.map(dt => (
+                  <option key={dt.key} value={dt.key}>{dt.emoji} {dt.label}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Attack Speed (hits/sec)">
+              <input type="number" step="0.05" min="0.1" value={enemy.attack_speed}
+                onChange={e => setEnemy(p => ({ ...p, attack_speed: Number(e.target.value) }))}
+                className={inputCls} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Base HP">
+                <input type="number" min={1} value={enemy.base_hp}
+                  onChange={e => setEnemy(p => ({ ...p, base_hp: Number(e.target.value) }))}
+                  className={inputCls} />
+              </Field>
+              <Field label="Base Attack">
+                <input type="number" min={1} value={enemy.base_attack}
+                  onChange={e => setEnemy(p => ({ ...p, base_attack: Number(e.target.value) }))}
+                  className={inputCls} />
+              </Field>
+            </div>
+          </div>
+
+          <div className="border-t border-border pt-4 space-y-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Resistances</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Positive = resist · Negative = weakness</p>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+              {RESIST_TYPES.map(rt => {
+                const entry = resistances[rt.key];
+                const val = entry?.value ?? 0;
+                const col = val > 0 ? 'text-green-400' : val < 0 ? 'text-red-400' : 'text-muted-foreground';
+                return (
+                  <div key={rt.key} className="flex items-center gap-2">
+                    <span className="text-sm w-24 shrink-0 text-body">{rt.emoji} {rt.label}</span>
+                    <input type="number" value={val}
+                      onChange={e => setResist(rt.key, 'value', Number(e.target.value))}
+                      className={`w-14 px-2 py-1.5 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-ring text-center ${col}`} />
+                    <select value={entry?.mode ?? 'percent'}
+                      onChange={e => setResist(rt.key, 'mode', e.target.value as ResistanceMode)}
+                      className="px-2 py-1.5 text-xs bg-background border border-border rounded-md focus:outline-none text-muted-foreground">
+                      <option value="percent">%</option>
+                      <option value="flat">flat</option>
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
           <div className="flex gap-2 pt-2 border-t border-border">
             <button onClick={handleSave} disabled={isPending} className={`${btnPrimary} flex-1`}>

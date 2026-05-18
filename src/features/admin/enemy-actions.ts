@@ -96,7 +96,18 @@ export async function deleteEnemy(id: string) {
 
 export async function upsertEnemyDef(
   id: string | null,
-  data: { name: string; display_name: string; description: string; icon: string; sort_order: number }
+  data: {
+    name: string;
+    display_name: string;
+    description: string;
+    icon: string;
+    sort_order: number;
+    damage_type: string;
+    attack_speed: number;
+    base_hp: number;
+    base_attack: number;
+    resistances: Record<string, { value: number; mode: string }>;
+  }
 ): Promise<string> {
   await requireAdmin();
   const db = createAdminClient();

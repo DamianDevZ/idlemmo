@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 
 const BLANK = {
   name: '', display_name: '', description: '', icon: '👹', sort_order: 0,
+  damage_type: 'slash', attack_speed: 1.0, base_hp: 20, base_attack: 5, resistances: {},
 };
 
 export default async function EnemyEditorPage({ params }: { params: Promise<{ id: string }> }) {
