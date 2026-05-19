@@ -16,7 +16,7 @@ const ITEM_TYPES = [
 
 // Suggested stat keys when adding a new stat row
 const STAT_SUGGESTIONS: Record<string, { key: string; label: string }[]> = {
-  weapon:         [{ key: 'base_damage', label: 'Base Damage' }],
+  weapon:         [{ key: 'base_damage', label: 'Base Damage' }, { key: 'attack_speed', label: 'Attack Speed' }],
   armor:          [{ key: 'base_defense', label: 'Base Defense' }],
   tool:           [{ key: 'yield_min', label: 'Yield Min' }, { key: 'yield_max', label: 'Yield Max' }],
   consumable:     [{ key: 'effect_value', label: 'Effect Value' }],

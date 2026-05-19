@@ -79,7 +79,6 @@ export default async function TierScalingPage() {
         Configure how stats scale across tiers for each item type.
         Each multiplier is applied to the base stat you set on the item definition —
         so T1 = 1.0× (exactly what you typed), T2 = 1.2× (20% stronger), etc.
-        Attack speed on weapons is intentionally excluded — it never scales with tier.
       </p>
       <TierScalingClient rows={rows} maxTier={maxTier} previewItems={previewItems} />
 

@@ -581,10 +581,16 @@ export function ItemForm({
                   </label>
                   <Input type="number" step="0.01" value={item.base_damage ?? ''} onChange={e => set('base_damage', e.target.value ? Number(e.target.value) : null)} />
                 </div>
-                <Field label="Attack Speed (hits/sec)">
+                <div className="flex flex-col gap-1.5">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    {item.is_tiered && (
+                      <input type="checkbox" checked={item.tiered_stats.includes('attack_speed')} onChange={() => toggleTieredStat('attack_speed')} className="w-3.5 h-3.5 rounded border-border shrink-0" />
+                    )}
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Attack Speed (hits/sec)</span>
+                  </label>
                   <Input type="number" step="0.05" min="0.1" value={item.attack_speed ?? 1}
                     onChange={e => set('attack_speed', e.target.value ? Number(e.target.value) : 1)} />
-                </Field>
+                </div>
                 <Field label="Damage Type">
                   <Select value={item.primary_damage_type ?? ''} onChange={e => set('primary_damage_type', e.target.value || null)}>
                     <option value="">None</option>
