@@ -130,6 +130,16 @@ export const getGameConfig = unstable_cache(
         epic:      { ...G.rarities.epic,      dropWeightMult: v('weight_epic',      G.rarities.epic.dropWeightMult) },
         legendary: { ...G.rarities.legendary, dropWeightMult: v('weight_legendary', G.rarities.legendary.dropWeightMult) },
       },
+      // Relative weights for the per-instance item_rating assigned when equipment drops.
+      // Higher weight = more common. S is rarest, F most common.
+      gradeWeights: {
+        S: v('grade_weight_s',  3),
+        A: v('grade_weight_a',  7),
+        B: v('grade_weight_b', 10),
+        C: v('grade_weight_c', 15),
+        D: v('grade_weight_d', 25),
+        F: v('grade_weight_f', 40),
+      },
     };
   },
   ['game-config'],

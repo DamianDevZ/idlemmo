@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { getGameConfig } from '@/lib/game/getGameConfig';
+import { pickGrade } from '@/lib/game/pickGrade';
 import { awardMainXp, awardCategoryXp } from '@/lib/game/xp';
 import { calcMeleeDamage, applyDefense } from '@/lib/game/formulas';
 import type { CollectPreference } from '@/types/game';
@@ -20,7 +21,7 @@ export interface ActOnEventResult {
     xpGained: number;
     newHp: number;
     fleeSuccess?: boolean;
-    lootDrops?: Array<{ item: string; quantity: number }>;
+    lootDrops?: Array<{ item: string; quantity: number; grade?: string | null }>;
     ultimateFired?: { name: string; bonusDamage: number } | null;
     newRage?: number;
   };
@@ -305,18 +306,36 @@ export async function actOnExploreEvent(
   // Loot drops only happen on victory
   type LootEntry = { item: string; min: number; max: number; weight: number };
   const lootTable = (d.loot_table as LootEntry[] | undefined) ?? [];
-  const lootDrops: Array<{ item: string; quantity: number }> = [];
+  const lootDrops: Array<{ item: string; quantity: number; grade?: string | null }> = [];
 
   if (victory && lootTable.length > 0) {
+    // Fetch item types + per-item grade weight overrides for all potential loot
+    const lootItemNames = lootTable.map(e => e.item);
+    const { data: lootItemDefs } = await supabase
+      .from('item_definitions')
+      .select('name, type, grade_weights')
+      .in('name', lootItemNames);
+    const lootItemMap = Object.fromEntries(
+      (lootItemDefs ?? []).map(d => [d.name, d as { name: string; type: string; grade_weights: Record<string, number> | null }])
+    );
+
+    const { gradeWeights } = await getGameConfig();
+
     for (const entry of lootTable) {
       if (Math.random() * 10 < entry.weight) {
         const qty = Math.floor(Math.random() * (entry.max - entry.min + 1)) + entry.min;
+        const itemDef = lootItemMap[entry.item];
+        const isEquipment = ['weapon', 'armor', 'tool'].includes(itemDef?.type ?? '');
+        const itemRating = isEquipment
+          ? pickGrade(gradeWeights, itemDef?.grade_weights)
+          : null;
         await supabase.rpc('add_to_inventory', {
           p_character_id: characterId,
           p_item_name:    entry.item,
           p_quantity:     qty,
+          p_item_rating:  itemRating,
         });
-        lootDrops.push({ item: entry.item, quantity: qty });
+        lootDrops.push({ item: entry.item, quantity: qty, grade: itemRating });
       }
     }
   }

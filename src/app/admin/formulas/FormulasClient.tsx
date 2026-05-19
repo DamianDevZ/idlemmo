@@ -111,6 +111,12 @@ const CAT_META: Record<string, { title: string; icon: string; formula: string; d
     formula: 'weight ∝ item drop probability\n— weights are normalised across all items in the loot pool',
     desc: 'Per-item weights are relative to each other. All weights are normalised before the final draw, so only the ratios between values matter.',
   },
+  loot: {
+    title: 'Equipment Grade Weights',
+    icon: '⚗️',
+    formula: 'grade = weightedRandom({ S, A, B, C, D, F })\n— higher weight = more common grade; S is rarest, F most common',
+    desc: 'Controls how often each quality grade (S–F) appears when weapons, armor, or tools drop from enemies. Global defaults; individual items can override these in the Items admin.',
+  },
   items: {
     title: 'Items & Tiers',
     icon: '🗡️',

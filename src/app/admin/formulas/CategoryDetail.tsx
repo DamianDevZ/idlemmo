@@ -114,6 +114,13 @@ const CAT_META: Record<string, { title: string; icon: string; formula: string; d
       'weight ∝ item drop probability\nWeights normalised across all eligible items in the loot pool.',
     desc: 'Lower weight = rarer. These multiply each item\'s base pool weight before the final draw.',
   },
+  loot: {
+    title: 'Equipment Grade Weights',
+    icon: '⚗️',
+    formula:
+      'grade = weightedRandom({ S, A, B, C, D, F })\n\nOn every weapon/armor/tool drop the server rolls against these relative weights.\nHigher weight = more common grade. Individual items can override per item in the Items admin.',
+    desc: 'Controls how often each quality grade (S–F) appears when equipment drops from enemies. These are global defaults; per-item overrides take precedence.',
+  },
 };
 
 const FOCUS_GROUPS: Record<string, string> = {

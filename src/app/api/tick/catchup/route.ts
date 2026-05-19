@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getGameConfig } from '@/lib/game/getGameConfig';
+import { pickGrade } from '@/lib/game/pickGrade';
 import { awardMainXp, awardCategoryXp } from '@/lib/game/xp';
 import { calcMeleeDamage, applyDefense } from '@/lib/game/formulas';
 
@@ -8,6 +9,7 @@ export interface OfflineSummary {
   ticksProcessed: number;
   resourcesGained: Array<{ item: string; displayName: string; quantity: number }>;
   lootGained: Array<{ item: string; quantity: number }>;
+  equipmentGained: Array<{ item: string; grade: string }>;
   enemiesKilled: number;
   coinsGained: number;
   xpGained: number;
@@ -33,7 +35,7 @@ export async function POST(req: NextRequest) {
     const { characterId } = body;
     if (!characterId) return NextResponse.json({ error: 'Missing characterId' }, { status: 400 });
 
-    const { exploration: EXP, attributes: ATTR } = await getGameConfig();
+    const { exploration: EXP, attributes: ATTR, gradeWeights } = await getGameConfig();
     const MAX_OFFLINE_TICKS = Math.ceil((2 * 60 * 60 * 1000) / (EXP.tickIntervalSeconds * 1000));
 
     // Verify ownership and get character stats
@@ -98,7 +100,7 @@ export async function POST(req: NextRequest) {
       isAreaSession
         ? supabase
             .from('area_tier_enemies')
-            .select('weight, enemies(display_name, base_hp, base_attack, resistances, enemy_tier_loot(weight, item_definitions(name)))')
+            .select('weight, enemies(display_name, base_hp, base_attack, resistances, enemy_tier_loot(weight, item_definitions(name, type, grade_weights)))')
             .eq('area_id', sessionAreaId!)
             .eq('tier', sessionAreaTier)
         : Promise.resolve({ data: null }),
@@ -177,12 +179,13 @@ export async function POST(req: NextRequest) {
     const areaLoot = (areaLootResult.data ?? []) as unknown as AreaLootRow[];
 
     type ResistanceEntry = { value: number; mode: string };
+    type ItemDefLoot = { name: string; type: string; grade_weights: Record<string, number> | null } | null;
     type AreaEnemyRow = {
       weight: number;
       enemies: {
         display_name: string; base_hp: number; base_attack: number;
         resistances: Record<string, ResistanceEntry> | null;
-        enemy_tier_loot: Array<{ weight: number; item_definitions: { name: string } | null }>;
+        enemy_tier_loot: Array<{ weight: number; item_definitions: ItemDefLoot }>;
       } | null;
     };
     const areaEnemies = (areaEnemiesResult.data ?? []) as unknown as AreaEnemyRow[];
@@ -197,8 +200,24 @@ export async function POST(req: NextRequest) {
     const retreatThreshold = session.retreat_hp_threshold ?? 20;
 
     // Accumulators — aggregate by item name to minimise DB writes
+    // Collect item types for legacy loot items so we can assign grades for equipment
+    const legacyLootItemNames = new Set<string>();
+    legacyEnemies.forEach(e => e.loot_table?.forEach((l: { item: string }) => legacyLootItemNames.add(l.item)));
+    let legacyItemTypeMap: Record<string, { type: string; grade_weights: Record<string, number> | null }> = {};
+    if (legacyLootItemNames.size > 0) {
+      const { data: legacyItemDefs } = await supabase
+        .from('item_definitions')
+        .select('name, type, grade_weights')
+        .in('name', [...legacyLootItemNames]);
+      legacyItemTypeMap = Object.fromEntries(
+        (legacyItemDefs ?? []).map(d => [d.name, d as { type: string; grade_weights: Record<string,number> | null }])
+      );
+    }
+
     const resourceAccum: Record<string, { displayName: string; quantity: number }> = {};
     const lootAccum: Record<string, number> = {};
+    // Equipment drops: one entry per individual instance so each gets its own grade
+    const equipmentDrops: Array<{ itemName: string; gradeWeights: Record<string, number> | null }> = [];
     let coinsGained = 0;
     let enemiesKilled = 0;
     let totalXpGained = 0;
@@ -285,8 +304,13 @@ export async function POST(req: NextRequest) {
               totalXpGained += 10 + level * 3;
               for (const lootEntry of (enemy.enemy_tier_loot ?? [])) {
                 if (Math.random() * 10 < lootEntry.weight) {
-                  const name = lootEntry.item_definitions?.name;
-                  if (name) lootAccum[name] = (lootAccum[name] ?? 0) + 1;
+                  const def = lootEntry.item_definitions;
+                  if (!def?.name) continue;
+                  if (['weapon', 'armor', 'tool'].includes(def.type)) {
+                    equipmentDrops.push({ itemName: def.name, gradeWeights: def.grade_weights });
+                  } else {
+                    lootAccum[def.name] = (lootAccum[def.name] ?? 0) + 1;
+                  }
                 }
               }
             } else {
@@ -321,7 +345,14 @@ export async function POST(req: NextRequest) {
             for (const entry of (pickedEnemy?.loot_table ?? [])) {
               if (Math.random() * 10 < entry.weight) {
                 const qty = Math.floor(Math.random() * (entry.max - entry.min + 1)) + entry.min;
-                lootAccum[entry.item] = (lootAccum[entry.item] ?? 0) + qty;
+                const def = legacyItemTypeMap[entry.item];
+                if (def && ['weapon', 'armor', 'tool'].includes(def.type)) {
+                  for (let i = 0; i < qty; i++) {
+                    equipmentDrops.push({ itemName: entry.item, gradeWeights: def.grade_weights });
+                  }
+                } else {
+                  lootAccum[entry.item] = (lootAccum[entry.item] ?? 0) + qty;
+                }
               }
             }
           } else {
@@ -349,6 +380,21 @@ export async function POST(req: NextRequest) {
     for (const [itemName, quantity] of Object.entries(lootAccum)) {
       writes.push(
         supabase.rpc('add_to_inventory', { p_character_id: characterId, p_item_name: itemName, p_quantity: quantity })
+      );
+    }
+    // Equipment drops each need their own inventory row with a random grade
+    const equipmentDropsWithGrades = equipmentDrops.map(d => ({
+      ...d,
+      grade: pickGrade(gradeWeights, d.gradeWeights),
+    }));
+    for (const drop of equipmentDropsWithGrades) {
+      writes.push(
+        supabase.rpc('add_to_inventory', {
+          p_character_id: characterId,
+          p_item_name:    drop.itemName,
+          p_quantity:     1,
+          p_item_rating:  drop.grade,
+        })
       );
     }
     if (coinsGained > 0) {
@@ -386,6 +432,7 @@ export async function POST(req: NextRequest) {
         item, displayName, quantity,
       })),
       lootGained: Object.entries(lootAccum).map(([item, quantity]) => ({ item, quantity })),
+      equipmentGained: equipmentDropsWithGrades.map(d => ({ item: d.itemName, grade: d.grade })),
       enemiesKilled,
       coinsGained,
       xpGained: totalXpGained,

@@ -35,6 +35,8 @@ export type ItemFormData = {
   compatible_weapon_type_ids?: string[];
   attack_speed?: number;
   tool_slot?: string | null;
+  // Per-item drop grade weight overrides; null = use global defaults from game_config
+  grade_weights?: { S?: number; A?: number; B?: number; C?: number; D?: number; F?: number } | null;
 };
 
 export type RecipeIngredient = { item_id: string; tier: number | null; quantity: number };

@@ -50,6 +50,8 @@ type Item = {
   compatible_weapon_type_ids: string[];
   attack_speed: number;
   tool_slot: string | null;
+  // Per-item drop grade weight overrides (null = use global defaults from game_config)
+  grade_weights: { S?: number; A?: number; B?: number; C?: number; D?: number; F?: number } | null;
 };
 
 type ToolConfig = {
@@ -372,6 +374,17 @@ export function ItemForm({
 
   function setTool<K extends keyof ToolConfig>(key: K, value: ToolConfig[K]) {
     setToolConfig(prev => ({ ...prev, [key]: value }));
+  }
+
+  function setGradeWeight(grade: string, raw: string) {
+    const num = raw === '' ? undefined : Number(raw);
+    const current: Record<string, number> = { ...(item.grade_weights ?? {}) };
+    if (num === undefined || isNaN(num)) {
+      delete current[grade];
+    } else {
+      current[grade] = num;
+    }
+    set('grade_weights', Object.keys(current).length === 0 ? null : (current as Item['grade_weights']));
   }
 
   // Compute the bonus for each tier below: bonus(n) = base * (1 + growth/100)^(n-1)
@@ -1478,6 +1491,46 @@ export function ItemForm({
                   })}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ── Drop grade weights override (weapon / armor / tool) ──────── */}
+          {(showWeapon || showArmor || showTool) && (
+            <div className="bg-card border border-border rounded-lg p-5 space-y-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Drop Grade Weights Override</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Controls how likely each quality grade is when this item drops from an enemy.
+                  Leave all blank to use the global defaults configured in{' '}
+                  <a href="/admin/formulas" className="text-primary hover:underline">Formulas → Equipment Grade Weights</a>.
+                  Higher weight = more common. S is best quality, F is worst.
+                </p>
+              </div>
+              <div className="grid grid-cols-6 gap-3">
+                {GRADES.map(g => (
+                  <div key={g} className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-muted-foreground text-center">{g}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      placeholder="—"
+                      value={item.grade_weights?.[g as keyof NonNullable<Item['grade_weights']>] ?? ''}
+                      onChange={e => setGradeWeight(g, e.target.value)}
+                      className="px-2 py-1.5 text-sm bg-background border border-border rounded-md text-body text-center placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </div>
+                ))}
+              </div>
+              {item.grade_weights && (
+                <button
+                  type="button"
+                  onClick={() => set('grade_weights', null)}
+                  className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  Clear overrides (revert to global defaults)
+                </button>
+              )}
             </div>
           )}
 
