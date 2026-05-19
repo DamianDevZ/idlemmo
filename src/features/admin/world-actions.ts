@@ -129,3 +129,17 @@ export async function deleteAreaTierEnemy(id: string, areaId: string) {
   revalidatePath(`/admin/world/${areaId}`);
 }
 
+/** Upsert multiple loot rows at once (used by fill-down). Rows must share the same area_id. */
+export async function fillDownAreaTierLoot(
+  rows: { area_id: string; tier: number; item_id: string; item_tier: number | null; weight: number }[]
+): Promise<void> {
+  await requireAdmin();
+  if (rows.length === 0) return;
+  const db = createAdminClient();
+  const { error } = await db
+    .from('area_tier_loot')
+    .upsert(rows, { onConflict: 'area_id,tier,item_id' });
+  if (error) throw new Error(error.message);
+  revalidatePath(`/admin/world/${rows[0].area_id}`);
+}
+

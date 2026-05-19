@@ -624,11 +624,19 @@ export function ItemForm({
             </div>
           </div>
 
-          <Field label="Internal slug">
-            <Input value={item.name} onChange={e => set('name', e.target.value)} placeholder="iron_sword" />
-          </Field>
           <Field label="Display name">
-            <Input value={item.display_name} onChange={e => set('display_name', e.target.value)} placeholder="Iron Sword" />
+            <Input
+              value={item.display_name}
+              onChange={e => {
+                const display = e.target.value;
+                const slug = display.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+                setItem(prev => ({ ...prev, display_name: display, name: slug }));
+              }}
+              placeholder="Iron Sword"
+            />
+            {item.name && (
+              <p className="mt-1 text-[11px] text-muted-foreground">slug: <span className="font-mono">{item.name}</span></p>
+            )}
           </Field>
 
           <Field label="Type">

@@ -75,3 +75,17 @@ export async function deleteEnemyTierLoot(id: string, enemyId: string) {
   revalidatePath(`/admin/enemies/${enemyId}`);
 }
 
+/** Upsert multiple loot rows at once (used by fill-down). Rows must share the same enemy_id. */
+export async function fillDownEnemyTierLoot(
+  rows: { enemy_id: string; tier: number; item_id: string; item_tier: number | null; weight: number }[]
+): Promise<void> {
+  await requireAdmin();
+  if (rows.length === 0) return;
+  const db = createAdminClient();
+  const { error } = await db
+    .from('enemy_tier_loot')
+    .upsert(rows, { onConflict: 'enemy_id,tier,item_id' });
+  if (error) throw new Error(error.message);
+  revalidatePath(`/admin/enemies/${rows[0].enemy_id}`);
+}
+

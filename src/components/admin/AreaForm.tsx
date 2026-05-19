@@ -10,7 +10,9 @@ import {
   upsertAreaTierEnemy,
   deleteAreaTierEnemy,
   uploadAreaImage,
+  fillDownAreaTierLoot,
 } from '@/features/admin/world-actions';
+import { LootFillDownButtons } from '@/components/admin/LootFillDownButtons';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -392,13 +394,33 @@ function UnifiedTierSection({
                       </td>
                       <td className="py-1.5 pr-2 text-muted-foreground">{row.weight}</td>
                       <td className="py-1.5 text-right">
-                        <div className="flex gap-3 justify-end">
-                          <button onClick={() => setEditingLootId(row.id)} className="text-xs text-primary hover:underline">Edit</button>
-                          <button
-                            onClick={() => startTransition(async () => { await deleteAreaTierLoot(row.id, areaId); router.refresh(); })}
-                            disabled={isPending}
-                            className="text-xs text-destructive hover:underline disabled:opacity-30"
-                          >Delete</button>
+                        <div className="flex flex-col items-end gap-0.5">
+                          <div className="flex gap-3">
+                            <button onClick={() => setEditingLootId(row.id)} className="text-xs text-primary hover:underline">Edit</button>
+                            <button
+                              onClick={() => startTransition(async () => { await deleteAreaTierLoot(row.id, areaId); router.refresh(); })}
+                              disabled={isPending}
+                              className="text-xs text-destructive hover:underline disabled:opacity-30"
+                            >Delete</button>
+                          </div>
+                          <LootFillDownButtons
+                            sourceTier={row.tier}
+                            sourceItemTier={row.item_tier}
+                            maxTier={maxTier}
+                            isItemTiered={itemMap[row.item_id]?.is_tiered ?? false}
+                            onFillDown={async (tierRows) => {
+                              await fillDownAreaTierLoot(
+                                tierRows.map(tr => ({
+                                  area_id: areaId,
+                                  tier: tr.tier,
+                                  item_id: row.item_id,
+                                  item_tier: tr.item_tier,
+                                  weight: row.weight,
+                                }))
+                              );
+                              router.refresh();
+                            }}
+                          />
                         </div>
                       </td>
                     </tr>
