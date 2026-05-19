@@ -206,7 +206,9 @@ export interface DbArmorPreset {
 export interface DbExplorationSession {
   id: string;
   character_id: string;
-  biome_tier_id: string;
+  biome_tier_id: string | null;
+  area_id: string | null;
+  area_tier: number | null;
   focus_type: FocusType;
   started_at: string;
   last_tick_at: string;

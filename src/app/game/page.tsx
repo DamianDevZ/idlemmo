@@ -27,7 +27,7 @@ export default async function HubPage() {
     .single() as { data: DbCharacterAttributes | null };
 
   const { count: inventoryCount } = await supabase
-    .from('inventory')
+    .from('character_inventory')
     .select('*', { count: 'exact', head: true })
     .eq('character_id', character.id);
 

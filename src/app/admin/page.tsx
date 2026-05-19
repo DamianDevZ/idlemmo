@@ -12,7 +12,7 @@ async function getStats() {
   ] = await Promise.all([
     db.from('characters').select('*', { count: 'exact', head: true }),
     db.from('item_definitions').select('*', { count: 'exact', head: true }),
-    db.from('enemy_types').select('*', { count: 'exact', head: true }),
+    db.from('enemies').select('*', { count: 'exact', head: true }),
     db.from('exploration_sessions').select('*', { count: 'exact', head: true }).eq('status', 'active'),
   ]);
   return { playerCount, itemCount, enemyCount, activeSessions };

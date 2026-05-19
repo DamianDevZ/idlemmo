@@ -48,6 +48,7 @@ type Item = {
   weapon_type_id: string | null;
   compatible_weapon_type_ids: string[];
   attack_speed: number;
+  tool_slot: string | null;
 };
 
 type ToolConfig = {
@@ -971,6 +972,22 @@ export function ItemForm({
           {showTool && (
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tool Stats</p>
+
+              {/* Equipment slot */}
+              <Field label="Equipment Slot">
+                <Select
+                  value={item.tool_slot ?? ''}
+                  onChange={e => set('tool_slot', e.target.value || null)}
+                >
+                  <option value="">Auto-detect from name</option>
+                  <option value="tool_pickaxe">Pickaxe</option>
+                  <option value="tool_axe">Axe</option>
+                  <option value="tool_hammer">Hammer</option>
+                  <option value="tool_sickle">Sickle / Scythe</option>
+                  <option value="tool_knife">Knife</option>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">Set this explicitly so tools with custom names equip to the right slot.</p>
+              </Field>
 
               {/* Gathering skill */}
               <Field label="Gathering Skill">

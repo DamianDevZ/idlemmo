@@ -72,6 +72,7 @@ export const getGameConfig = unstable_cache(
         playerEncounterChance:        v('player_encounter_chance', G.exploration.playerEncounterChance),
         collectPromptTimeoutSeconds:  v('collect_prompt_timeout',  G.exploration.collectPromptTimeoutSeconds),
         playerEncounterTimeoutSeconds:G.exploration.playerEncounterTimeoutSeconds,
+        campsiteEveryTicks:           v('campsite_every_ticks',    G.exploration.campsiteEveryTicks),
         focusMultipliers: {
           resources: {
             resource: v('focus_res_resource', G.exploration.focusMultipliers.resources.resource),
@@ -114,6 +115,13 @@ export const getGameConfig = unstable_cache(
         pointsPerLoss:        v('points_per_loss',       G.arena.pointsPerLoss),
       },
       tierGates: G.tierGates,
+      xpRewards: {
+        gatherMainXpPerTier:     v('xp_gather_main_per_tier',   G.xpRewards.gatherMainXpPerTier),
+        gatherCatXpPerTier:      v('xp_gather_cat_per_tier',    G.xpRewards.gatherCatXpPerTier),
+        combatBaseXp:            v('xp_combat_base',            G.xpRewards.combatBaseXp),
+        combatXpPerLevel:        v('xp_combat_per_level',       G.xpRewards.combatXpPerLevel),
+        combatUsageCatXpPerLevel:v('xp_combat_usage_per_level', G.xpRewards.combatUsageCatXpPerLevel),
+      },
       rarities: {
         common:    { ...G.rarities.common,    dropWeightMult: v('weight_common',    G.rarities.common.dropWeightMult) },
         uncommon:  { ...G.rarities.uncommon,  dropWeightMult: v('weight_uncommon',  G.rarities.uncommon.dropWeightMult) },

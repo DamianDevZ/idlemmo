@@ -2,12 +2,10 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { GAME_CONFIG } from '@/config/game.config';
+import { getGameConfig } from '@/lib/game/getGameConfig';
 import { awardMainXp, awardCategoryXp } from '@/lib/game/xp';
 import { calcMeleeDamage, applyDefense } from '@/lib/game/formulas';
 import type { CollectPreference } from '@/types/game';
-
-const { attributes: ATTR } = GAME_CONFIG;
 
 export type ExploreAction = 'collect' | 'leave' | 'fight' | 'flee' | 'campsite_continue';
 
@@ -26,7 +24,8 @@ export interface ActOnEventResult {
 
 export interface StartExplorationInput {
   characterId: string;
-  biomeTierId: string;
+  areaId: string;
+  areaTier: number;
   endsAt?: string;          // ISO string, optional duration
   retreatHpThreshold?: number;
   collectPreferences?: Record<string, CollectPreference>;
@@ -64,7 +63,9 @@ export async function startExploration(input: StartExplorationInput) {
     .from('exploration_sessions')
     .insert({
       character_id: input.characterId,
-      biome_tier_id: input.biomeTierId,
+      biome_tier_id: null,
+      area_id: input.areaId,
+      area_tier: input.areaTier,
       focus_type: 'balanced',
       ends_at: input.endsAt ?? null,
       retreat_hp_threshold: retreatHp,
@@ -149,16 +150,44 @@ export async function actOnExploreEvent(
   // Fetch equipped weapon and armor for stat-based combat
   const { data: equippedItems } = await supabase
     .from('character_inventory')
-    .select('equipped_slot, item_definitions(type, stats)')
+    .select('equipped_slot, tier, item_definitions(type, base_damage, base_defense, attack_speed, primary_damage_type)')
     .eq('character_id', characterId)
     .not('equipped_slot', 'is', null);
 
-  type EquippedItem = { equipped_slot: string | null; item_definitions: { type: string; stats: Record<string, number> } | null };
+  type EquippedItem = {
+    equipped_slot: string | null;
+    tier: number;
+    item_definitions: {
+      type: string;
+      base_damage: number | null;
+      base_defense: number | null;
+      attack_speed: number | null;
+      primary_damage_type: string | null;
+    } | null;
+  };
   const equipped = (equippedItems ?? []) as unknown as EquippedItem[];
-  const weaponStats = equipped.find(e => e.item_definitions?.type === 'weapon')?.item_definitions?.stats ?? {};
-  const armorStats  = equipped.find(e => e.item_definitions?.type === 'armor')?.item_definitions?.stats ?? {};
-  const weaponDmgBase = Number(weaponStats.weapon_damage ?? 5);
-  const armorRating   = Number(armorStats.armor_rating   ?? 0);
+  const weaponDef     = equipped.find(e => e.item_definitions?.type === 'weapon')?.item_definitions;
+  const armorDef      = equipped.find(e => e.item_definitions?.type === 'armor')?.item_definitions;
+  let weaponDmgBase       = Number(weaponDef?.base_damage  ?? 5);
+  let armorRating         = Number(armorDef?.base_defense  ?? 0);
+  const weaponAttackSpeed = Number(weaponDef?.attack_speed ?? 1.0);
+  const weaponDamageType  = weaponDef?.primary_damage_type ?? null;
+
+  // Apply tier-scaling multipliers if equipped items are above T1
+  const weaponTier = equipped.find(e => e.item_definitions?.type === 'weapon')?.tier ?? 1;
+  const armorTier  = equipped.find(e => e.item_definitions?.type === 'armor')?.tier  ?? 1;
+  if (weaponTier > 1 || armorTier > 1) {
+    const tiersNeeded = [...new Set([weaponTier > 1 ? weaponTier : 0, armorTier > 1 ? armorTier : 0].filter(t => t > 0))];
+    const { data: scalingRows } = await supabase
+      .from('tier_scaling_config')
+      .select('item_type, stat_key, tier, multiplier')
+      .in('tier', tiersNeeded)
+      .in('item_type', ['weapon', 'armor']);
+    const mult = (type: string, key: string, tier: number) =>
+      Number(scalingRows?.find(r => r.item_type === type && r.stat_key === key && r.tier === tier)?.multiplier ?? 1.0);
+    if (weaponTier > 1) weaponDmgBase *= mult('weapon', 'base_damage', weaponTier);
+    if (armorTier  > 1) armorRating  *= mult('armor',  'base_defense', armorTier);
+  }
 
   const { data: event } = await supabase
     .from('exploration_events')
@@ -169,6 +198,7 @@ export async function actOnExploreEvent(
   if (!event) throw new Error('Event not found');
 
   const d = (event.data ?? {}) as Record<string, unknown>;
+  const { attributes: ATTR, xpRewards: XP } = await getGameConfig();
 
   // ── Collect / Leave ────────────────────────────────────────────────────────
   if (action === 'collect') {
@@ -180,8 +210,8 @@ export async function actOnExploreEvent(
     // Award XP proportional to item tier
     const itemTier = Number(d.item_tier ?? 1);
     await Promise.all([
-      awardMainXp(supabase, characterId, itemTier * GAME_CONFIG.xpRewards.gatherMainXpPerTier),
-      awardCategoryXp(supabase, characterId, 'gathering', itemTier * GAME_CONFIG.xpRewards.gatherCatXpPerTier),
+      awardMainXp(supabase, characterId, itemTier * XP.gatherMainXpPerTier),
+      awardCategoryXp(supabase, characterId, 'gathering', itemTier * XP.gatherCatXpPerTier),
     ]);
     return { ok: true };
   }
@@ -216,21 +246,36 @@ export async function actOnExploreEvent(
     }
   } else {
     // fight — use equipped weapon + strength via formulas.ts
-    const attrs = character.character_attributes as unknown as { strength: number; vigor: number } | null;
-    const strength = attrs?.strength ?? 5;
+    const attrs = character.character_attributes as unknown as { strength: number; vigor: number; dexterity: number } | null;
+    const strength   = attrs?.strength   ?? 5;
+    const dexterity  = attrs?.dexterity  ?? 5;
 
-    const enemyHp   = 10 + level * 4;
-    // calcMeleeDamage(base, strength, skillLevel=0) — apply a random ±20% swing each round
+    // Use base_hp/base_attack from event data if set by new enemy system, else fall back to level formula
+    const enemyHp      = Number(d.base_hp     ?? (10 + level * 4));
+    const enemyAtkBase = Number(d.base_attack ?? (2 + level * 1.5));
+
+    // Attack speed: weapon speed amplified by dexterity
+    const effectiveAttackSpeed = weaponAttackSpeed * (1 + dexterity / ATTR.dexSpeedDivisor);
     const playerDmgBase = calcMeleeDamage(weaponDmgBase, strength, 0);
-    const playerDmg = Math.max(1, playerDmgBase * (0.8 + Math.random() * 0.4));
+    let playerDmg = Math.max(1, playerDmgBase * effectiveAttackSpeed * (0.8 + Math.random() * 0.4));
+
+    // Apply enemy damage-type resistances to the player's hit
+    type ResistanceEntry = { value: number; mode: string };
+    const enemyResistances = (d.resistances ?? {}) as Record<string, ResistanceEntry>;
+    if (weaponDamageType && enemyResistances[weaponDamageType]) {
+      const res = enemyResistances[weaponDamageType];
+      if (res.mode === 'percent') playerDmg = Math.max(1, playerDmg * (1 - res.value / 100));
+      else                        playerDmg = Math.max(1, playerDmg - res.value);
+    }
+
     // Enemy deals raw damage reduced by player armor
-    const enemyDmgRaw  = Math.max(1, 2 + level * 1.5 * Math.random());
+    const enemyDmgRaw  = Math.max(1, enemyAtkBase * Math.random());
     const enemyDmg     = applyDefense(enemyDmgRaw, armorRating);
     const rounds    = Math.ceil(enemyHp / playerDmg);
     hpLost  = Math.min(character.current_hp - 1, Math.floor(rounds * enemyDmg * 0.4));
     victory = playerDmg * rounds >= enemyHp;
     // Prefer xp_reward stored in event data (from enemy_types), fall back to formula
-    xpGained = victory ? Number(d.xp_reward ?? (GAME_CONFIG.xpRewards.combatBaseXp + level * GAME_CONFIG.xpRewards.combatXpPerLevel)) : 0;
+    xpGained = victory ? Number(d.xp_reward ?? (XP.combatBaseXp + level * XP.combatXpPerLevel)) : 0;
   }
 
   // Roll loot drops from the enemy's loot_table stored in event data.
@@ -263,7 +308,7 @@ export async function actOnExploreEvent(
   if (victory && xpGained > 0) {
     await Promise.all([
       awardMainXp(supabase, characterId, xpGained),
-      awardCategoryXp(supabase, characterId, 'usage', level * GAME_CONFIG.xpRewards.combatUsageCatXpPerLevel),
+      awardCategoryXp(supabase, characterId, 'usage', level * XP.combatUsageCatXpPerLevel),
     ]);
   }
 
@@ -361,20 +406,23 @@ export async function useCampsiteItem(
   // Verify the item belongs to this character and is a consumable
   const { data: invItem } = await supabase
     .from('character_inventory')
-    .select('instance_id, quantity, item_definitions(type, stats)')
+    .select('instance_id, quantity, item_definitions(type, consumable_effects)')
     .eq('instance_id', itemInstanceId)
     .eq('character_id', characterId)
     .single();
   if (!invItem) throw new Error('Item not found in inventory');
 
-  const itemDef = (invItem.item_definitions as unknown) as { type: string; stats: Record<string, number> } | null;
+  type ConsumableEffect = { trigger: string; target: string; value: number };
+  const itemDef = (invItem.item_definitions as unknown) as { type: string; consumable_effects?: ConsumableEffect[] } | null;
   if (itemDef?.type !== 'consumable') throw new Error('Item is not a consumable');
 
-  const healAmount = Number(itemDef.stats?.heal_amount ?? 0);
+  const healEffect = (itemDef.consumable_effects ?? []).find(e => e.target === 'hp' && e.value > 0);
+  const healAmount = healEffect?.value ?? 0;
   if (healAmount <= 0) throw new Error('Item has no heal effect');
 
   // Calculate max HP from vigor
   const vigor = ((character.character_attributes as unknown as { vigor?: number } | null)?.vigor ?? 5);
+  const { attributes: ATTR } = await getGameConfig();
   const maxHp = ATTR.baseHp + vigor * ATTR.hpPerVigor;
 
   const newHp = Math.min(maxHp, character.current_hp + healAmount);

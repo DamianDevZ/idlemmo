@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { GAME_CONFIG } from '@/config/game.config';
+import { getGameConfig } from '@/lib/game/getGameConfig';
 
 // item_name → generic display name (resource type, not material variant).
 // Using generic names keeps the event feed readable regardless of tier.
@@ -28,8 +28,6 @@ const ITEM_DISPLAY: Record<string, string> = {
 function itemDisplayName(itemName: string): string {
   return ITEM_DISPLAY[itemName] ?? itemName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
-
-const { exploration: EXP } = GAME_CONFIG;
 
 // ── Recipe drop system ───────────────────────────────────────────────────────
 // Each tick: 5% chance of a recipe drop.
@@ -85,6 +83,7 @@ function weightedPickResource(weights: { resource: string; weight: number }[]): 
  */
 export async function POST(req: NextRequest) {
   try {
+    const { exploration: EXP } = await getGameConfig();
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 });
@@ -120,11 +119,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ skipped: true, nextInMs: minInterval - elapsed });
     }
 
-    // Get available resources for this biome tier
-    const { data: biomeResources } = await supabase
-      .from('biome_tier_resources')
-      .select('item_name, item_tier, base_yield_min, base_yield_max, required_skill_name, spawn_weight')
-      .eq('biome_tier_id', session.biome_tier_id);
+    // Get available resources — new area system or legacy biome system
+    const isAreaSession = !!(session as { area_id?: string | null }).area_id;
+    const sessionAreaId: string | null = (session as { area_id?: string | null }).area_id ?? null;
+    const sessionAreaTier: number = (session as { area_tier?: number | null }).area_tier ?? 1;
+
+    const { data: biomeResources } = isAreaSession
+      ? { data: null }
+      : await supabase
+          .from('biome_tier_resources')
+          .select('item_name, item_tier, base_yield_min, base_yield_max, required_skill_name, spawn_weight')
+          .eq('biome_tier_id', session.biome_tier_id);
+
+    const { data: areaLoot } = isAreaSession
+      ? await supabase
+          .from('area_tier_loot')
+          .select('weight, quantity_min, quantity_max, required_skill_name, item_tier, item_definitions(name, display_name)')
+          .eq('area_id', sessionAreaId!)
+          .eq('tier', sessionAreaTier)
+      : { data: null };
 
     // ── Campsite check ───────────────────────────────────────────────────────
     // Track how many ticks have happened in this session via collect_preferences.
@@ -168,8 +181,8 @@ export async function POST(req: NextRequest) {
       enemy_level_max: number;
       biomes?: { id: string; name: string };
     } | null;
-    const biomeTierNumber: number = biomeTier?.tier ?? 1;
-    const biomeName: string = biomeTier?.biomes?.name ?? '';
+    const biomeTierNumber: number = isAreaSession ? sessionAreaTier : (biomeTier?.tier ?? 1);
+    const biomeName: string = isAreaSession ? '' : (biomeTier?.biomes?.name ?? '');
 
     // Ruins: combat-only biome — no resource gathering, heavier enemy spawns.
     const isRuins = biomeName === 'ruins';
@@ -246,7 +259,32 @@ export async function POST(req: NextRequest) {
     let eventData: Record<string, unknown> = {};
 
     if (eventType === 'resource_found') {
-      if (biomeResources && biomeResources.length > 0) {
+      // ── New area system ──────────────────────────────────────────────────
+      if (isAreaSession && areaLoot && areaLoot.length > 0) {
+        type AreaLootRow = {
+          weight: number; quantity_min: number; quantity_max: number;
+          required_skill_name: string | null; item_tier: number | null;
+          item_definitions: { name: string; display_name: string } | null;
+        };
+        const rows = areaLoot as unknown as AreaLootRow[];
+        const totalWeight = rows.reduce((s, r) => s + r.weight, 0);
+        let w = Math.random() * totalWeight;
+        const picked = rows.find(r => { w -= r.weight; return w <= 0; }) ?? rows[0];
+        const itemName = picked.item_definitions?.name ?? 'unknown';
+        const qty = Math.round(Math.random() * (picked.quantity_max - picked.quantity_min) + picked.quantity_min);
+        const itemTier = picked.item_tier ?? 1;
+        const SKILL_LEVEL_REQ = [0, 15, 30, 50, 70];
+        eventData = {
+          item: itemName,
+          quantity: qty,
+          display_name: picked.item_definitions?.display_name ?? itemDisplayName(itemName),
+          item_tier: itemTier,
+          required_tool_tier: Math.max(0, itemTier - 1),
+          required_skill: picked.required_skill_name ?? null,
+          required_skill_level: SKILL_LEVEL_REQ[itemTier - 1] ?? 0,
+        };
+      // ── Legacy biome system ──────────────────────────────────────────────
+      } else if (biomeResources && biomeResources.length > 0) {
         // Weighted random pick
         const totalWeight = biomeResources.reduce((s, r) => s + (r.spawn_weight ?? 10), 0);
         let w = Math.random() * totalWeight;
@@ -275,44 +313,107 @@ export async function POST(req: NextRequest) {
         eventData = { item: 'nothing', quantity: 0 };
       }
     } else if (eventType === 'enemy_encountered') {
-      // Look up a real enemy from the DB for this biome + tier.
-      // Stores the loot_table in event data so actOnExploreEvent can roll drops on victory.
-      const biomeId = biomeTier?.biomes?.id;
+      type LootEntry = { item: string; min: number; max: number; weight: number };
       let pickedEnemy: {
         display_name: string;
         level: number;
         xp_reward: number;
-        loot_table: Array<{ item: string; min: number; max: number; weight: number }>;
+        base_hp?: number;
+        base_attack?: number;
+        damage_type?: string;
+        resistances?: Record<string, { value: number; mode: string }>;
+        loot_table: LootEntry[];
       } | null = null;
 
-      if (biomeId) {
-        const { data: enemyTypes } = await supabase
-          .from('enemy_types')
-          .select('display_name, level, xp_reward, loot_table')
-          .eq('tier', biomeTierNumber)
-          .eq('biome_id', biomeId);
-        if (enemyTypes && enemyTypes.length > 0) {
-          pickedEnemy = enemyTypes[Math.floor(Math.random() * enemyTypes.length)] as {
-            display_name: string;
-            level: number;
-            xp_reward: number;
-            loot_table: Array<{ item: string; min: number; max: number; weight: number }>;
-          };
+      // ── New area system ──────────────────────────────────────────────────
+      if (isAreaSession) {
+        const { data: areaEnemies } = await supabase
+          .from('area_tier_enemies')
+          .select(`
+            weight,
+            enemies(
+              id, display_name, base_hp, base_attack, damage_type, resistances,
+              enemy_tier_loot(weight, item_tier, item_definitions(name))
+            )
+          `)
+          .eq('area_id', sessionAreaId!)
+          .eq('tier', sessionAreaTier);
+
+        type EnemyRow = {
+          weight: number;
+          enemies: {
+            id: string; display_name: string; base_hp: number; base_attack: number; damage_type: string;
+            resistances: Record<string, { value: number; mode: string }> | null;
+            enemy_tier_loot: Array<{ weight: number; item_tier: number | null; item_definitions: { name: string } | null }>;
+          } | null;
+        };
+        const rows = (areaEnemies ?? []) as unknown as EnemyRow[];
+        if (rows.length > 0) {
+          const totalW = rows.reduce((s, r) => s + r.weight, 0);
+          let ww = Math.random() * totalW;
+          const row = rows.find(r => { ww -= r.weight; return ww <= 0; }) ?? rows[0];
+          if (row.enemies) {
+            const e = row.enemies;
+            const level = sessionAreaTier * 3;
+            const lootTable: LootEntry[] = (e.enemy_tier_loot ?? [])
+              .filter(l => l.item_definitions)
+              .map(l => ({
+                item: l.item_definitions!.name,
+                min: 1, max: 1,
+                weight: l.weight,
+              }));
+            pickedEnemy = {
+              display_name: e.display_name,
+              level,
+              xp_reward: 10 + level * 3,
+              base_hp: e.base_hp,
+              base_attack: e.base_attack,
+              damage_type: e.damage_type,
+              resistances: e.resistances ?? {},
+              loot_table: lootTable,
+            };
+          }
+        }
+      }
+
+      // ── Legacy biome system ──────────────────────────────────────────────
+      if (!pickedEnemy && !isAreaSession) {
+        const biomeId = biomeTier?.biomes?.id;
+        if (biomeId) {
+          const { data: enemyTypes } = await supabase
+            .from('enemy_types')
+            .select('display_name, level, xp_reward, loot_table')
+            .eq('tier', biomeTierNumber)
+            .eq('biome_id', biomeId);
+          if (enemyTypes && enemyTypes.length > 0) {
+            pickedEnemy = enemyTypes[Math.floor(Math.random() * enemyTypes.length)] as {
+              display_name: string; level: number; xp_reward: number;
+              loot_table: LootEntry[];
+            };
+          }
         }
       }
 
       if (pickedEnemy) {
         eventData = {
-          enemy: pickedEnemy.display_name,
-          level: pickedEnemy.level,
-          xp_reward: pickedEnemy.xp_reward,
-          loot_table: pickedEnemy.loot_table ?? [],
+          enemy:       pickedEnemy.display_name,
+          level:       pickedEnemy.level,
+          xp_reward:   pickedEnemy.xp_reward,
+          base_hp:     pickedEnemy.base_hp,
+          base_attack: pickedEnemy.base_attack,
+          damage_type: pickedEnemy.damage_type,
+          resistances: pickedEnemy.resistances ?? {},
+          loot_table:  pickedEnemy.loot_table ?? [],
         };
       } else {
-        // No enemy_types seeded for this biome+tier — fall back to generic
-        const minLv = biomeTier?.enemy_level_min ?? 1;
-        const maxLv = biomeTier?.enemy_level_max ?? 5;
-        const level = Math.floor(Math.random() * (maxLv - minLv + 1)) + minLv;
+        // No enemies configured for this area/tier — fall back to generic
+        const level = isAreaSession
+          ? sessionAreaTier * 3
+          : (() => {
+              const minLv = biomeTier?.enemy_level_min ?? 1;
+              const maxLv = biomeTier?.enemy_level_max ?? 5;
+              return Math.floor(Math.random() * (maxLv - minLv + 1)) + minLv;
+            })();
         eventData = { enemy: `Lv ${level} Creature`, level, xp_reward: 10 + level * 3, loot_table: [] };
       }
     } else if (eventType === 'recipe_found' && pickedRecipe) {

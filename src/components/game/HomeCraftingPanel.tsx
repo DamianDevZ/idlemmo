@@ -23,7 +23,7 @@ const CAT_META: Record<string, { label: string; icon: string }> = {
   tool:   { label: 'Tools',   icon: '⛏️' },
 };
 
-type Ingredient = { name: string; label: string; qty: number };
+type Ingredient = { item_id: string; name: string; display_name: string; quantity: number };
 type Recipe = {
   id: string;
   display_name: string;
@@ -105,7 +105,7 @@ export default function HomeCraftingPanel({ recipeList, qtyMap, characterId }: P
           {filteredRecipes.map(recipe => {
             const outputDef   = recipe.item_definitions;
             const ingredients = (recipe.ingredients as Ingredient[]) ?? [];
-            const canCraft    = ingredients.every(ing => (qtyMap[ing.name] ?? 0) >= ing.qty);
+            const canCraft    = ingredients.every(ing => (qtyMap[ing.name] ?? 0) >= ing.quantity);
             return (
               <div
                 key={recipe.id}
@@ -127,17 +127,17 @@ export default function HomeCraftingPanel({ recipeList, qtyMap, characterId }: P
                 <div className="flex flex-wrap gap-1.5">
                   {ingredients.map(ing => {
                     const has       = qtyMap[ing.name] ?? 0;
-                    const hasEnough = has >= ing.qty;
+                    const hasEnough = has >= ing.quantity;
                     return (
                       <span
-                        key={ing.name}
+                        key={ing.item_id}
                         className={`text-xs px-2 py-0.5 rounded-full border ${
                           hasEnough
                             ? 'border-green-500/30 text-green-400 bg-green-500/5'
                             : 'border-border text-muted-foreground'
                         }`}
                       >
-                        {ing.label} ×{ing.qty}
+                        {ing.display_name} ×{ing.quantity}
                         {has > 0 && !hasEnough && (
                           <span className="opacity-60"> ({has})</span>
                         )}

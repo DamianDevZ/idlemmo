@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { awardMainXp, awardCategoryXp } from '@/lib/game/xp';
 
-type Ingredient = { name: string; label: string; qty: number };
+type Ingredient = { item_id: string; quantity: number };
 
 /**
  * Attempt to craft an item the character knows the recipe for.
@@ -45,22 +45,8 @@ export async function craftItem(characterId: string, recipeId: string) {
   const ingredients = (recipe.ingredients as Ingredient[]) ?? [];
   if (ingredients.length === 0) throw new Error('Recipe has no ingredients');
 
-  // Resolve ingredient names → item IDs in one query
-  const ingredientNames = ingredients.map(i => i.name);
-  const { data: itemDefs } = await supabase
-    .from('item_definitions')
-    .select('id, name')
-    .in('name', ingredientNames);
-
-  const itemIdByName = new Map((itemDefs ?? []).map(d => [d.name as string, d.id as string]));
-
-  // Verify all ingredients have item definitions
-  for (const ing of ingredients) {
-    if (!itemIdByName.has(ing.name)) throw new Error(`Unknown item: ${ing.label}`);
-  }
-
-  // Fetch current inventory for these items
-  const itemIds = [...itemIdByName.values()];
+  // Fetch current inventory for these items using item_id directly
+  const itemIds = ingredients.map(i => i.item_id);
   const { data: invRows } = await supabase
     .from('character_inventory')
     .select('item_id, quantity')
@@ -78,18 +64,17 @@ export async function craftItem(characterId: string, recipeId: string) {
 
   // Validate total (inventory + stash)
   for (const ing of ingredients) {
-    const itemId = itemIdByName.get(ing.name)!;
-    const total  = (qtyByItemId.get(itemId) ?? 0) + (stashQtyByItemId.get(itemId) ?? 0);
-    if (total < ing.qty) {
-      throw new Error(`Not enough ${ing.label} (need ${ing.qty}, have ${total})`);
+    const total = (qtyByItemId.get(ing.item_id) ?? 0) + (stashQtyByItemId.get(ing.item_id) ?? 0);
+    if (total < ing.quantity) {
+      throw new Error(`Not enough of ingredient (need ${ing.quantity}, have ${total})`);
     }
   }
 
   // Consume ingredients — inventory first, then stash for any remainder
   for (const ing of ingredients) {
-    const itemId    = itemIdByName.get(ing.name)!;
+    const itemId    = ing.item_id;
     const inInv     = qtyByItemId.get(itemId) ?? 0;
-    let   remaining = ing.qty;
+    let   remaining = ing.quantity;
 
     if (inInv > 0) {
       const fromInv  = Math.min(inInv, remaining);
@@ -103,7 +88,7 @@ export async function craftItem(characterId: string, recipeId: string) {
     }
 
     if (remaining > 0) {
-      const inStash    = stashQtyByItemId.get(itemId) ?? 0;
+      const inStash    = stashQtyByItemId.get(ing.item_id) ?? 0;
       const afterStash = inStash - remaining;
       if (afterStash === 0) {
         await supabase.from('character_stash').delete().eq('character_id', characterId).eq('item_id', itemId);

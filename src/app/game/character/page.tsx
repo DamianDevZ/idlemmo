@@ -42,15 +42,15 @@ export default async function CharacterPage() {
 
   if (!attributes) redirect('/game');
 
-  // Get equipped armor's armor_rating stat for defense calculation
+  // Get equipped armor's base_defense for defense calculation
   const { data: equippedArmor } = await supabase
     .from('character_inventory')
-    .select('item_definitions(stats)')
+    .select('item_definitions(base_defense)')
     .eq('character_id', character.id)
-    .eq('equipped_slot', 'armor')
-    .single() as { data: { item_definitions: { stats: Record<string, number> } | null } | null };
+    .eq('equipped_slot', 'chest')
+    .single() as { data: { item_definitions: { base_defense: number | null } | null } | null };
 
-  const armorRating = Number((equippedArmor?.item_definitions?.stats?.armor_rating) ?? 0);
+  const armorRating = Number(equippedArmor?.item_definitions?.base_defense ?? 0);
   const derived = calcDerivedStats(attributes, armorRating);
 
   // ── Equipment data ──────────────────────────────────────────────────────────
@@ -59,21 +59,22 @@ export default async function CharacterPage() {
   const [{ data: rawInv }, { data: rawStash }] = await Promise.all([
     supabase
       .from('character_inventory')
-      .select('item_id, quantity, equipped_slot, item_definitions(id, name, display_name, type, stats, equipment_tier)')
+      .select('item_id, quantity, equipped_slot, item_definitions(id, name, display_name, type, stats, base_damage, base_defense, equipment_tier)')
       .eq('character_id', character.id),
     supabase
       .from('character_stash')
-      .select('item_id, quantity, item_definitions(id, name, display_name, type, stats, equipment_tier)')
+      .select('item_id, quantity, item_definitions(id, name, display_name, type, stats, base_damage, base_defense, equipment_tier)')
       .eq('character_id', character.id),
   ]);
 
+  type RawItemDef = { id: string; name: string; display_name: string; type: string; stats: Record<string, number>; base_damage: number | null; base_defense: number | null; equipment_tier: number | null };
   type RawInvRow = {
     item_id: string; quantity: number; equipped_slot: string | null;
-    item_definitions: { id: string; name: string; display_name: string; type: string; stats: Record<string, number>; equipment_tier: number | null } | null;
+    item_definitions: RawItemDef | null;
   };
   type RawStashRow = {
     item_id: string; quantity: number;
-    item_definitions: { id: string; name: string; display_name: string; type: string; stats: Record<string, number>; equipment_tier: number | null } | null;
+    item_definitions: RawItemDef | null;
   };
 
   const invRows   = (rawInv   ?? []) as unknown as RawInvRow[];
@@ -83,12 +84,14 @@ export default async function CharacterPage() {
   const equippedItems: EquippedData[] = invRows
     .filter(r => r.equipped_slot && r.item_definitions)
     .map(r => ({
-      slot:         r.equipped_slot!,
-      item_id:      r.item_id,
-      display_name: r.item_definitions!.display_name,
-      name:         r.item_definitions!.name,
-      type:         r.item_definitions!.type,
-      stats:        r.item_definitions!.stats,
+      slot:           r.equipped_slot!,
+      item_id:        r.item_id,
+      display_name:   r.item_definitions!.display_name,
+      name:           r.item_definitions!.name,
+      type:           r.item_definitions!.type,
+      stats:          r.item_definitions!.stats,
+      base_damage:    r.item_definitions!.base_damage,
+      base_defense:   r.item_definitions!.base_defense,
       equipment_tier: r.item_definitions!.equipment_tier,
     }));
 

@@ -92,6 +92,8 @@ export default async function HomeBasePage() {
       name:         i.item_definitions.name,
       type:         i.item_definitions.type,
       stats:        i.item_definitions.stats,
+      base_damage:  i.item_definitions.base_damage,
+      base_defense: i.item_definitions.base_defense,
       equipment_tier: i.item_definitions.equipment_tier,
     }));
   const invAvailable: EquipItemData[] = inventory
@@ -129,7 +131,32 @@ export default async function HomeBasePage() {
 
   const refineList = (refiningRows ?? []) as KnownRecipe[];
 
-  // Combined quantity map (inventory + stash) for client components to check ingredient availability
+  // Resolve ingredient item_ids → name/display_name for UI display
+  type RawIngredient = { item_id: string; tier?: number | null; quantity: number };
+  const allIngredientIds = [...new Set(
+    [...recipeList, ...refineList]
+      .flatMap(r => ((r.ingredients as RawIngredient[]) ?? []).map(i => i.item_id))
+      .filter(Boolean)
+  )];
+  const { data: ingItemDefs } = allIngredientIds.length > 0
+    ? await supabase.from('item_definitions').select('id, name, display_name').in('id', allIngredientIds)
+    : { data: [] };
+  const ingItemMap = new Map((ingItemDefs ?? []).map(d => [d.id as string, { name: d.name as string, display_name: d.display_name as string }]));
+
+  // Enrich ingredients with name/display_name for component consumption
+  type EnrichedIngredient = { item_id: string; name: string; display_name: string; quantity: number };
+  function enrichIngredients(raw: unknown): EnrichedIngredient[] {
+    return ((raw as RawIngredient[]) ?? []).map(i => ({
+      item_id:      i.item_id,
+      name:         ingItemMap.get(i.item_id)?.name ?? i.item_id,
+      display_name: ingItemMap.get(i.item_id)?.display_name ?? i.item_id,
+      quantity:     i.quantity,
+    }));
+  }
+  const enrichedRecipeList = recipeList.map(r => ({ ...r, ingredients: enrichIngredients(r.ingredients) }));
+  const enrichedRefineList = refineList.map(r => ({ ...r, ingredients: enrichIngredients(r.ingredients) }));
+
+  // Combined quantity map (inventory + stash) by item name
   const qtyMap: Record<string, number> = {};
   for (const item of inventory) {
     const name = (item.item_definitions as DbItemDefinition | null)?.name;
@@ -153,7 +180,7 @@ export default async function HomeBasePage() {
   const refineGroups = RESOURCE_ORDER.map(skillName => ({
     skillName,
     ...( SKILL_TO_RESOURCE[skillName] ?? { label: skillName, icon: '📦' }),
-    recipes: (refineList as RefineRecipe[]).filter(
+    recipes: (enrichedRefineList as unknown as RefineRecipe[]).filter(
       r => (r.skills as { name: string } | null)?.name === skillName
     ),
   })).filter(g => g.recipes.length > 0);
@@ -356,7 +383,7 @@ export default async function HomeBasePage() {
         {/* ── Crafting ── */}
         <TabsContent value="crafting" className="mt-4">
           <HomeCraftingPanel
-            recipeList={recipeList}
+            recipeList={enrichedRecipeList}
             qtyMap={qtyMap}
             characterId={character.id}
           />

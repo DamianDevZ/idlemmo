@@ -13,7 +13,7 @@ const RESOURCE_TYPES = [
   { skillName: 'weaving',      label: 'Cloth',      refIcon: '/icons/resources/refined/cloth.png' },
 ];
 
-type Ingredient = { name: string; label: string; qty: number };
+type Ingredient = { item_id: string; name: string; display_name: string; quantity: number };
 type Recipe = {
   id: string;
   tier: number;
@@ -78,7 +78,7 @@ export default function HomeRefiningPanel({ refineGroups, qtyMap, characterId }:
             const outputDef   = recipe.item_definitions;
             const outputIcon  = getResourceIconPath(outputDef?.name ?? '');
             const inputIcon   = getResourceIconPath(ingredients[0]?.name ?? '');
-            const canRefine   = ingredients.every(ing => (qtyMap[ing.name] ?? 0) >= ing.qty);
+            const canRefine   = ingredients.every(ing => (qtyMap[ing.name] ?? 0) >= ing.quantity);
             return (
               <div
                 key={recipe.id}
@@ -88,7 +88,7 @@ export default function HomeRefiningPanel({ refineGroups, qtyMap, characterId }:
               >
                 <div className="flex items-center gap-2">
                   {inputIcon  && <Image src={inputIcon}  alt="" width={20} height={20} className="object-contain opacity-70" />}
-                  <span className="text-xs text-muted-foreground">×{ingredients[0]?.qty ?? 3}</span>
+                  <span className="text-xs text-muted-foreground">×{ingredients[0]?.quantity ?? 3}</span>
                   <span className="text-muted-foreground text-xs">→</span>
                   {outputIcon && <Image src={outputIcon} alt="" width={20} height={20} className="object-contain" />}
                   <span className="text-sm font-medium">Tier {recipe.tier}</span>

@@ -12,6 +12,8 @@ export interface EquipItemData {
   name: string;
   type: string;
   stats: Record<string, number>;
+  base_damage: number | null;
+  base_defense: number | null;
   equipment_tier: number | null;
   source: 'inventory' | 'stash';
 }
@@ -23,6 +25,8 @@ export interface EquippedData {
   name: string;
   type: string;
   stats: Record<string, number>;
+  base_damage: number | null;
+  base_defense: number | null;
   equipment_tier: number | null;
 }
 
@@ -58,10 +62,10 @@ function itemFitsSlot(name: string, type: string, slot: string): boolean {
   return false;
 }
 
-function statLine(item: { type: string; stats: Record<string, number>; equipment_tier: number | null }): string {
-  if (item.type === 'weapon' && item.stats.weapon_damage) return `${item.stats.weapon_damage} dmg`;
-  if (item.type === 'armor'  && item.stats.armor_rating)  return `${item.stats.armor_rating} armor`;
-  if (item.equipment_tier)                                 return `Tier ${item.equipment_tier}`;
+function statLine(item: { type: string; stats: Record<string, number>; base_damage: number | null; base_defense: number | null; equipment_tier: number | null }): string {
+  if (item.type === 'weapon' && item.base_damage)  return `${item.base_damage} dmg`;
+  if (item.type === 'armor'  && item.base_defense) return `${item.base_defense} armor`;
+  if (item.equipment_tier)                          return `Tier ${item.equipment_tier}`;
   return '';
 }
 

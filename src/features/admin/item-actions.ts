@@ -31,6 +31,7 @@ export type ItemFormData = {
   weapon_type_id?: string | null;
   compatible_weapon_type_ids?: string[];
   attack_speed?: number;
+  tool_slot?: string | null;
 };
 
 export type RecipeIngredient = { item_id: string; tier: number | null; quantity: number };
