@@ -265,6 +265,10 @@ export default async function AdminItemsPage({
   const { type: typeKey, subtype, q, sort } = params;
   const tc = ITEM_TYPES.find(t => t.key === typeKey);
 
+  // Build the URL of this listing page so edit/create can return here
+  const currentListUrl = `/admin/items?type=${typeKey}${subtype ? `&subtype=${subtype}` : ''}${q ? `&q=${encodeURIComponent(q)}` : ''}${sort && sort !== 'name' ? `&sort=${sort}` : ''}`;
+  const returnToParam = `returnTo=${encodeURIComponent(currentListUrl)}`;
+
   let query = db
     .from('item_definitions')
     .select('id, name, display_name, type, equipment_tier, base_damage, base_defense, primary_damage_type, primary_scaling_attr, primary_scaling_grade, secondary_scaling_attr, secondary_scaling_grade, material_type, material_subtype, stackable, image_url')
@@ -294,7 +298,7 @@ export default async function AdminItemsPage({
           <span className="text-sm text-muted-foreground">{items.length} items</span>
         </div>
         <Link
-          href={`/admin/items/new?type=${typeKey}${subtype ? `&subtype=${subtype}` : ''}&returnTo=${encodeURIComponent(`/admin/items?type=${typeKey}${subtype ? `&subtype=${subtype}` : ''}`)}`}
+          href={`/admin/items/new?type=${typeKey}${subtype ? `&subtype=${subtype}` : ''}&${returnToParam}`}
           className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 transition-opacity">
           + New {subtype ? `${subtype.charAt(0).toUpperCase() + subtype.slice(1)} ` : ''}{tc?.label.replace(/s$/, '') ?? 'Item'}
         </Link>
@@ -392,7 +396,7 @@ export default async function AdminItemsPage({
                   </td>
                 )}
                 <td className="px-4 py-2 text-right">
-                  <Link href={`/admin/items/${item.id}`} className="text-xs text-primary hover:underline">Edit</Link>
+                  <Link href={`/admin/items/${item.id}?${returnToParam}`} className="text-xs text-primary hover:underline">Edit</Link>
                 </td>
               </tr>
             ))}
