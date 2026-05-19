@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { bindUltimate, unbindUltimate } from '@/features/character/bind-ultimate-action';
+import { bindUltimate } from '@/features/character/bind-ultimate-action';
 
 interface BoundUltimate {
   scrollId: string;
@@ -44,18 +44,8 @@ export default function UltimatePanelClient({ characterId, boundUltimate: initia
     startTransition(async () => {
       const result = await bindUltimate(characterId, scroll.itemId, equippedWeapon.instanceId);
       if (!result.ok) { setError(result.error ?? 'Failed to bind'); return; }
-      // result.scrollId is special_attack_scrolls.id — required for unbind
+      // result.scrollId is special_attack_scrolls.id — required for future reference
       setBound({ scrollId: result.scrollId ?? scroll.itemId, name: scroll.displayName, rageCost: 100 });
-    });
-  }
-
-  function handleUnbind() {
-    if (!bound) return;
-    setError('');
-    startTransition(async () => {
-      const result = await unbindUltimate(characterId, bound.scrollId);
-      if (!result.ok) { setError(result.error ?? 'Failed to unbind'); return; }
-      setBound(null);
     });
   }
 
@@ -64,7 +54,7 @@ export default function UltimatePanelClient({ characterId, boundUltimate: initia
       <CardHeader className="pb-3">
         <CardTitle className="text-base">⚡ Ultimate Attack</CardTitle>
         <CardDescription className="text-xs">
-          Bind a special-attack scroll to your equipped weapon. At 100 rage it fires automatically.
+          Bind a special-attack scroll to your equipped weapon. At 100 rage it fires automatically. Binds are permanent.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -73,26 +63,15 @@ export default function UltimatePanelClient({ characterId, boundUltimate: initia
         )}
 
         {bound ? (
-          <div className="flex items-center justify-between rounded-lg border border-orange-500/30 bg-orange-500/5 px-4 py-3">
-            <div>
-              <p className="text-sm font-semibold text-orange-400">✨ {bound.name}</p>
-              <p className="text-xs text-muted-foreground">Fires at {bound.rageCost} rage</p>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleUnbind}
-              disabled={isPending}
-              className="text-xs"
-            >
-              Unbind
-            </Button>
+          <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 px-4 py-3">
+            <p className="text-sm font-semibold text-orange-400">✨ {bound.name}</p>
+            <p className="text-xs text-muted-foreground">Fires at {bound.rageCost} rage · Permanently bound</p>
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground">No ultimate bound. Bind a scroll from your inventory below.</p>
+          <p className="text-xs text-muted-foreground">No ultimate bound. Bind a scroll below — this cannot be undone.</p>
         )}
 
-        {scrollsInInventory.length > 0 && (
+        {!bound && scrollsInInventory.length > 0 && (
           <div className="space-y-2">
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Scrolls in inventory</p>
             {scrollsInInventory.map(scroll => (
@@ -110,10 +89,10 @@ export default function UltimatePanelClient({ characterId, boundUltimate: initia
                   size="sm"
                   variant="outline"
                   onClick={() => handleBind(scroll)}
-                  disabled={isPending || !equippedWeapon || !!bound}
+                  disabled={isPending || !equippedWeapon}
                   className="text-xs"
                 >
-                  {bound ? 'Unbind first' : 'Bind'}
+                  {isPending ? 'Binding…' : 'Bind (permanent)'}
                 </Button>
               </div>
             ))}
@@ -123,3 +102,4 @@ export default function UltimatePanelClient({ characterId, boundUltimate: initia
     </Card>
   );
 }
+
