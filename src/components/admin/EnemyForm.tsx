@@ -26,6 +26,7 @@ type EnemyData = {
   base_hp: number;
   base_attack: number;
   resistances: ResistancesMap;
+  tiered_stats: string[];
 };
 
 const DAMAGE_TYPES = [
@@ -538,11 +539,35 @@ export function EnemyForm({
                 <input type="number" min={1} value={enemy.base_hp}
                   onChange={e => setEnemy(p => ({ ...p, base_hp: Number(e.target.value) }))}
                   className={inputCls} />
+                <label className="flex items-center gap-1.5 mt-1 cursor-pointer">
+                  <input type="checkbox"
+                    checked={enemy.tiered_stats.includes('base_hp')}
+                    onChange={() => setEnemy(p => ({
+                      ...p,
+                      tiered_stats: p.tiered_stats.includes('base_hp')
+                        ? p.tiered_stats.filter(s => s !== 'base_hp')
+                        : [...p.tiered_stats, 'base_hp'],
+                    }))}
+                    className="w-3.5 h-3.5 rounded border-border" />
+                  <span className="text-[11px] text-muted-foreground">Scales with area tier</span>
+                </label>
               </Field>
               <Field label="Base Attack">
                 <input type="number" min={1} value={enemy.base_attack}
                   onChange={e => setEnemy(p => ({ ...p, base_attack: Number(e.target.value) }))}
                   className={inputCls} />
+                <label className="flex items-center gap-1.5 mt-1 cursor-pointer">
+                  <input type="checkbox"
+                    checked={enemy.tiered_stats.includes('base_attack')}
+                    onChange={() => setEnemy(p => ({
+                      ...p,
+                      tiered_stats: p.tiered_stats.includes('base_attack')
+                        ? p.tiered_stats.filter(s => s !== 'base_attack')
+                        : [...p.tiered_stats, 'base_attack'],
+                    }))}
+                    className="w-3.5 h-3.5 rounded border-border" />
+                  <span className="text-[11px] text-muted-foreground">Scales with area tier</span>
+                </label>
               </Field>
             </div>
 

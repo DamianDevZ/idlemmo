@@ -40,14 +40,17 @@ function buildStatMap(rows: TierScalingRow[], itemType: string): StatMap {
 export function TierScalingClient({
   rows: initialRows,
   maxTier,
+  previewItems = [],
 }: {
   rows: TierScalingRow[];
   maxTier: number;
+  previewItems?: Array<{ id: string; display_name: string; item_type: string; tiered_stats: string[]; base_stats: Record<string, number> }>;
 }) {
   const [activeType, setActiveType] = useState('weapon');
   const [rows, setRows] = useState<TierScalingRow[]>(initialRows);
   const [newStatKey, setNewStatKey] = useState('');
   const [newStatLabel, setNewStatLabel] = useState('');
+  const [previewItemId, setPreviewItemId] = useState<string>('');
   const [isPending, startTransition] = useTransition();
   const [status, setStatus] = useState<string | null>(null);
 
@@ -239,6 +242,69 @@ export function TierScalingClient({
           </p>
         )}
       </div>
+
+      {/* Preview */}
+      {(() => {
+        const candidates = previewItems.filter(p => p.item_type === activeType && p.tiered_stats.length > 0);
+        if (candidates.length === 0) return null;
+        const selected = candidates.find(p => p.id === previewItemId) ?? null;
+        return (
+          <div className="bg-card border border-border rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground shrink-0">Stat Preview</p>
+              <select
+                value={previewItemId}
+                onChange={e => setPreviewItemId(e.target.value)}
+                className="flex-1 px-3 py-1.5 text-sm bg-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-ring text-body"
+              >
+                <option value="">Select {activeType}…</option>
+                {candidates.map(p => (
+                  <option key={p.id} value={p.id}>{p.display_name}</option>
+                ))}
+              </select>
+            </div>
+            {selected && (() => {
+              const scaledStats = selected.tiered_stats.filter(s => selected.base_stats[s] != null);
+              if (scaledStats.length === 0) {
+                return <p className="text-xs text-muted-foreground italic">No base stats to preview (check the item has base values set).</p>;
+              }
+              return (
+                <div className="overflow-x-auto">
+                  <table className="text-xs w-full">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left p-2 text-muted-foreground">Stat</th>
+                        {tierNums.map(t => (
+                          <th key={t} className="p-2 text-center text-muted-foreground">T{t}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {scaledStats.map(stat => {
+                        const base = selected.base_stats[stat]!;
+                        return (
+                          <tr key={stat} className="border-b border-border last:border-0">
+                            <td className="p-2 font-mono text-muted-foreground">{stat}</td>
+                            {tierNums.map(t => {
+                              const mult = statMap[stat]?.tiers[t] ?? 1.0;
+                              const computed = base * mult;
+                              return (
+                                <td key={t} className={`p-2 text-center font-medium ${t === 1 ? 'text-muted-foreground' : 'text-body'}`}>
+                                  {Number.isInteger(computed) ? computed : computed.toFixed(2)}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+          </div>
+        );
+      })()}
 
       {/* Save */}
       <div className="flex items-center gap-3">

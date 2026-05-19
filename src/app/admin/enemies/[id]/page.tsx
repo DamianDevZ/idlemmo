@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 const BLANK = {
   name: '', display_name: '', description: '', icon: '👹', sort_order: 0,
   damage_type: 'slash', attack_speed: 1.0, base_hp: 20, base_attack: 5, resistances: {},
+  tiered_stats: [] as string[],
 };
 
 export default async function EnemyEditorPage({
@@ -75,7 +76,7 @@ export default async function EnemyEditorPage({
       </div>
       <EnemyForm
         enemyId={isNew ? null : id}
-        initial={enemy}
+        initial={{ ...enemy, tiered_stats: (enemy as typeof enemy & { tiered_stats?: string[] }).tiered_stats ?? [] }}
         lootRows={lootRows}
         allItems={items}
         maxTier={maxTier}

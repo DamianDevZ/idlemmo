@@ -16,6 +16,7 @@ const BLANK = {
   required_mastery_skill_id: null, required_mastery_level: 1,
   material_subtype: null, gathering_skill_id: null,
   is_tiered: true,
+  tiered_stats: [],
   consumable_effects: [],
   tool_config: {},
   weapon_type_id: null,
@@ -47,8 +48,8 @@ export default async function ItemEditorPage({
     db.from('skills').select('id, name, display_name, skill_categories(name)').order('display_name'),
     db.from('item_definitions').select('id, name, display_name, equipment_tier, is_tiered').eq('type', 'material').order('display_name'),
     isNew
-      ? Promise.resolve({ data: null })
-      : db.from('recipes').select('*').eq('output_item_id', id).maybeSingle(),
+      ? Promise.resolve({ data: [] })
+      : db.from('recipes').select('*').eq('output_item_id', id).order('output_tier'),
     db.from('weapon_types').select('id, name, display_name').order('display_name'),
     db.from('tier_scaling_config').select('id, item_type, stat_key, stat_label, tier, multiplier').order('item_type').order('stat_key').order('tier'),
     db.from('game_config').select('value').eq('key', 'max_tier').single(),
@@ -86,20 +87,17 @@ export default async function ItemEditorPage({
     is_tiered: (m as unknown as { is_tiered: boolean }).is_tiered,
   }));
 
-  let recipe: RecipeFormData | null = null;
+  const recipes: RecipeFormData[] = (recipeResult.data ?? []).map(r => ({
+    id:                   r.id,
+    display_name:         r.display_name,
+    output_quantity:      r.output_quantity,
+    required_skill_id:    r.required_skill_id,
+    required_skill_level: r.required_skill_level,
+    ingredients:          (r.ingredients ?? []) as RecipeFormData['ingredients'],
+    craft_time_seconds:   r.craft_time_seconds,
+    output_tier:          (r as unknown as { output_tier?: number }).output_tier ?? 0,
+  }));
 
-  if (recipeResult.data) {
-    const r = recipeResult.data;
-    recipe = {
-      id:                   r.id,
-      display_name:         r.display_name,
-      output_quantity:      r.output_quantity,
-      required_skill_id:    r.required_skill_id,
-      required_skill_level: r.required_skill_level,
-      ingredients:          r.ingredients ?? [],
-      craft_time_seconds:   r.craft_time_seconds,
-    };
-  }
 
   return (
     <div className="space-y-5">
@@ -109,8 +107,8 @@ export default async function ItemEditorPage({
         <h1 className="text-2xl font-bold text-heading">{isNew ? 'New Item' : item.display_name}</h1>
       </div>
       <ItemForm
-        initial={{ ...item, id: isNew ? undefined : id }}
-        recipe={recipe}
+        initial={{ ...item, id: isNew ? undefined : id, tiered_stats: item.tiered_stats ?? [] }}
+        recipes={recipes}
         skills={skills}
         materialItems={materialItems}
         weaponTypes={weaponTypes}

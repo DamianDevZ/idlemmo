@@ -227,7 +227,7 @@ export async function actOnExploreEvent(
   // ── Fight / Flee ───────────────────────────────────────────────────────────
   const { data: session } = await supabase
     .from('exploration_sessions')
-    .select('id, retreat_hp_threshold, current_rage')
+    .select('id, retreat_hp_threshold, current_rage, area_tier')
     .eq('id', sessionId)
     .eq('character_id', characterId)
     .single();
@@ -255,8 +255,27 @@ export async function actOnExploreEvent(
     const dexterity  = attrs?.dexterity  ?? 5;
 
     // Use base_hp/base_attack from event data if set by new enemy system, else fall back to level formula
-    const enemyHp      = Number(d.base_hp     ?? (10 + level * 4));
-    const enemyAtkBase = Number(d.base_attack ?? (2 + level * 1.5));
+    let enemyHp      = Number(d.base_hp     ?? (10 + level * 4));
+    let enemyAtkBase = Number(d.base_attack ?? (2 + level * 1.5));
+
+    // Apply tier scaling to enemy stats if the enemy has tiered_stats configured
+    const enemyTieredStats = (d.tiered_stats as string[] | undefined) ?? [];
+    const areaTier = (session as { area_tier?: number | null }).area_tier ?? 1;
+    if (enemyTieredStats.length > 0 && areaTier > 1) {
+      const statsNeeded = enemyTieredStats.filter(s => s === 'base_hp' || s === 'base_attack');
+      if (statsNeeded.length > 0) {
+        const { data: enemyScaling } = await supabase
+          .from('tier_scaling_config')
+          .select('stat_key, multiplier')
+          .eq('item_type', 'enemy')
+          .eq('tier', areaTier)
+          .in('stat_key', statsNeeded);
+        const getMult = (key: string) =>
+          Number(enemyScaling?.find(r => r.stat_key === key)?.multiplier ?? 1.0);
+        if (enemyTieredStats.includes('base_hp'))     enemyHp      *= getMult('base_hp');
+        if (enemyTieredStats.includes('base_attack')) enemyAtkBase *= getMult('base_attack');
+      }
+    }
 
     // Attack speed: weapon speed amplified by dexterity
     const effectiveAttackSpeed = weaponAttackSpeed * (1 + dexterity / ATTR.dexSpeedDivisor);

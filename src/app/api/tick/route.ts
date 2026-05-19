@@ -322,6 +322,7 @@ export async function POST(req: NextRequest) {
         base_attack?: number;
         damage_type?: string;
         resistances?: Record<string, { value: number; mode: string }>;
+        tiered_stats?: string[];
         loot_table: LootEntry[];
       } | null = null;
 
@@ -332,7 +333,7 @@ export async function POST(req: NextRequest) {
           .select(`
             weight,
             enemies(
-              id, display_name, base_hp, base_attack, damage_type, resistances,
+              id, display_name, base_hp, base_attack, damage_type, resistances, tiered_stats,
               enemy_tier_loot(weight, item_tier, item_definitions(name))
             )
           `)
@@ -344,6 +345,7 @@ export async function POST(req: NextRequest) {
           enemies: {
             id: string; display_name: string; base_hp: number; base_attack: number; damage_type: string;
             resistances: Record<string, { value: number; mode: string }> | null;
+            tiered_stats: string[] | null;
             enemy_tier_loot: Array<{ weight: number; item_tier: number | null; item_definitions: { name: string } | null }>;
           } | null;
         };
@@ -370,6 +372,7 @@ export async function POST(req: NextRequest) {
               base_attack: e.base_attack,
               damage_type: e.damage_type,
               resistances: e.resistances ?? {},
+              tiered_stats: e.tiered_stats ?? [],
               loot_table: lootTable,
             };
           }
@@ -396,14 +399,15 @@ export async function POST(req: NextRequest) {
 
       if (pickedEnemy) {
         eventData = {
-          enemy:       pickedEnemy.display_name,
-          level:       pickedEnemy.level,
-          xp_reward:   pickedEnemy.xp_reward,
-          base_hp:     pickedEnemy.base_hp,
-          base_attack: pickedEnemy.base_attack,
-          damage_type: pickedEnemy.damage_type,
-          resistances: pickedEnemy.resistances ?? {},
-          loot_table:  pickedEnemy.loot_table ?? [],
+          enemy:        pickedEnemy.display_name,
+          level:        pickedEnemy.level,
+          xp_reward:    pickedEnemy.xp_reward,
+          base_hp:      pickedEnemy.base_hp,
+          base_attack:  pickedEnemy.base_attack,
+          damage_type:  pickedEnemy.damage_type,
+          resistances:  pickedEnemy.resistances ?? {},
+          tiered_stats: pickedEnemy.tiered_stats ?? [],
+          loot_table:   pickedEnemy.loot_table ?? [],
         };
       } else {
         // No enemies configured for this area/tier — fall back to generic

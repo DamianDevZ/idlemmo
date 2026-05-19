@@ -19,6 +19,7 @@ export async function upsertEnemyDef(
     base_hp: number;
     base_attack: number;
     resistances: Record<string, { value: number; mode: string }>;
+    tiered_stats: string[];
   }
 ): Promise<string> {
   await requireAdmin();

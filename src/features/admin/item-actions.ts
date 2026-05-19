@@ -26,6 +26,7 @@ export type ItemFormData = {
   material_subtype?: string | null;
   gathering_skill_id?: string | null;
   is_tiered?: boolean;
+  tiered_stats?: string[];
   consumable_effects?: object[];
   tool_config?: object;
   weapon_type_id?: string | null;
@@ -38,6 +39,8 @@ export type RecipeIngredient = { item_id: string; tier: number | null; quantity:
 
 export type RecipeFormData = {
   id?: string;
+  /** 0 = non-tiered / catch-all, 1–N = explicit tier */
+  output_tier: number;
   display_name: string;
   output_quantity: number;
   required_skill_id: string;
@@ -49,7 +52,7 @@ export type RecipeFormData = {
 export async function upsertItem(
   id: string | null,
   data: ItemFormData,
-  recipe: RecipeFormData | null,
+  recipes: RecipeFormData[],
 ) {
   await requireAdmin();
   const db = createAdminClient();
@@ -69,30 +72,42 @@ export async function upsertItem(
     itemId = created.id;
   }
 
-  // Upsert or delete the crafting recipe
-  if (recipe && itemId) {
-    const recipeRow = {
-      display_name:        recipe.display_name,
-      output_item_id:      itemId,
-      output_quantity:     recipe.output_quantity,
-      required_skill_id:   recipe.required_skill_id,
-      required_skill_level: recipe.required_skill_level,
-      ingredients:         recipe.ingredients,
-      base_success_chance: 100,
-      craft_time_seconds:  recipe.craft_time_seconds,
-    };
-
-    if (recipe.id) {
-      const { error } = await db.from('recipes').update(recipeRow).eq('id', recipe.id);
-      if (error) throw new Error(error.message);
+  if (itemId) {
+    // Delete all recipes not present in the submitted set (identified by output_tier)
+    const keptTiers = recipes.map(r => r.output_tier);
+    if (keptTiers.length > 0) {
+      await db.from('recipes')
+        .delete()
+        .eq('output_item_id', itemId)
+        .not('output_tier', 'in', `(${keptTiers.join(',')})`);
     } else {
-      // ON CONFLICT on output_item_id (unique constraint from migration 028)
-      const { error } = await db.from('recipes').upsert(recipeRow, { onConflict: 'output_item_id' });
-      if (error) throw new Error(error.message);
+      // No recipes submitted — delete all existing
+      await db.from('recipes').delete().eq('output_item_id', itemId);
     }
-  } else if (!recipe && itemId) {
-    // Recipe removed — delete existing if any
-    await db.from('recipes').delete().eq('output_item_id', itemId);
+
+    // Upsert each submitted recipe
+    for (const recipe of recipes) {
+      const recipeRow = {
+        display_name:         recipe.display_name,
+        output_item_id:       itemId,
+        output_tier:          recipe.output_tier,
+        output_quantity:      recipe.output_quantity,
+        required_skill_id:    recipe.required_skill_id,
+        required_skill_level: recipe.required_skill_level,
+        ingredients:          recipe.ingredients,
+        base_success_chance:  100,
+        craft_time_seconds:   recipe.craft_time_seconds,
+      };
+
+      if (recipe.id) {
+        const { error } = await db.from('recipes').update(recipeRow).eq('id', recipe.id);
+        if (error) throw new Error(error.message);
+      } else {
+        const { error } = await db.from('recipes')
+          .upsert(recipeRow, { onConflict: 'output_item_id,output_tier' });
+        if (error) throw new Error(error.message);
+      }
+    }
   }
 
   revalidatePath('/admin/items');

@@ -43,6 +43,7 @@ type Item = {
   material_subtype: string | null;
   gathering_skill_id: string | null;
   is_tiered: boolean;
+  tiered_stats: string[];
   consumable_effects: ConsumableEffect[];
   tool_config: ToolConfig;
   weapon_type_id: string | null;
@@ -138,7 +139,7 @@ const BLANK_TOOL_CONFIG: ToolConfig = {
   below_bonus_growth: 50,
 };
 
-const BLANK_RECIPE: RecipeFormData = {
+const BLANK_RECIPE: Omit<RecipeFormData, 'output_tier'> = {
   display_name: '',
   output_quantity: 1,
   required_skill_id: '',
@@ -146,6 +147,10 @@ const BLANK_RECIPE: RecipeFormData = {
   ingredients: [],
   craft_time_seconds: 30,
 };
+
+function blankRecipe(output_tier: number): RecipeFormData {
+  return { ...BLANK_RECIPE, output_tier };
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -196,7 +201,7 @@ function initResistances(raw?: ResistancesMap): ResistancesMap {
 
 export function ItemForm({
   initial,
-  recipe: initialRecipe,
+  recipes: initialRecipes = [],
   skills,
   materialItems,
   weaponTypes,
@@ -205,7 +210,7 @@ export function ItemForm({
   returnTo = '/admin/items',
 }: {
   initial: Item;
-  recipe?: RecipeFormData | null;
+  recipes?: RecipeFormData[];
   skills: SkillOption[];
   materialItems: MaterialItem[];
   weaponTypes: WeaponType[];
@@ -224,7 +229,19 @@ export function ItemForm({
       ? initial.tool_config
       : { ...BLANK_TOOL_CONFIG }
   );
-  const [recipe, setRecipe] = useState<RecipeFormData | null>(initialRecipe ?? null);
+  // Map of output_tier → RecipeFormData|null for all tiers
+  // output_tier=0 = non-tiered item recipe; 1..N = per-tier recipe
+  const [tierRecipes, setTierRecipes] = useState<Record<number, RecipeFormData | null>>(() => {
+    const map: Record<number, RecipeFormData | null> = {};
+    for (const r of initialRecipes) {
+      map[r.output_tier] = r;
+    }
+    return map;
+  });
+  // Which tier tab is active in the recipe editor (0 = non-tiered, 1..N = tiered)
+  const [activeRecipeTier, setActiveRecipeTier] = useState<number>(initial.is_tiered ? 1 : 0);
+  // Derived: the recipe being shown/edited right now
+  const recipe = tierRecipes[activeRecipeTier] ?? null;
 
   const isNew = !initial.id;
 
@@ -258,21 +275,42 @@ export function ItemForm({
   }
 
   function setRecipeField<K extends keyof RecipeFormData>(key: K, value: RecipeFormData[K]) {
-    setRecipe(prev => (prev ? { ...prev, [key]: value } : { ...BLANK_RECIPE, [key]: value }));
+    setTierRecipes(prev => {
+      const cur = prev[activeRecipeTier] ?? blankRecipe(activeRecipeTier);
+      return { ...prev, [activeRecipeTier]: { ...cur, [key]: value } };
+    });
   }
 
   function addIngredient() {
-    setRecipe(prev => prev ? {
-      ...prev,
-      ingredients: [...prev.ingredients, { item_id: '', tier: null, quantity: 1 }],
-    } : null);
+    setTierRecipes(prev => {
+      const cur = prev[activeRecipeTier];
+      if (!cur) return prev;
+      return { ...prev, [activeRecipeTier]: { ...cur, ingredients: [...cur.ingredients, { item_id: '', tier: null, quantity: 1 }] } };
+    });
   }
 
   function removeIngredient(i: number) {
-    setRecipe(prev => prev ? {
-      ...prev,
-      ingredients: prev.ingredients.filter((_, idx) => idx !== i),
-    } : null);
+    setTierRecipes(prev => {
+      const cur = prev[activeRecipeTier];
+      if (!cur) return prev;
+      return { ...prev, [activeRecipeTier]: { ...cur, ingredients: cur.ingredients.filter((_, idx) => idx !== i) } };
+    });
+  }
+
+  function setIngredient(i: number, patch: Partial<RecipeIngredient>) {
+    setTierRecipes(prev => {
+      const cur = prev[activeRecipeTier];
+      if (!cur) return prev;
+      const next = [...cur.ingredients];
+      next[i] = { ...next[i], ...patch };
+      return { ...prev, [activeRecipeTier]: { ...cur, ingredients: next } };
+    });
+  }
+
+  function toggleTieredStat(stat: string) {
+    set('tiered_stats', item.tiered_stats.includes(stat)
+      ? item.tiered_stats.filter(s => s !== stat)
+      : [...item.tiered_stats, stat]);
   }
 
   function addEffect() {
@@ -296,28 +334,32 @@ export function ItemForm({
     });
   }
 
-  function setIngredient(i: number, patch: Partial<RecipeIngredient>) {
-    setRecipe(prev => {
-      if (!prev) return prev;
-      const next = [...prev.ingredients];
-      next[i] = { ...next[i], ...patch };
-      return { ...prev, ingredients: next };
-    });
-  }
-
   function handleTierChange(tier: number | null) {
     set('equipment_tier', tier);
     if (tier) {
       const lvl = tierToLevel(tier);
       set('required_mastery_level', lvl);
-      setRecipe(prev => prev ? { ...prev, required_skill_level: lvl } : prev);
+      // For non-tiered items with a single recipe at tier 0, auto-update skill level
+      if (!item.is_tiered) {
+        setTierRecipes(prev => {
+          const cur = prev[0];
+          return cur ? { ...prev, 0: { ...cur, required_skill_level: lvl } } : prev;
+        });
+      }
     }
   }
 
   function handleSave() {
     startTransition(async () => {
       try {
-        await upsertItem(initial.id ?? null, { ...item, resistances, consumable_effects: effects, tool_config: toolConfig }, recipe);
+        const recipesToSave = Object.entries(tierRecipes)
+          .filter(([, r]) => r !== null)
+          .map(([tier, r]) => ({ ...r!, output_tier: Number(tier) }));
+        await upsertItem(
+          initial.id ?? null,
+          { ...item, resistances, consumable_effects: effects, tool_config: toolConfig },
+          recipesToSave,
+        );
         router.push(returnTo);
       } catch (e) {
         setError((e as Error).message);
@@ -532,6 +574,12 @@ export function ItemForm({
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Base Damage">
                   <Input type="number" step="0.01" value={item.base_damage ?? ''} onChange={e => set('base_damage', e.target.value ? Number(e.target.value) : null)} />
+                  {item.is_tiered && (
+                    <label className="flex items-center gap-1.5 mt-1 cursor-pointer">
+                      <input type="checkbox" checked={item.tiered_stats.includes('base_damage')} onChange={() => toggleTieredStat('base_damage')} className="w-3.5 h-3.5 rounded border-border" />
+                      <span className="text-[11px] text-muted-foreground">Scales with tier</span>
+                    </label>
+                  )}
                 </Field>
                 <Field label="Attack Speed (hits/sec)">
                   <Input type="number" step="0.05" min="0.1" value={item.attack_speed ?? 1}
@@ -634,6 +682,12 @@ export function ItemForm({
 
               <Field label="Base Defense">
                 <Input type="number" step="0.01" value={item.base_defense ?? ''} onChange={e => set('base_defense', e.target.value ? Number(e.target.value) : null)} />
+                {item.is_tiered && (
+                  <label className="flex items-center gap-1.5 mt-1 cursor-pointer">
+                    <input type="checkbox" checked={item.tiered_stats.includes('base_defense')} onChange={() => toggleTieredStat('base_defense')} className="w-3.5 h-3.5 rounded border-border" />
+                    <span className="text-[11px] text-muted-foreground">Scales with tier</span>
+                  </label>
+                )}
               </Field>
 
               <div className="border-t border-border pt-4 space-y-3">
@@ -759,13 +813,47 @@ export function ItemForm({
           {/* ── Crafting Recipe ───────────────────────────────────────────── */}
           {showRecipe && (
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                {showMaterial ? 'Refining Recipe' : 'Crafting Recipe'}
+              </p>
+
+              {/* Tier tab strip — shown for tiered items so each tier can have its own recipe */}
+              {item.is_tiered && (
+                <div className="flex flex-wrap gap-1">
+                  {Array.from({ length: maxTier }, (_, i) => i + 1).map(t => {
+                    const hasRecipe = !!tierRecipes[t];
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setActiveRecipeTier(t)}
+                        className={`px-3 py-1 text-xs rounded border transition-colors ${
+                          activeRecipeTier === t
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : hasRecipe
+                              ? 'bg-background text-body border-border hover:border-ring'
+                              : 'bg-background text-muted-foreground border-border border-dashed hover:border-ring'
+                        }`}
+                      >
+                        T{t}{hasRecipe ? '' : ' +'}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Add / Remove recipe for the active tier */}
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  {showMaterial ? 'Refining Recipe' : 'Crafting Recipe'}
+                <p className="text-xs text-muted-foreground">
+                  {item.is_tiered ? `Tier ${activeRecipeTier} recipe` : 'Recipe'}
                 </p>
                 <button
                   type="button"
-                  onClick={() => setRecipe(r => r ? null : { ...BLANK_RECIPE, display_name: item.display_name })}
+                  onClick={() => setTierRecipes(prev =>
+                    prev[activeRecipeTier]
+                      ? { ...prev, [activeRecipeTier]: null }
+                      : { ...prev, [activeRecipeTier]: blankRecipe(activeRecipeTier) }
+                  )}
                   className="text-xs px-3 py-1 rounded border border-border text-muted-foreground hover:text-body hover:border-ring transition-colors"
                 >
                   {recipe ? 'Remove Recipe' : '+ Add Recipe'}
@@ -1015,11 +1103,23 @@ export function ItemForm({
                     <Input type="number" min={1}
                       value={toolConfig.yield_min}
                       onChange={e => setTool('yield_min', Number(e.target.value))} />
+                    {item.is_tiered && (
+                      <label className="flex items-center gap-1.5 mt-1 cursor-pointer">
+                        <input type="checkbox" checked={item.tiered_stats.includes('yield_min')} onChange={() => toggleTieredStat('yield_min')} className="w-3.5 h-3.5 rounded border-border" />
+                        <span className="text-[11px] text-muted-foreground">Scales with tier</span>
+                      </label>
+                    )}
                   </Field>
                   <Field label="Max">
                     <Input type="number" min={1}
                       value={toolConfig.yield_max}
                       onChange={e => setTool('yield_max', Number(e.target.value))} />
+                    {item.is_tiered && (
+                      <label className="flex items-center gap-1.5 mt-1 cursor-pointer">
+                        <input type="checkbox" checked={item.tiered_stats.includes('yield_max')} onChange={() => toggleTieredStat('yield_max')} className="w-3.5 h-3.5 rounded border-border" />
+                        <span className="text-[11px] text-muted-foreground">Scales with tier</span>
+                      </label>
+                    )}
                   </Field>
                 </div>
               </div>
