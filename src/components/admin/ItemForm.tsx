@@ -572,15 +572,15 @@ export function ItemForm({
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Weapon Stats</p>
 
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Base Damage">
+                <div className="flex flex-col gap-1.5">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    {item.is_tiered && (
+                      <input type="checkbox" checked={item.tiered_stats.includes('base_damage')} onChange={() => toggleTieredStat('base_damage')} className="w-3.5 h-3.5 rounded border-border shrink-0" />
+                    )}
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Base Damage</span>
+                  </label>
                   <Input type="number" step="0.01" value={item.base_damage ?? ''} onChange={e => set('base_damage', e.target.value ? Number(e.target.value) : null)} />
-                  {item.is_tiered && (
-                    <label className="flex items-center gap-1.5 mt-1 cursor-pointer">
-                      <input type="checkbox" checked={item.tiered_stats.includes('base_damage')} onChange={() => toggleTieredStat('base_damage')} className="w-3.5 h-3.5 rounded border-border" />
-                      <span className="text-[11px] text-muted-foreground">Scales with tier</span>
-                    </label>
-                  )}
-                </Field>
+                </div>
                 <Field label="Attack Speed (hits/sec)">
                   <Input type="number" step="0.05" min="0.1" value={item.attack_speed ?? 1}
                     onChange={e => set('attack_speed', e.target.value ? Number(e.target.value) : 1)} />
@@ -589,12 +589,6 @@ export function ItemForm({
                   <Select value={item.primary_damage_type ?? ''} onChange={e => set('primary_damage_type', e.target.value || null)}>
                     <option value="">None</option>
                     {DAMAGE_TYPES.map(d => <option key={d} value={d}>{d}</option>)}
-                  </Select>
-                </Field>
-                <Field label="Material">
-                  <Select value={item.material_type ?? ''} onChange={e => set('material_type', e.target.value || null)}>
-                    <option value="">None</option>
-                    {MATERIAL_TYPES.map(m => <option key={m} value={m}>{m}</option>)}
                   </Select>
                 </Field>
                 <Field label="Weapon Type">
@@ -680,15 +674,15 @@ export function ItemForm({
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Armor Stats</p>
 
-              <Field label="Base Defense">
+              <div className="flex flex-col gap-1.5">
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  {item.is_tiered && (
+                    <input type="checkbox" checked={item.tiered_stats.includes('base_defense')} onChange={() => toggleTieredStat('base_defense')} className="w-3.5 h-3.5 rounded border-border shrink-0" />
+                  )}
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Base Defense</span>
+                </label>
                 <Input type="number" step="0.01" value={item.base_defense ?? ''} onChange={e => set('base_defense', e.target.value ? Number(e.target.value) : null)} />
-                {item.is_tiered && (
-                  <label className="flex items-center gap-1.5 mt-1 cursor-pointer">
-                    <input type="checkbox" checked={item.tiered_stats.includes('base_defense')} onChange={() => toggleTieredStat('base_defense')} className="w-3.5 h-3.5 rounded border-border" />
-                    <span className="text-[11px] text-muted-foreground">Scales with tier</span>
-                  </label>
-                )}
-              </Field>
+              </div>
 
               <div className="border-t border-border pt-4 space-y-3">
                 <div>
@@ -1099,28 +1093,28 @@ export function ItemForm({
                   <p className="text-xs text-muted-foreground mt-0.5">Items gathered per attempt at the tool&apos;s own tier.</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label="Min">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      {item.is_tiered && (
+                        <input type="checkbox" checked={item.tiered_stats.includes('yield_min')} onChange={() => toggleTieredStat('yield_min')} className="w-3.5 h-3.5 rounded border-border shrink-0" />
+                      )}
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Min</span>
+                    </label>
                     <Input type="number" min={1}
                       value={toolConfig.yield_min}
                       onChange={e => setTool('yield_min', Number(e.target.value))} />
-                    {item.is_tiered && (
-                      <label className="flex items-center gap-1.5 mt-1 cursor-pointer">
-                        <input type="checkbox" checked={item.tiered_stats.includes('yield_min')} onChange={() => toggleTieredStat('yield_min')} className="w-3.5 h-3.5 rounded border-border" />
-                        <span className="text-[11px] text-muted-foreground">Scales with tier</span>
-                      </label>
-                    )}
-                  </Field>
-                  <Field label="Max">
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      {item.is_tiered && (
+                        <input type="checkbox" checked={item.tiered_stats.includes('yield_max')} onChange={() => toggleTieredStat('yield_max')} className="w-3.5 h-3.5 rounded border-border shrink-0" />
+                      )}
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Max</span>
+                    </label>
                     <Input type="number" min={1}
                       value={toolConfig.yield_max}
                       onChange={e => setTool('yield_max', Number(e.target.value))} />
-                    {item.is_tiered && (
-                      <label className="flex items-center gap-1.5 mt-1 cursor-pointer">
-                        <input type="checkbox" checked={item.tiered_stats.includes('yield_max')} onChange={() => toggleTieredStat('yield_max')} className="w-3.5 h-3.5 rounded border-border" />
-                        <span className="text-[11px] text-muted-foreground">Scales with tier</span>
-                      </label>
-                    )}
-                  </Field>
+                  </div>
                 </div>
               </div>
 
