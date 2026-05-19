@@ -98,31 +98,3 @@ export async function bindUltimate(
   return { ok: true, scrollId };
 }
 
-/**
- * Unbind a special-attack scroll from whatever weapon it is bound to.
- */
-export async function unbindUltimate(
-  characterId: string,
-  scrollId: string,           // special_attack_scrolls.id
-): Promise<{ ok: boolean; error?: string }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: 'Not authenticated' };
-
-  const { data: char } = await supabase
-    .from('characters')
-    .select('id')
-    .eq('id', characterId)
-    .eq('user_id', user.id)
-    .single();
-  if (!char) return { ok: false, error: 'Character not found' };
-
-  const { error } = await supabase
-    .from('character_special_attacks')
-    .delete()
-    .eq('character_id', characterId)
-    .eq('scroll_id', scrollId);
-
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
-}

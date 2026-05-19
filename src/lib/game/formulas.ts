@@ -250,11 +250,6 @@ export function calcCraftSuccessChance(
 
 // ─── Category Points & Skill Levelling ───────────────────────────────────────
 
-/** Category points accumulated from a given total XP. */
-export function categoryPointsFromXp(totalXp: number): number {
-  return Math.floor(totalXp / S.categoryXpPerPoint);
-}
-
 /**
  * Category points cost to level a sub-skill from `currentLevel` to `currentLevel + 1`.
  * Uses a repeating cycle that increases cost every full cycle.
