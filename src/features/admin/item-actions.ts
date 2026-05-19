@@ -53,22 +53,33 @@ export async function upsertItem(
   id: string | null,
   data: ItemFormData,
   recipes: RecipeFormData[],
-) {
+): Promise<{ error?: string }> {
   await requireAdmin();
   const db = createAdminClient();
 
+  // Validate recipes before touching the DB
+  for (const recipe of recipes) {
+    if (!recipe.required_skill_id) {
+      return { error: `Tier ${recipe.output_tier} recipe is missing a required skill. Please select one before saving.` };
+    }
+  }
+
   let itemId = id;
 
+  // Strip client-side `id` field so the PK is never included in the update payload
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id: _stripped, ...safeData } = data as ItemFormData & { id?: string };
+
   if (id) {
-    const { error } = await db.from('item_definitions').update(data).eq('id', id);
-    if (error) throw new Error(error.message);
+    const { error } = await db.from('item_definitions').update(safeData).eq('id', id);
+    if (error) return { error: error.message };
   } else {
     const { data: created, error } = await db
       .from('item_definitions')
-      .insert(data)
+      .insert(safeData)
       .select('id')
       .single();
-    if (error) throw new Error(error.message);
+    if (error) return { error: error.message };
     itemId = created.id;
   }
 
@@ -76,13 +87,15 @@ export async function upsertItem(
     // Delete all recipes not present in the submitted set (identified by output_tier)
     const keptTiers = recipes.map(r => r.output_tier);
     if (keptTiers.length > 0) {
-      await db.from('recipes')
+      const { error } = await db.from('recipes')
         .delete()
         .eq('output_item_id', itemId)
         .not('output_tier', 'in', `(${keptTiers.join(',')})`);
+      if (error) return { error: error.message };
     } else {
       // No recipes submitted — delete all existing
-      await db.from('recipes').delete().eq('output_item_id', itemId);
+      const { error } = await db.from('recipes').delete().eq('output_item_id', itemId);
+      if (error) return { error: error.message };
     }
 
     // Upsert each submitted recipe
@@ -101,24 +114,26 @@ export async function upsertItem(
 
       if (recipe.id) {
         const { error } = await db.from('recipes').update(recipeRow).eq('id', recipe.id);
-        if (error) throw new Error(error.message);
+        if (error) return { error: error.message };
       } else {
         const { error } = await db.from('recipes')
           .upsert(recipeRow, { onConflict: 'output_item_id,output_tier' });
-        if (error) throw new Error(error.message);
+        if (error) return { error: error.message };
       }
     }
   }
 
   revalidatePath('/admin/items');
+  return {};
 }
 
-export async function deleteItem(id: string) {
+export async function deleteItem(id: string): Promise<{ error?: string }> {
   await requireAdmin();
   const db = createAdminClient();
   const { error } = await db.from('item_definitions').delete().eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) return { error: error.message };
   revalidatePath('/admin/items');
+  return {};
 }
 
 export async function uploadItemIcon(itemId: string, formData: FormData) {

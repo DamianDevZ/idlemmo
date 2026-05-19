@@ -494,11 +494,12 @@ export function ItemForm({
         const recipesToSave = Object.entries(tierRecipes)
           .filter(([, r]) => r !== null)
           .map(([tier, r]) => ({ ...r!, output_tier: Number(tier) }));
-        await upsertItem(
+        const result = await upsertItem(
           initial.id ?? null,
           { ...item, resistances, consumable_effects: effects, tool_config: toolConfig },
           recipesToSave,
         );
+        if (result?.error) { setError(result.error); return; }
         router.push(returnTo);
       } catch (e) {
         setError((e as Error).message);
@@ -511,7 +512,8 @@ export function ItemForm({
     if (!confirm(`Delete "${item.display_name}"? This cannot be undone.`)) return;
     startTransition(async () => {
       try {
-        await deleteItem(initial.id!);
+        const result = await deleteItem(initial.id!);
+        if (result?.error) { setError(result.error); return; }
         router.push(returnTo);
       } catch (e) {
         setError((e as Error).message);
