@@ -383,6 +383,43 @@ export function ItemForm({
     });
   }
 
+  // Creates blank recipe stubs for every tier at once (tiered) or T0 (non-tiered)
+  function makeAllCraftable() {
+    if (item.is_tiered) {
+      const map: Record<number, RecipeFormData> = {};
+      for (let t = 1; t <= maxTier; t++) {
+        map[t] = tierRecipes[t] ?? blankRecipe(t);
+      }
+      setTierRecipes(map);
+      setActiveRecipeTier(1);
+    } else {
+      setTierRecipes(prev => ({ ...prev, 0: prev[0] ?? blankRecipe(0) }));
+      setActiveRecipeTier(0);
+    }
+  }
+
+  // Copies the active tier's recipe to every tier above, incrementing ingredient tiers by delta
+  function propagateFromCurrentTier() {
+    if (!recipe) return;
+    const src = activeRecipeTier;
+    setTierRecipes(prev => {
+      const next = { ...prev };
+      for (let t = src + 1; t <= maxTier; t++) {
+        const delta = t - src;
+        next[t] = {
+          ...recipe,
+          id: prev[t]?.id,          // preserve existing DB id if already saved
+          output_tier: t,
+          ingredients: recipe.ingredients.map(ing => ({
+            ...ing,
+            tier: ing.tier != null ? Math.min(ing.tier + delta, maxTier) : null,
+          })),
+        };
+      }
+      return next;
+    });
+  }
+
   function addIngredient() {
     setTierRecipes(prev => {
       const cur = prev[activeRecipeTier];
@@ -859,14 +896,41 @@ export function ItemForm({
           )}
 
           {/* ── Crafting Recipe ───────────────────────────────────────────── */}
-          {showRecipe && (
+          {showRecipe && (() => {
+            const isCraftable = Object.values(tierRecipes).some(r => r !== null);
+            return (
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                {showMaterial ? 'Refining Recipe' : 'Crafting Recipe'}
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  {showMaterial ? 'Refining Recipe' : 'Crafting Recipe'}
+                </p>
+                {isCraftable && (
+                  <button
+                    type="button"
+                    onClick={() => setTierRecipes({})}
+                    className="text-xs text-destructive hover:underline transition-colors"
+                  >
+                    × Remove all
+                  </button>
+                )}
+              </div>
 
-              {/* Tier tab strip — shown for tiered items so each tier can have its own recipe */}
-              {item.is_tiered && (
+              {/* Not yet craftable — show the big Make Craftable button */}
+              {!isCraftable && (
+                <button
+                  type="button"
+                  onClick={makeAllCraftable}
+                  className="w-full py-3 rounded-lg border-2 border-dashed border-primary/40 text-sm font-semibold text-primary hover:bg-primary/10 hover:border-primary transition-colors"
+                >
+                  + Make Craftable
+                  {item.is_tiered && (
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">(opens recipes for all {maxTier} tiers)</span>
+                  )}
+                </button>
+              )}
+
+              {/* Tier tab strip — shown for tiered items */}
+              {isCraftable && item.is_tiered && (
                 <div className="flex flex-wrap gap-1">
                   {Array.from({ length: maxTier }, (_, i) => i + 1).map(t => {
                     const hasRecipe = !!tierRecipes[t];
@@ -890,23 +954,25 @@ export function ItemForm({
                 </div>
               )}
 
-              {/* Add / Remove recipe for the active tier */}
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  {item.is_tiered ? `Tier ${activeRecipeTier} recipe` : 'Recipe'}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setTierRecipes(prev =>
-                    prev[activeRecipeTier]
-                      ? { ...prev, [activeRecipeTier]: null }
-                      : { ...prev, [activeRecipeTier]: blankRecipe(activeRecipeTier) }
-                  )}
-                  className="text-xs px-3 py-1 rounded border border-border text-muted-foreground hover:text-body hover:border-ring transition-colors"
-                >
-                  {recipe ? 'Remove Recipe' : '+ Add Recipe'}
-                </button>
-              </div>
+              {/* Per-tier remove button */}
+              {isCraftable && (
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    {item.is_tiered ? `Tier ${activeRecipeTier} recipe` : 'Recipe'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setTierRecipes(prev =>
+                      prev[activeRecipeTier]
+                        ? { ...prev, [activeRecipeTier]: null }
+                        : { ...prev, [activeRecipeTier]: blankRecipe(activeRecipeTier) }
+                    )}
+                    className="text-xs px-3 py-1 rounded border border-border text-muted-foreground hover:text-body hover:border-ring transition-colors"
+                  >
+                    {recipe ? 'Remove this tier' : '+ Add Recipe'}
+                  </button>
+                </div>
+              )}
 
               {recipe && (
                 <div className="space-y-4">
@@ -988,11 +1054,24 @@ export function ItemForm({
                         </div>
                       );
                     })}
+
+                    {/* Propagate button — only for tiered items with ingredients and tiers above */}
+                    {item.is_tiered && activeRecipeTier < maxTier && recipe.ingredients.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={propagateFromCurrentTier}
+                        className="mt-2 w-full py-1.5 text-xs rounded border border-dashed border-primary/50 text-primary hover:bg-primary/10 hover:border-primary transition-colors"
+                      >
+                        ↑ Apply T{activeRecipeTier} pattern to T{activeRecipeTier + 1}–T{maxTier}
+                        <span className="ml-1 text-muted-foreground">(ingredient tiers shift up)</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
             </div>
-          )}
+            );
+          })()}
 
           {/* ── Consumable Effects ─────────────────────────────────────── */}
           {showConsumable && (
