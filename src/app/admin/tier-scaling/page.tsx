@@ -2,6 +2,7 @@ import { requireAdmin } from '@/lib/admin-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { TierScalingClient } from './TierScalingClient';
 import { TierFramesSection } from './TierFramesSection';
+import { RecipeSettingsSection } from './RecipeSettingsSection';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -10,7 +11,7 @@ export default async function TierScalingPage() {
   await requireAdmin();
   const db = createAdminClient();
 
-  const [scalingResult, configResult, framesResult, previewItemsResult, previewEnemiesResult] = await Promise.all([
+  const [scalingResult, configResult, framesResult, previewItemsResult, previewEnemiesResult, recipeSettingsResult, recipeScrollResult] = await Promise.all([
     db.from('tier_scaling_config')
       .select('id, item_type, stat_key, stat_label, tier, multiplier')
       .order('item_type').order('stat_key').order('tier'),
@@ -24,6 +25,8 @@ export default async function TierScalingPage() {
       .select('id, display_name, tiered_stats, base_hp, base_attack')
       .neq('tiered_stats', '{}')
       .order('display_name'),
+    db.from('app_settings').select('value').eq('key', 'recipe_suffix').single(),
+    db.storage.from('icons').list('', { search: 'recipe-scroll' }),
   ]);
 
   const rows = (scalingResult.data ?? []) as {
@@ -68,6 +71,12 @@ export default async function TierScalingPage() {
     }
   }
 
+  const recipeSuffix = (recipeSettingsResult.data as { value: string } | null)?.value ?? 'Scroll';
+  const hasScrollBg = (recipeScrollResult.data ?? []).some(f => f.name.startsWith('recipe-scroll'));
+  const scrollBgUrl = hasScrollBg
+    ? `${supabaseUrl}/storage/v1/object/public/icons/recipe-scroll.png`
+    : null;
+
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
@@ -89,6 +98,15 @@ export default async function TierScalingPage() {
           These are stacked on top of item sprites in-game to show the item&apos;s tier visually.
         </p>
         <TierFramesSection maxTier={maxTier} frameUrls={frameUrls} />
+      </div>
+
+      <div className="border-t border-border pt-6">
+        <h2 className="text-lg font-semibold text-heading mb-1">Recipe Items</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Configure how recipe scroll items look and are named. When you make an item craftable,
+          a matching recipe scroll item is created automatically using these settings.
+        </p>
+        <RecipeSettingsSection initialSuffix={recipeSuffix} initialScrollBgUrl={scrollBgUrl} />
       </div>
     </div>
   );

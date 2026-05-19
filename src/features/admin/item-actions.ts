@@ -7,6 +7,8 @@ import { revalidatePath } from 'next/cache';
 export type ItemFormData = {
   name: string;
   display_name: string;
+  /** Set on recipe scroll items — the id of the craftable item this scroll unlocks. */
+  recipe_for_item_id?: string | null;
   type: string;
   description: string;
   stackable: boolean;
@@ -53,6 +55,7 @@ export async function upsertItem(
   id: string | null,
   data: ItemFormData,
   recipes: RecipeFormData[],
+  recipeSuffix: string = 'Scroll',
 ): Promise<{ error?: string }> {
   await requireAdmin();
   const db = createAdminClient();
@@ -101,7 +104,9 @@ export async function upsertItem(
     // Upsert each submitted recipe
     for (const recipe of recipes) {
       const recipeRow = {
-        display_name:         recipe.display_name,
+        // Auto-generate the recipe display name from the item's display name.
+        // This is what appears in the crafting UI (e.g. "Craft Cloth").
+        display_name:         data.display_name,
         output_item_id:       itemId,
         output_tier:          recipe.output_tier,
         output_quantity:      recipe.output_quantity,
@@ -119,6 +124,39 @@ export async function upsertItem(
         const { error } = await db.from('recipes')
           .upsert(recipeRow, { onConflict: 'output_item_id,output_tier' });
         if (error) return { error: error.message };
+      }
+    }
+
+    // Auto-create or update the recipe scroll item when this item is craftable.
+    // The scroll item (type='recipe') is what players hold in their inventory to
+    // unlock the crafting recipe. Its display name is "{item} {suffix}" (e.g. "Cloth Scroll").
+    if (recipes.length > 0 && data.type !== 'recipe') {
+      const recipeItemName = `${data.display_name} ${recipeSuffix}`;
+      const { data: existing } = await db
+        .from('item_definitions')
+        .select('id')
+        .eq('recipe_for_item_id', itemId)
+        .limit(1)
+        .single();
+
+      if (existing) {
+        // Keep display name and image in sync with the parent item
+        await db
+          .from('item_definitions')
+          .update({ display_name: recipeItemName, image_url: data.image_url ?? null })
+          .eq('id', existing.id);
+      } else {
+        await db.from('item_definitions').insert({
+          name:               `${data.name}_${recipeSuffix.toLowerCase().replace(/\s+/g, '_')}`,
+          display_name:       recipeItemName,
+          type:               'recipe',
+          rarity:             'common',
+          stackable:          true,
+          description:        `Recipe scroll for crafting ${data.display_name}.`,
+          image_url:          data.image_url ?? null,
+          is_tiered:          data.is_tiered ?? false,
+          recipe_for_item_id: itemId,
+        });
       }
     }
   }

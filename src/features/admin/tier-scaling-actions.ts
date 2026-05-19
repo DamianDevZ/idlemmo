@@ -71,3 +71,26 @@ export async function uploadTierFrame(tier: number, formData: FormData): Promise
   revalidatePath('/admin/tier-scaling');
   return publicUrl;
 }
+
+/**
+ * Upload the global recipe scroll background image.
+ * Stored at icons/recipe-scroll.png and rendered behind the item icon in ItemSprite.
+ * Returns the public URL.
+ */
+export async function uploadRecipeScrollBg(formData: FormData): Promise<string> {
+  await requireAdmin();
+  const db = createAdminClient();
+  const file = formData.get('scroll') as File;
+  if (!file || file.size === 0) throw new Error('No file provided');
+
+  const path = 'recipe-scroll.png';
+
+  const { error } = await db.storage
+    .from('icons')
+    .upload(path, file, { upsert: true, contentType: file.type });
+  if (error) throw new Error(error.message);
+
+  const { data: { publicUrl } } = db.storage.from('icons').getPublicUrl(path);
+  revalidatePath('/admin/tier-scaling');
+  return publicUrl;
+}

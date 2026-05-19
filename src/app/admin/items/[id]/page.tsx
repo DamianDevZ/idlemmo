@@ -40,8 +40,9 @@ export default async function ItemEditorPage({
   const isNew = id === 'new';
   const db = createAdminClient();
 
-  // Load item, skills, material items, existing recipe, weapon types, tier scaling and global config in parallel
-  const [itemResult, skillsResult, materialsResult, recipeResult, weaponTypesResult, tierScalingResult, configResult] = await Promise.all([
+  // Load item, skills, material items, existing recipe, weapon types, tier scaling, global config,
+  // recipe suffix setting, and the recipe scroll item linked to this item (if any).
+  const [itemResult, skillsResult, materialsResult, recipeResult, weaponTypesResult, tierScalingResult, configResult, recipeSuffixResult, recipeItemResult] = await Promise.all([
     isNew
       ? Promise.resolve({ data: null })
       : db.from('item_definitions').select('*').eq('id', id).single(),
@@ -53,11 +54,17 @@ export default async function ItemEditorPage({
     db.from('weapon_types').select('id, name, display_name').order('display_name'),
     db.from('tier_scaling_config').select('id, item_type, stat_key, stat_label, tier, multiplier').order('item_type').order('stat_key').order('tier'),
     db.from('game_config').select('value').eq('key', 'max_tier').single(),
+    db.from('app_settings').select('value').eq('key', 'recipe_suffix').single(),
+    isNew
+      ? Promise.resolve({ data: null })
+      : db.from('item_definitions').select('id, display_name').eq('recipe_for_item_id', id).limit(1).maybeSingle(),
   ]);
 
   const maxTier = Number((configResult as { data: { value: number } | null }).data?.value ?? 5);
   const weaponTypes = (weaponTypesResult.data ?? []) as { id: string; name: string; display_name: string }[];
   const tierScaling = (tierScalingResult.data ?? []) as TierScalingRow[];
+  const recipeSuffix = (recipeSuffixResult.data as { value: string } | null)?.value ?? 'Scroll';
+  const existingRecipeItem = (recipeItemResult.data as { id: string; display_name: string } | null) ?? null;
 
   if (!isNew && !itemResult.data) notFound();
 
@@ -115,6 +122,8 @@ export default async function ItemEditorPage({
         maxTier={maxTier}
         tierScaling={tierScaling}
         returnTo={safeReturnTo}
+        recipeSuffix={recipeSuffix}
+        existingRecipeItem={existingRecipeItem}
       />
     </div>
   );

@@ -310,6 +310,8 @@ export function ItemForm({
   maxTier,
   tierScaling,
   returnTo = '/admin/items',
+  recipeSuffix = 'Scroll',
+  existingRecipeItem = null,
 }: {
   initial: Item;
   recipes?: RecipeFormData[];
@@ -319,6 +321,8 @@ export function ItemForm({
   maxTier: number;
   tierScaling: TierScalingRow[];
   returnTo?: string;
+  recipeSuffix?: string;
+  existingRecipeItem?: { id: string; display_name: string } | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -498,6 +502,7 @@ export function ItemForm({
           initial.id ?? null,
           { ...item, resistances, consumable_effects: effects, tool_config: toolConfig },
           recipesToSave,
+          recipeSuffix,
         );
         if (result?.error) { setError(result.error); return; }
         router.push(returnTo);
@@ -956,6 +961,29 @@ export function ItemForm({
                 </div>
               )}
 
+              {/* Recipe scroll info — shown when item is craftable */}
+              {isCraftable && item.type !== 'recipe' && (
+                <div className="rounded-md bg-background border border-border px-4 py-3 space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recipe Scroll Item</p>
+                  {existingRecipeItem ? (
+                    <p className="text-sm text-body">
+                      <span className="text-muted-foreground">Auto-created: </span>
+                      <a
+                        href={`/admin/items/${existingRecipeItem.id}`}
+                        className="text-primary hover:underline"
+                      >
+                        {existingRecipeItem.display_name}
+                      </a>
+                      <span className="text-muted-foreground text-xs ml-2">(click to edit icon, rarity, etc.)</span>
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Will be created as <span className="font-medium text-body">&quot;{item.display_name} {recipeSuffix}&quot;</span> when you save.
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Per-tier remove button */}
               {isCraftable && (
                 <div className="flex items-center justify-between">
@@ -979,11 +1007,8 @@ export function ItemForm({
               {recipe && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
-                    <Field label="Recipe Name">
-                      <Input value={recipe.display_name}
-                        onChange={e => setRecipeField('display_name', e.target.value)}
-                        placeholder="Craft Iron Sword" />
-                    </Field>
+                    {/* Recipe name is auto-generated: "{item.display_name} {recipeSuffix}".
+                        Shown here for reference; stored on the recipe scroll item, not the recipe row. */}
                     <Field label="Output Qty">
                       <Input type="number" min={1}
                         value={recipe.output_quantity}
