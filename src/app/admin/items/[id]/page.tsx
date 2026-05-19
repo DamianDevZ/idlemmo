@@ -29,11 +29,13 @@ export default async function ItemEditorPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ type?: string; subtype?: string }>;
+  searchParams: Promise<{ type?: string; subtype?: string; returnTo?: string }>;
 }) {
   await requireAdmin();
   const { id } = await params;
-  const { type: qType, subtype: qSubtype } = await searchParams;
+  const { type: qType, subtype: qSubtype, returnTo: qReturnTo } = await searchParams;
+  // Only allow redirects to internal admin paths to prevent open redirects
+  const safeReturnTo = typeof qReturnTo === 'string' && qReturnTo.startsWith('/admin/') ? qReturnTo : '/admin/items';
   const isNew = id === 'new';
   const db = createAdminClient();
 
@@ -102,7 +104,7 @@ export default async function ItemEditorPage({
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
-        <Link href="/admin/items" className="text-sm text-muted-foreground hover:text-body transition-colors">← Items</Link>
+        <Link href={safeReturnTo} className="text-sm text-muted-foreground hover:text-body transition-colors">← Items</Link>
         <span className="text-muted-foreground">/</span>
         <h1 className="text-2xl font-bold text-heading">{isNew ? 'New Item' : item.display_name}</h1>
       </div>
@@ -114,6 +116,7 @@ export default async function ItemEditorPage({
         weaponTypes={weaponTypes}
         maxTier={maxTier}
         tierScaling={tierScaling}
+        returnTo={safeReturnTo}
       />
     </div>
   );

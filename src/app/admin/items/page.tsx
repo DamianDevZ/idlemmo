@@ -198,7 +198,7 @@ export default async function AdminItemsPage({
             <h1 className="text-2xl font-bold text-heading">Items</h1>
             <p className="text-sm text-muted-foreground">{rows.length} total item definitions</p>
           </div>
-          <Link href="/admin/items/new"
+          <Link href="/admin/items/new?returnTo=%2Fadmin%2Fitems"
             className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 transition-opacity">
             + New Item
           </Link>
@@ -294,7 +294,7 @@ export default async function AdminItemsPage({
           <span className="text-sm text-muted-foreground">{items.length} items</span>
         </div>
         <Link
-          href={`/admin/items/new?type=${typeKey}${subtype ? `&subtype=${subtype}` : ''}`}
+          href={`/admin/items/new?type=${typeKey}${subtype ? `&subtype=${subtype}` : ''}&returnTo=${encodeURIComponent(`/admin/items?type=${typeKey}${subtype ? `&subtype=${subtype}` : ''}`)}`}
           className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 transition-opacity">
           + New {subtype ? `${subtype.charAt(0).toUpperCase() + subtype.slice(1)} ` : ''}{tc?.label.replace(/s$/, '') ?? 'Item'}
         </Link>

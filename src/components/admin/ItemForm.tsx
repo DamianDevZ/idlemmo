@@ -202,6 +202,7 @@ export function ItemForm({
   weaponTypes,
   maxTier,
   tierScaling,
+  returnTo = '/admin/items',
 }: {
   initial: Item;
   recipe?: RecipeFormData | null;
@@ -210,6 +211,7 @@ export function ItemForm({
   weaponTypes: WeaponType[];
   maxTier: number;
   tierScaling: TierScalingRow[];
+  returnTo?: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -316,7 +318,7 @@ export function ItemForm({
     startTransition(async () => {
       try {
         await upsertItem(initial.id ?? null, { ...item, resistances, consumable_effects: effects, tool_config: toolConfig }, recipe);
-        router.push('/admin/items');
+        router.push(returnTo);
       } catch (e) {
         setError((e as Error).message);
       }
@@ -329,7 +331,7 @@ export function ItemForm({
     startTransition(async () => {
       try {
         await deleteItem(initial.id!);
-        router.push('/admin/items');
+        router.push(returnTo);
       } catch (e) {
         setError((e as Error).message);
       }
