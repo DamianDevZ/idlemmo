@@ -15,9 +15,10 @@ const LOCATIONS = [
 interface Props {
   character: { name: string; main_level: number; current_hp: number; maxHp: number };
   mobile?: boolean;
+  isAdmin?: boolean;
 }
 
-export default function GameNav({ character, mobile }: Props) {
+export default function GameNav({ character, mobile, isAdmin }: Props) {
   const pathname = usePathname();
 
   function isActive(href: string) {
@@ -51,6 +52,15 @@ export default function GameNav({ character, mobile }: Props) {
             </Link>
           );
         })}
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className="flex-1 flex flex-col items-center justify-center gap-1 transition-colors text-muted-foreground hover:text-foreground"
+          >
+            <span className="text-[22px] leading-none">🛡️</span>
+            <span className="text-[10px] leading-none font-medium">Admin</span>
+          </Link>
+        )}
       </div>
     );
   }
@@ -89,6 +99,18 @@ export default function GameNav({ character, mobile }: Props) {
             </Link>
           );
         })}
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all text-muted-foreground hover:text-foreground hover:bg-accent/50 border-l-2 border-transparent pl-[10px]"
+          >
+            <span className="text-base leading-none">🛡️</span>
+            <div className="min-w-0">
+              <div className="font-semibold leading-tight">Admin</div>
+              <div className="text-[10px] text-muted-foreground leading-tight">Control Panel</div>
+            </div>
+          </Link>
+        )}
       </nav>
 
       {/* Character HUD */}

@@ -36,11 +36,13 @@ export default async function GameLayout({ children }: { children: React.ReactNo
   const maxHp = GAME_CONFIG.attributes.baseHp +
     (attrs?.vigor ?? GAME_CONFIG.character.startingAttributeValue) * GAME_CONFIG.attributes.hpPerVigor;
 
+  const isAdmin = user.app_metadata?.is_admin === true;
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-44 flex-col shrink-0 border-r border-border bg-card">
-        <GameNav character={{ ...character!, current_hp: displayHp, maxHp }} />
+        <GameNav character={{ ...character!, current_hp: displayHp, maxHp }} isAdmin={isAdmin} />
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -71,7 +73,7 @@ export default async function GameLayout({ children }: { children: React.ReactNo
 
       {/* Mobile bottom nav */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 border-t border-border bg-card/95 backdrop-blur-sm z-40">
-        <GameNav character={{ ...character!, current_hp: displayHp, maxHp }} mobile />
+        <GameNav character={{ ...character!, current_hp: displayHp, maxHp }} mobile isAdmin={isAdmin} />
       </nav>
     </div>
   );
