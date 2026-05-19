@@ -405,14 +405,14 @@ export function ItemForm({
   const recipeSkillCategory = showMaterial ? 'refining' : 'crafting';
 
   return (
-    <div className="max-w-5xl mx-auto space-y-5">
+    <div className="max-w-[1400px] mx-auto space-y-5">
       {error && (
         <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-md text-sm text-destructive">
           {error}
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[300px_1fr] gap-5 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-6 items-start">
 
         {/* ── LEFT: Identity panel ──────────────────────────────────────── */}
         <div className="bg-card border border-border rounded-lg p-5 space-y-4">
@@ -484,7 +484,18 @@ export function ItemForm({
               acc[r.stat_key].tiers[r.tier] = r.multiplier;
               return acc;
             }, {});
-            const statKeys = Object.keys(statMap);
+
+            // Show all checked stats — fall back to N/A if no scaling configured
+            const checkedStats = item.tiered_stats;
+
+            // Human-readable fallback labels for stats that may not be in statMap
+            const FALLBACK_LABELS: Record<string, string> = {
+              base_damage:  'Base Damage',
+              attack_speed: 'Attack Speed',
+              base_defense: 'Base Defense',
+              yield_min:    'Yield Min',
+              yield_max:    'Yield Max',
+            };
 
             function getBase(stat_key: string): number | null {
               switch (stat_key) {
@@ -497,10 +508,12 @@ export function ItemForm({
               }
             }
 
-            // DPS preview: only for weapons that have a base_damage value
+            // DPS preview: only for weapons that have base_damage checked and a value
             const showDps = item.type === 'weapon' && (item.base_damage ?? 0) > 0;
             const baseDamage = item.base_damage ?? 0;
             const baseSpeed  = item.attack_speed ?? 1;
+
+            if (checkedStats.length === 0) return null;
 
             return (
               <div className="rounded-md border border-border bg-background p-3 space-y-2">
@@ -509,19 +522,18 @@ export function ItemForm({
                   <a href="/admin/tier-scaling" target="_blank"
                      className="text-[10px] text-primary hover:underline">Edit scaling →</a>
                 </div>
-                {statKeys.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    No scaling configured for {item.type}s yet.
-                    <a href="/admin/tier-scaling" target="_blank" className="text-primary hover:underline ml-1">Set it up →</a>
-                  </p>
+                {checkedStats.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">Check a stat above to see it previewed here.</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
                         <tr>
                           <th className="text-left text-muted-foreground font-medium pb-1 pr-3">Tier</th>
-                          {statKeys.map(k => (
-                            <th key={k} className="text-right text-muted-foreground font-medium pb-1 px-2">{statMap[k].label}</th>
+                          {checkedStats.map(k => (
+                            <th key={k} className="text-right text-muted-foreground font-medium pb-1 px-2">
+                              {statMap[k]?.label ?? FALLBACK_LABELS[k] ?? k}
+                            </th>
                           ))}
                           {showDps && (
                             <th className="text-right text-muted-foreground font-medium pb-1 px-2">DPS</th>
@@ -538,12 +550,18 @@ export function ItemForm({
                           return (
                             <tr key={t} className={t % 2 === 0 ? 'bg-card/50' : ''}>
                               <td className="py-0.5 pr-3 text-muted-foreground">T{t}</td>
-                              {statKeys.map(k => {
+                              {checkedStats.map(k => {
                                 const base = getBase(k);
-                                const mult = statMap[k].tiers[t] ?? 1.0;
+                                const tierEntry = statMap[k]?.tiers[t];
+                                const configured = !!statMap[k];
+                                if (!configured) {
+                                  return <td key={k} className="py-0.5 px-2 text-right text-muted-foreground italic">N/A</td>;
+                                }
                                 return (
                                   <td key={k} className="py-0.5 px-2 text-right text-body tabular-nums">
-                                    {base != null ? (base * mult).toFixed(1) : <span className="text-muted-foreground">—</span>}
+                                    {base != null && tierEntry != null
+                                      ? (base * tierEntry).toFixed(2).replace(/\.?0+$/, '') || '0'
+                                      : <span className="text-muted-foreground">—</span>}
                                   </td>
                                 );
                               })}
