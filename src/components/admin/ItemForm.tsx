@@ -492,9 +492,15 @@ export function ItemForm({
                 case 'base_defense': return item.base_defense ?? null;
                 case 'yield_min':    return (item.tool_config as Record<string, number>)?.yield_min ?? null;
                 case 'yield_max':    return (item.tool_config as Record<string, number>)?.yield_max ?? null;
+                case 'attack_speed': return item.attack_speed ?? null;
                 default:             return null;
               }
             }
+
+            // DPS preview: only for weapons that have a base_damage value
+            const showDps = item.type === 'weapon' && (item.base_damage ?? 0) > 0;
+            const baseDamage = item.base_damage ?? 0;
+            const baseSpeed  = item.attack_speed ?? 1;
 
             return (
               <div className="rounded-md border border-border bg-background p-3 space-y-2">
@@ -517,23 +523,38 @@ export function ItemForm({
                           {statKeys.map(k => (
                             <th key={k} className="text-right text-muted-foreground font-medium pb-1 px-2">{statMap[k].label}</th>
                           ))}
+                          {showDps && (
+                            <th className="text-right text-muted-foreground font-medium pb-1 px-2">DPS</th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
-                        {tierNums.map(t => (
-                          <tr key={t} className={t % 2 === 0 ? 'bg-card/50' : ''}>
-                            <td className="py-0.5 pr-3 text-muted-foreground">T{t}</td>
-                            {statKeys.map(k => {
-                              const base = getBase(k);
-                              const mult = statMap[k].tiers[t] ?? 1.0;
-                              return (
-                                <td key={k} className="py-0.5 px-2 text-right text-body tabular-nums">
-                                  {base != null ? (base * mult).toFixed(1) : <span className="text-muted-foreground">—</span>}
+                        {tierNums.map(t => {
+                          const dmgMult   = statMap['base_damage']?.tiers[t]  ?? 1.0;
+                          const spdMult   = statMap['attack_speed']?.tiers[t] ?? 1.0;
+                          const tieredDmg = baseDamage * dmgMult;
+                          const tieredSpd = baseSpeed  * spdMult;
+                          const dps       = tieredDmg  * tieredSpd;
+                          return (
+                            <tr key={t} className={t % 2 === 0 ? 'bg-card/50' : ''}>
+                              <td className="py-0.5 pr-3 text-muted-foreground">T{t}</td>
+                              {statKeys.map(k => {
+                                const base = getBase(k);
+                                const mult = statMap[k].tiers[t] ?? 1.0;
+                                return (
+                                  <td key={k} className="py-0.5 px-2 text-right text-body tabular-nums">
+                                    {base != null ? (base * mult).toFixed(1) : <span className="text-muted-foreground">—</span>}
+                                  </td>
+                                );
+                              })}
+                              {showDps && (
+                                <td className="py-0.5 px-2 text-right font-semibold text-body tabular-nums">
+                                  {dps.toFixed(1)}
                                 </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
+                              )}
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
