@@ -199,6 +199,108 @@ function initResistances(raw?: ResistancesMap): ResistancesMap {
   return base;
 }
 
+const STAT_FALLBACK_LABELS: Record<string, string> = {
+  base_damage:  'Base Damage',
+  attack_speed: 'Attack Speed',
+  base_defense: 'Base Defense',
+  yield_min:    'Yield Min',
+  yield_max:    'Yield Max',
+};
+
+function TierScalingPreview({
+  itemType, tieredStats, baseDamage, baseDefense, baseSpeed, yieldMin, yieldMax, tierScaling, maxTier,
+}: {
+  itemType: string;
+  tieredStats: string[];
+  baseDamage: number | null;
+  baseDefense: number | null;
+  baseSpeed: number;
+  yieldMin: number | null;
+  yieldMax: number | null;
+  tierScaling: TierScalingRow[];
+  maxTier: number;
+}) {
+  const relevant = tierScaling.filter(r => r.item_type === itemType);
+  const tierNums = Array.from({ length: maxTier }, (_, i) => i + 1);
+  const statMap = relevant.reduce<Record<string, { label: string; tiers: Record<number, number> }>>((acc, r) => {
+    if (!acc[r.stat_key]) acc[r.stat_key] = { label: r.stat_label, tiers: {} };
+    acc[r.stat_key].tiers[r.tier] = r.multiplier;
+    return acc;
+  }, {});
+
+  function getBase(stat_key: string): number | null {
+    switch (stat_key) {
+      case 'base_damage':  return baseDamage;
+      case 'base_defense': return baseDefense;
+      case 'yield_min':    return yieldMin;
+      case 'yield_max':    return yieldMax;
+      case 'attack_speed': return baseSpeed;
+      default:             return null;
+    }
+  }
+
+  // DPS only makes sense when base_damage is one of the scaled stats
+  const showDps = itemType === 'weapon'
+    && tieredStats.includes('base_damage')
+    && (baseDamage ?? 0) > 0;
+
+  return (
+    <div className="rounded-md border border-border bg-background p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Tier scaling preview</p>
+        <a href="/admin/tier-scaling" target="_blank" className="text-[10px] text-primary hover:underline">Edit scaling →</a>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr>
+              <th className="text-left text-muted-foreground font-medium pb-1 pr-3">Tier</th>
+              {tieredStats.map(k => (
+                <th key={k} className="text-right text-muted-foreground font-medium pb-1 px-2">
+                  {statMap[k]?.label ?? STAT_FALLBACK_LABELS[k] ?? k}
+                </th>
+              ))}
+              {showDps && <th className="text-right text-muted-foreground font-medium pb-1 px-2">DPS</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {tierNums.map(t => {
+              const dmgMult = statMap['base_damage']?.tiers[t]  ?? 1.0;
+              const spdMult = statMap['attack_speed']?.tiers[t] ?? 1.0;
+              const dps     = (baseDamage ?? 0) * dmgMult * baseSpeed * spdMult;
+              return (
+                <tr key={t} className={t % 2 === 0 ? 'bg-card/50' : ''}>
+                  <td className="py-0.5 pr-3 text-muted-foreground">T{t}</td>
+                  {tieredStats.map(k => {
+                    const base      = getBase(k);
+                    const mult      = statMap[k]?.tiers[t];
+                    const hasConfig = !!statMap[k];
+                    if (!hasConfig) {
+                      return <td key={k} className="py-0.5 px-2 text-right text-muted-foreground italic">N/A</td>;
+                    }
+                    return (
+                      <td key={k} className="py-0.5 px-2 text-right text-body tabular-nums">
+                        {base != null && mult != null
+                          ? (base * mult).toFixed(2).replace(/\.?0+$/, '') || '0'
+                          : <span className="text-muted-foreground">—</span>}
+                      </td>
+                    );
+                  })}
+                  {showDps && (
+                    <td className="py-0.5 px-2 text-right font-semibold text-body tabular-nums">
+                      {dps.toFixed(1)}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export function ItemForm({
   initial,
   recipes: initialRecipes = [],
@@ -475,111 +577,18 @@ export function ItemForm({
             </div>
           )}
 
-          {/* Tier scaling preview — shown when item is marked as tiered */}
-          {item.is_tiered && (() => {
-            const relevant = tierScaling.filter(r => r.item_type === item.type);
-            const tierNums = Array.from({ length: maxTier }, (_, i) => i + 1);
-            const statMap = relevant.reduce<Record<string, { label: string; tiers: Record<number, number> }>>((acc, r) => {
-              if (!acc[r.stat_key]) acc[r.stat_key] = { label: r.stat_label, tiers: {} };
-              acc[r.stat_key].tiers[r.tier] = r.multiplier;
-              return acc;
-            }, {});
-
-            // Show all checked stats — fall back to N/A if no scaling configured
-            const checkedStats = item.tiered_stats;
-
-            // Human-readable fallback labels for stats that may not be in statMap
-            const FALLBACK_LABELS: Record<string, string> = {
-              base_damage:  'Base Damage',
-              attack_speed: 'Attack Speed',
-              base_defense: 'Base Defense',
-              yield_min:    'Yield Min',
-              yield_max:    'Yield Max',
-            };
-
-            function getBase(stat_key: string): number | null {
-              switch (stat_key) {
-                case 'base_damage':  return item.base_damage ?? null;
-                case 'base_defense': return item.base_defense ?? null;
-                case 'yield_min':    return (item.tool_config as Record<string, number>)?.yield_min ?? null;
-                case 'yield_max':    return (item.tool_config as Record<string, number>)?.yield_max ?? null;
-                case 'attack_speed': return item.attack_speed ?? null;
-                default:             return null;
-              }
-            }
-
-            // DPS preview: only for weapons that have base_damage checked and a value
-            const showDps = item.type === 'weapon' && (item.base_damage ?? 0) > 0;
-            const baseDamage = item.base_damage ?? 0;
-            const baseSpeed  = item.attack_speed ?? 1;
-
-            if (checkedStats.length === 0) return null;
-
-            return (
-              <div className="rounded-md border border-border bg-background p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Tier scaling preview</p>
-                  <a href="/admin/tier-scaling" target="_blank"
-                     className="text-[10px] text-primary hover:underline">Edit scaling →</a>
-                </div>
-                {checkedStats.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">Check a stat above to see it previewed here.</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr>
-                          <th className="text-left text-muted-foreground font-medium pb-1 pr-3">Tier</th>
-                          {checkedStats.map(k => (
-                            <th key={k} className="text-right text-muted-foreground font-medium pb-1 px-2">
-                              {statMap[k]?.label ?? FALLBACK_LABELS[k] ?? k}
-                            </th>
-                          ))}
-                          {showDps && (
-                            <th className="text-right text-muted-foreground font-medium pb-1 px-2">DPS</th>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tierNums.map(t => {
-                          const dmgMult   = statMap['base_damage']?.tiers[t]  ?? 1.0;
-                          const spdMult   = statMap['attack_speed']?.tiers[t] ?? 1.0;
-                          const tieredDmg = baseDamage * dmgMult;
-                          const tieredSpd = baseSpeed  * spdMult;
-                          const dps       = tieredDmg  * tieredSpd;
-                          return (
-                            <tr key={t} className={t % 2 === 0 ? 'bg-card/50' : ''}>
-                              <td className="py-0.5 pr-3 text-muted-foreground">T{t}</td>
-                              {checkedStats.map(k => {
-                                const base = getBase(k);
-                                const tierEntry = statMap[k]?.tiers[t];
-                                const configured = !!statMap[k];
-                                if (!configured) {
-                                  return <td key={k} className="py-0.5 px-2 text-right text-muted-foreground italic">N/A</td>;
-                                }
-                                return (
-                                  <td key={k} className="py-0.5 px-2 text-right text-body tabular-nums">
-                                    {base != null && tierEntry != null
-                                      ? (base * tierEntry).toFixed(2).replace(/\.?0+$/, '') || '0'
-                                      : <span className="text-muted-foreground">—</span>}
-                                  </td>
-                                );
-                              })}
-                              {showDps && (
-                                <td className="py-0.5 px-2 text-right font-semibold text-body tabular-nums">
-                                  {dps.toFixed(1)}
-                                </td>
-                              )}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+          {/* Tier scaling preview — shown when item is tiered and has at least one stat checked */}
+          {item.is_tiered && item.tiered_stats.length > 0 && <TierScalingPreview
+            itemType={item.type}
+            tieredStats={item.tiered_stats}
+            baseDamage={item.base_damage}
+            baseDefense={item.base_defense}
+            baseSpeed={item.attack_speed}
+            yieldMin={(item.tool_config as Record<string, number>)?.yield_min ?? null}
+            yieldMax={(item.tool_config as Record<string, number>)?.yield_max ?? null}
+            tierScaling={tierScaling}
+            maxTier={maxTier}
+          />}
 
           {/* Save / Delete live inside the identity card */}
           <div className="flex items-center gap-3 border-t border-border pt-4">
