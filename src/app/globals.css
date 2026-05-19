@@ -98,3 +98,16 @@
     @apply font-sans;
   }
 }
+
+/* ── Tier / rarity colour utilities (use these instead of hardcoded Tailwind colours) ── */
+.text-tier-0 { color: var(--foreground); }
+.text-tier-1 { color: var(--chart-2); }   /* uncommon — green  */
+.text-tier-2 { color: var(--chart-3); }   /* rare     — blue   */
+.text-tier-3 { color: var(--chart-4); }   /* epic     — purple */
+.text-tier-4 { color: var(--chart-5); }   /* legendary — gold  */
+
+.border-tier-0 { border-color: var(--border); }
+.border-tier-1 { border-color: color-mix(in oklch, var(--chart-2) 40%, transparent); }
+.border-tier-2 { border-color: color-mix(in oklch, var(--chart-3) 40%, transparent); }
+.border-tier-3 { border-color: color-mix(in oklch, var(--chart-4) 40%, transparent); }
+.border-tier-4 { border-color: color-mix(in oklch, var(--chart-5) 40%, transparent); }

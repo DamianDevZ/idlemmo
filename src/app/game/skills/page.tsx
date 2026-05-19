@@ -2,15 +2,6 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { skillLevelUpCost, xpRequiredForLevel } from '@/lib/game/formulas';
 import { GAME_CONFIG } from '@/config/game.config';
-import {
-  RAW_RESOURCES,
-  REFINED_RESOURCES,
-  CRAFT_CATEGORIES,
-  USAGE_CATEGORIES,
-  TIER_REQ_SKILL,
-  TIER_COLORS,
-  TIER_BORDER,
-} from '@/config/crafting.config';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -18,9 +9,6 @@ import { TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PersistentTabs } from '@/components/ui/PersistentTabs';
 import AllocatePointButton from '@/components/game/AllocatePointButton';
 import AttributeSpendButton from '@/components/game/AttributeSpendButton';
-import CraftingPanel from '@/components/game/CraftingPanel';
-import GatheringPanel from '@/components/game/GatheringPanel';
-import RefiningPanel from '@/components/game/RefiningPanel';
 import type {
   DbCharacter,
   DbCharacterAttributes,
@@ -47,6 +35,16 @@ const ATTRIBUTE_META: {
   { name: 'faith',        label: 'Faith',         icon: '✨',  description: `Craft success +${GAME_CONFIG.attributes.faithCraftBonus}% and HP regen` },
   { name: 'arcane',       label: 'Arcane',        icon: '🔮',  description: `Rare item find +${GAME_CONFIG.attributes.arcaneRareFactor}% per point` },
 ];
+
+/** Emoji icon mapped by skill name — supplements DB display_name/description. */
+const SKILL_ICONS: Record<string, string> = {
+  wood_chopping: '🪵', stone_mining: '🪨', ore_mining: '⛏️',
+  herb_gathering: '🌿', fishing: '🎣', hunting: '🏹',
+  woodcutting: '🪵', stonecutting: '🪨', smelting: '🔩',
+  cooking: '🍳', tanning: '🧤',
+  carpentry: '🔨', blacksmithing: '⚒️', leatherworking: '🧶', tailoring: '🪡',
+  one_handed: '🗡️', two_handed: '⚔️', archery: '🏹', magic: '🪄', defense: '🛡️',
+};
 
 export default async function SkillsPage() {
   const supabase = await createClient();
@@ -117,8 +115,7 @@ export default async function SkillsPage() {
     };
   }
 
-  const xpPerPt       = GAME_CONFIG.skills.categoryXpPerPoint;
-  const skillLevelsObj = Object.fromEntries(skillLevelByName);
+  const xpPerPt        = GAME_CONFIG.skills.categoryXpPerPoint;
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
@@ -230,15 +227,31 @@ export default async function SkillsPage() {
               </div>
             );
           })()}
-          <GatheringPanel
-            skillLevels={skillLevelsObj}
-            allocBySkill={Object.fromEntries(
-              RAW_RESOURCES.flatMap(r => {
-                const ap = getAllocProps(r.skillName);
-                return ap ? [[r.skillName, ap]] : [];
-              })
-            )}
-          />
+          <div className="space-y-2">
+            {allSkills
+              .filter(s => catById.get(s.category_id)?.name === 'gathering')
+              .map(s => {
+                const level = skillLevelByName.get(s.name) ?? 0;
+                const ap    = getAllocProps(s.name);
+                const isMax = level >= GAME_CONFIG.skills.maxSkillLevel;
+                const cost  = ap?.cost ?? skillLevelUpCost(level);
+                return (
+                  <div key={s.name} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card">
+                    <span className="text-2xl shrink-0">{SKILL_ICONS[s.name] ?? '⚙️'}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold">{s.display_name}</p>
+                      <p className="text-xs text-muted-foreground">{s.description}</p>
+                      {!isMax && <p className="text-[11px] text-muted-foreground/70 mt-0.5">Next level: {cost} pt{cost !== 1 ? 's' : ''}</p>}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-primary font-bold tabular-nums text-sm">{level}</span>
+                      {ap && <AllocatePointButton {...ap} />}
+                      {isMax && <span className="text-[10px] text-primary/60">MAX</span>}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
         </TabsContent>
 
         {/* ─── Refining ─── */}
@@ -258,17 +271,31 @@ export default async function SkillsPage() {
               </div>
             );
           })()}
-          <RefiningPanel
-            skillLevels={skillLevelsObj}
-            allocBySkill={(() => {
-              const out: Record<string, { characterId: string; categoryId: string; skillId: string; cost: number; canAllocate: boolean }> = {};
-              for (const ref of REFINED_RESOURCES) {
-                const ap = getAllocProps(ref.skillName);
-                if (ap) out[ref.skillName] = ap;
-              }
-              return out;
-            })()}
-          />
+          <div className="space-y-2">
+            {allSkills
+              .filter(s => catById.get(s.category_id)?.name === 'refining')
+              .map(s => {
+                const level = skillLevelByName.get(s.name) ?? 0;
+                const ap    = getAllocProps(s.name);
+                const isMax = level >= GAME_CONFIG.skills.maxSkillLevel;
+                const cost  = ap?.cost ?? skillLevelUpCost(level);
+                return (
+                  <div key={s.name} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card">
+                    <span className="text-2xl shrink-0">{SKILL_ICONS[s.name] ?? '⚙️'}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold">{s.display_name}</p>
+                      <p className="text-xs text-muted-foreground">{s.description}</p>
+                      {!isMax && <p className="text-[11px] text-muted-foreground/70 mt-0.5">Next level: {cost} pt{cost !== 1 ? 's' : ''}</p>}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-primary font-bold tabular-nums text-sm">{level}</span>
+                      {ap && <AllocatePointButton {...ap} />}
+                      {isMax && <span className="text-[10px] text-primary/60">MAX</span>}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
         </TabsContent>
         {/* ─── Crafting ─── */}
         <TabsContent value="crafting" className="space-y-6">
@@ -287,19 +314,31 @@ export default async function SkillsPage() {
               </div>
             );
           })()}
-          <CraftingPanel
-            skillLevels={skillLevelsObj}
-            allocBySkill={(() => {
-              const out: Record<string, { characterId: string; categoryId: string; skillId: string; cost: number; canAllocate: boolean }> = {};
-              for (const cat of CRAFT_CATEGORIES) {
-                for (const recipe of cat.recipes) {
-                  const ap = getAllocProps(recipe.skillName);
-                  if (ap) out[recipe.skillName] = ap;
-                }
-              }
-              return out;
-            })()}
-          />
+          <div className="space-y-2">
+            {allSkills
+              .filter(s => catById.get(s.category_id)?.name === 'crafting')
+              .map(s => {
+                const level = skillLevelByName.get(s.name) ?? 0;
+                const ap    = getAllocProps(s.name);
+                const isMax = level >= GAME_CONFIG.skills.maxSkillLevel;
+                const cost  = ap?.cost ?? skillLevelUpCost(level);
+                return (
+                  <div key={s.name} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card">
+                    <span className="text-2xl shrink-0">{SKILL_ICONS[s.name] ?? '⚙️'}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold">{s.display_name}</p>
+                      <p className="text-xs text-muted-foreground">{s.description}</p>
+                      {!isMax && <p className="text-[11px] text-muted-foreground/70 mt-0.5">Next level: {cost} pt{cost !== 1 ? 's' : ''}</p>}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-primary font-bold tabular-nums text-sm">{level}</span>
+                      {ap && <AllocatePointButton {...ap} />}
+                      {isMax && <span className="text-[10px] text-primary/60">MAX</span>}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
         </TabsContent>
 
         {/* ─── Usage ─── */}
@@ -319,39 +358,31 @@ export default async function SkillsPage() {
               </div>
             );
           })()}
-          {USAGE_CATEGORIES.map(cat => (
-            <div key={cat.key} className="space-y-2">
-              <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                <span>{cat.icon}</span>{cat.label}
-              </h3>
-              <div className="space-y-2">
-                {cat.skills.map(s => {
-                  const level = skillLevelByName.get(s.skillName) ?? 0;
-                  const ap    = getAllocProps(s.skillName);
-                  const cost  = ap?.cost ?? skillLevelUpCost(level);
-                  const isMax = level >= GAME_CONFIG.skills.maxSkillLevel;
-                  return (
-                    <div key={s.skillName} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card">
-                      <span className="text-2xl shrink-0">{s.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold">{s.label}</p>
-                        <p className="text-xs text-muted-foreground">{s.description}</p>
-                        {!isMax && (
-                          <p className="text-[11px] text-muted-foreground/70 mt-0.5">
-                            Next level: {cost} pt{cost !== 1 ? 's' : ''}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-primary font-bold text-xl tabular-nums">{level}</span>
-                        {ap && <AllocatePointButton {...ap} />}
-                      </div>
+          <div className="space-y-2">
+            {allSkills
+              .filter(s => catById.get(s.category_id)?.name === 'usage')
+              .map(s => {
+                const level = skillLevelByName.get(s.name) ?? 0;
+                const ap    = getAllocProps(s.name);
+                const isMax = level >= GAME_CONFIG.skills.maxSkillLevel;
+                const cost  = ap?.cost ?? skillLevelUpCost(level);
+                return (
+                  <div key={s.name} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card">
+                    <span className="text-2xl shrink-0">{SKILL_ICONS[s.name] ?? '⚙️'}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold">{s.display_name}</p>
+                      <p className="text-xs text-muted-foreground">{s.description}</p>
+                      {!isMax && <p className="text-[11px] text-muted-foreground/70 mt-0.5">Next level: {cost} pt{cost !== 1 ? 's' : ''}</p>}
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-primary font-bold tabular-nums text-sm">{level}</span>
+                      {ap && <AllocatePointButton {...ap} />}
+                      {isMax && <span className="text-[10px] text-primary/60">MAX</span>}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
         </TabsContent>
       </PersistentTabs>
     </div>

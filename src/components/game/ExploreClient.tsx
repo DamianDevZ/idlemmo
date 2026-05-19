@@ -15,6 +15,10 @@ import type {
   DbCharacter, DbCharacterAttributes,
   DbExplorationSession, DbExplorationEvent,
 } from '@/types/game';
+import { ExploreSetupView } from './explore/ExploreSetupView';
+import { ExploreOfflineSummary } from './explore/ExploreOfflineSummary';
+import { ExploreCampsiteCard } from './explore/ExploreCampsiteCard';
+import { ExploreDecisionCard } from './explore/ExploreDecisionCard';
 
 interface ConsumableItem {
   instance_id: string;
@@ -714,60 +718,10 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
 
         {/* ── Offline catch-up summary ── */}
         {offlineSummary && (
-          <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 px-4 py-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-yellow-400">⏳ While you were away ({offlineSummary.ticksProcessed} ticks)</p>
-              <button onClick={() => setOfflineSummary(null)} className="text-xs text-muted-foreground hover:text-foreground leading-none">✕</button>
-            </div>
-            <div className="text-xs text-muted-foreground space-y-1">
-              {offlineSummary.resourcesGained.map(r => {
-                const iconPath = getResourceIconPath(r.item);
-                return (
-                  <div key={r.item} className="flex items-center gap-2">
-                    {iconPath
-                      ? <Image src={iconPath} alt={r.displayName} width={16} height={16} className="object-contain shrink-0" />
-                      : <span className="text-sm shrink-0">🌿</span>}
-                    <span>{r.quantity}× {r.displayName}</span>
-                  </div>
-                );
-              })}
-              {offlineSummary.lootGained.map(l => {
-                const iconPath = getResourceIconPath(l.item);
-                return (
-                  <div key={l.item} className="flex items-center gap-2">
-                    {iconPath
-                      ? <Image src={iconPath} alt={l.item} width={16} height={16} className="object-contain shrink-0" />
-                      : <span className="text-sm shrink-0">💎</span>}
-                    <span>{l.quantity}× {l.item.replace(/_/g, ' ')}</span>
-                  </div>
-                );
-              })}
-              {offlineSummary.enemiesKilled > 0 && (
-                <div className="flex items-center gap-2">
-                  <Image src="/icons/equipment/weapons/sword.png" alt="enemies" width={16} height={16} className="object-contain shrink-0" />
-                  <span>{offlineSummary.enemiesKilled} {offlineSummary.enemiesKilled === 1 ? 'enemy' : 'enemies'} defeated</span>
-                </div>
-              )}
-              {offlineSummary.coinsGained > 0 && (
-                <div className="flex items-center gap-2">
-                  <Image src="/icons/resources/misc/coin.png" alt="coins" width={16} height={16} className="object-contain shrink-0" />
-                  <span>{offlineSummary.coinsGained} coins found</span>
-                </div>
-              )}
-              {offlineSummary.xpGained > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm shrink-0">✨</span>
-                  <span>+{offlineSummary.xpGained} XP</span>
-                </div>
-              )}
-              {offlineSummary.hpLost > 0 && (
-                <div className="flex items-center gap-2 text-red-400">
-                  <span className="text-sm shrink-0">❤️</span>
-                  <span>−{offlineSummary.hpLost} HP taken</span>
-                </div>
-              )}
-            </div>
-          </div>
+          <ExploreOfflineSummary
+            summary={offlineSummary}
+            onDismiss={() => setOfflineSummary(null)}
+          />
         )}
 
         {/* ── Catching up spinner ── */}
@@ -795,133 +749,29 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
 
         {/* ── Campsite card ── */}
         {pendingEvent?.event_type === 'campsite_reached' && (
-          <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 px-5 py-5 space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="text-4xl">🏕️</span>
-              <div>
-                <p className="text-lg font-bold text-foreground">Campsite reached!</p>
-                <p className="text-xs text-muted-foreground">HP {currentHp}/{maxHp} · Use items, swap gear, or return home</p>
-              </div>
-            </div>
-            <Progress value={Math.min(100, (currentHp / maxHp) * 100)} className="h-2" />
-            {consumables.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Consumables</p>
-                {consumables.map(c => {
-                  if (!c.item_definitions) return null;
-                  const healAmt = (c.item_definitions.consumable_effects ?? []).find(e => e.target === 'hp')?.value ?? 0;
-                  return (
-                    <div key={c.instance_id} className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2">
-                      <span className="text-xl shrink-0">🧪</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{c.item_definitions.display_name}</p>
-                        <p className="text-xs text-muted-foreground">Heals {healAmt} HP · ×{c.quantity}</p>
-                      </div>
-                      <Button size="sm" onClick={() => handleCampsiteUseItem(c.instance_id)} disabled={currentHp >= maxHp}>
-                        Use
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            <div className="flex gap-2 flex-wrap">
-              <Button onClick={handleCampsiteContinue} disabled={pending} className="flex-1 min-w-[120px]">
-                Continue Exploring
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleOpenInventory} disabled={pending}>
-                🎒 Inventory
-              </Button>
-              <Button variant="outline" onClick={handleReturn} disabled={pending} className="flex-1 min-w-[120px]">
-                🏠 Return Home
-              </Button>
-            </div>
-          </div>
+          <ExploreCampsiteCard
+            currentHp={currentHp}
+            maxHp={maxHp}
+            consumables={consumables}
+            pending={pending}
+            onContinue={handleCampsiteContinue}
+            onUseItem={handleCampsiteUseItem}
+            onOpenInventory={handleOpenInventory}
+            onReturn={handleReturn}
+          />
         )}
 
         {/* ── Decision card (replaces progress bar while awaiting choice) ── */}
-        {pendingEvent && pendingEvent.event_type !== 'campsite_reached' && (() => {
-          const pd = (pendingEvent.data ?? {}) as Record<string, unknown>;
-          const isResource = pendingEvent.event_type === 'resource_found';
-          const displayName = isResource
-            ? String(pd.display_name ?? capitalise(String(pd.item ?? 'item')))
-            : String(pd.enemy ?? 'Enemy');
-          const icon = isResource ? getItemIcon(String(pd.item ?? '')) : '⚔️';
-
-          // ── Gather requirement check ──
-          const SKILL_LEVEL_REQ = [0, 15, 30, 50, 70];
-          const itemTier       = Number(pd.item_tier ?? 1);
-          const reqToolTier    = Number(pd.required_tool_tier ?? Math.max(0, itemTier - 1));
-          const reqSkillName   = String(pd.required_skill ?? '');
-          const reqSkillLevel  = Number(pd.required_skill_level ?? SKILL_LEVEL_REQ[itemTier - 1] ?? 0);
-          const playerSkillLv  = characterSkills[reqSkillName] ?? 0;
-
-          let collectLocked = false;
-          let lockReason = '';
-          if (isResource) {
-            if (playerToolTier < reqToolTier) {
-              collectLocked = true;
-              lockReason = `Needs Tier ${reqToolTier} tool`;
-            } else if (playerSkillLv < reqSkillLevel) {
-              collectLocked = true;
-              const skillLabel = reqSkillName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-              lockReason = `Needs ${skillLabel} lv ${reqSkillLevel}`;
-            }
-          }
-
-          return (
-            <div className="rounded-xl border border-primary/40 bg-primary/5 px-5 py-5 space-y-4">
-              <div className="flex items-center gap-3">
-                {(() => {
-                  const iconPath = isResource ? getResourceIconPath(String(pd.item ?? '')) : null;
-                  return iconPath
-                    ? <Image src={iconPath} alt={displayName} width={52} height={52} className="w-13 h-13 object-contain shrink-0" />
-                    : <span className="text-4xl">{icon}</span>;
-                })()}
-                <div>
-                  <p className="text-lg font-bold text-foreground">
-                    {isResource ? `Found ${pd.quantity}× ${displayName}!` : `${displayName} appears!`}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {isResource
-                      ? (collectLocked ? lockReason : 'Pick it up or leave it behind?')
-                      : 'Stand your ground or run?'}
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                {isResource ? (
-                  <>
-                    <Button
-                      onClick={() => handleEventAction('collect')}
-                      disabled={pending || collectLocked}
-                      className={`flex-1 h-11 text-base ${collectLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
-                    >
-                      ✓ Collect
-                    </Button>
-                    <Button variant="outline" onClick={() => handleEventAction('leave')} disabled={pending} className="flex-1 h-11 text-base">
-                      ✗ Leave
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button onClick={() => handleEventAction('fight')} disabled={pending} className="flex-1 h-11 text-base">
-                      ⚔️ Fight
-                    </Button>
-                    <Button variant="outline" onClick={() => handleEventAction('flee')} disabled={pending} className="flex-1 h-11 text-base">
-                      🏃 Flee <span className="text-xs opacity-60 ml-1">(50%)</span>
-                    </Button>
-                  </>
-                )}
-              </div>
-              {autoApprove && (
-                <p className="text-[10px] text-muted-foreground text-center">
-                  Auto-{isResource ? 'collecting' : 'fighting'}…
-                </p>
-              )}
-            </div>
-          );
-        })()}
+        {pendingEvent && pendingEvent.event_type !== 'campsite_reached' && (
+          <ExploreDecisionCard
+            event={pendingEvent}
+            characterSkills={characterSkills}
+            playerToolTier={playerToolTier}
+            pending={pending}
+            autoApprove={autoApprove}
+            onAction={handleEventAction}
+          />
+        )}
 
         {/* ── Last event (shown after decision resolves) ── */}
         {!pendingEvent && current ? (
@@ -1019,137 +869,21 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
 
   // ── Setup view ─────────────────────────────────────────────────────────────
   return (
-    <div className="p-4 md:p-6 space-y-5 max-w-2xl mx-auto">
-      <div>
-        <h2 className="text-2xl font-bold text-primary">Explore</h2>
-        <p className="text-muted-foreground text-sm">Choose a location and set out. The game runs automatically.</p>
-      </div>
-
-      {/* Death overlay — shown when character HP hits 0 during exploration */}
-      {deathInfo && (
-        <div className="rounded-xl border-2 border-red-500/50 bg-red-500/10 px-5 py-5 space-y-3 text-center">
-          <p className="text-3xl">💀</p>
-          <h3 className="text-lg font-bold text-red-400">You died</h3>
-          <p className="text-sm text-muted-foreground">
-            You have been revived at full HP — but everything you were carrying is gone.
-            Items safely stored in your stash are untouched.
-          </p>
-          {deathInfo.droppedItems.length > 0 && (
-            <div className="text-xs text-red-300/80 space-y-0.5">
-              <p className="font-semibold text-red-400 mb-1">Items lost:</p>
-              {deathInfo.droppedItems.map((i, idx) => (
-                <p key={idx}>{i.quantity}× {i.name}</p>
-              ))}
-            </div>
-          )}
-          <button
-            onClick={() => setDeathInfo(null)}
-            className="mt-2 text-xs text-muted-foreground hover:text-body underline"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-md bg-destructive/10 border border-destructive/30 px-3 py-2 text-sm text-destructive">
-          {error}
-        </div>
-      )}
-
-      {/* Area cards */}
-      {areas.length === 0 ? (
-        <p className="text-sm text-muted-foreground italic">No areas have been configured yet.</p>
-      ) : (
-        <div className="space-y-3">
-          {areas.map(area => {
-            const isSelected = selectedArea === area.id;
-            const tiers = areaTiers[area.id] ?? [];
-            return (
-              <div
-                key={area.id}
-                className={`rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
-                  isSelected ? 'border-primary' : 'border-border hover:border-primary/40'
-                }`}
-                onClick={() => { setSelectedArea(area.id); setSelectedTier(tiers[0] ?? 1); }}
-              >
-                {/* Image banner with text overlay */}
-                <div className="relative">
-                  {area.image_url
-                    ? <img src={area.image_url} alt="" className="w-full block" />
-                    : <div className="w-full bg-gradient-to-r from-primary/20 to-accent/30" style={{ paddingBottom: '40%' }} />
-                  }
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                  <div className="absolute inset-0 px-4 py-3 flex items-end">
-                    <span className="text-3xl mr-3 leading-none drop-shadow">{area.icon}</span>
-                    <div>
-                      <h3 className="font-bold text-white text-lg leading-tight drop-shadow">{area.display_name}</h3>
-                      {area.description && (
-                        <p className="text-sm text-white/75 line-clamp-1 drop-shadow">{area.description}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Expanded: tier picker (only when selected) */}
-                {isSelected && (
-                  <div className="bg-card p-3 space-y-3" onClick={e => e.stopPropagation()}>
-                    {tiers.length > 0 ? (
-                      <div className="grid grid-cols-5 gap-2">
-                        {tiers.map(t => {
-                          const active = selectedTier === t;
-                          return (
-                            <button
-                              key={t}
-                              onClick={() => setSelectedTier(t)}
-                              className={`rounded-md border p-2.5 text-center transition-colors text-xs min-h-[60px] ${
-                                active
-                                  ? 'border-primary bg-primary/10 text-primary'
-                                  : 'border-border hover:border-primary/50 text-foreground'
-                              }`}
-                            >
-                              <div className="font-semibold">T{t}</div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground italic py-1">This area is not yet available for exploration.</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Retreat HP */}
-      <div className="space-y-2">
-        <div className="flex justify-between">
-          <p className="text-sm font-medium">Auto-retreat at</p>
-          <span className="text-sm text-primary font-bold">{retreatHp}% HP</span>
-        </div>
-        <input
-          type="range" min={0} max={80} step={5}
-          value={retreatHp}
-          onChange={e => setRetreatHp(Number(e.target.value))}
-          className="w-full accent-primary"
-        />
-        <p className="text-xs text-muted-foreground">
-          Set to 0 to never auto-retreat. Higher values mean safer but shorter runs.
-        </p>
-      </div>
-
-      {/* Start button */}
-      <Button
-        className="w-full"
-        size="lg"
-        onClick={handleStart}
-        disabled={pending || !selectedArea || tiersForSelected.length === 0}
-      >
-        {pending ? 'Starting…' : '⚔️ Begin Exploration'}
-      </Button>
-    </div>
+    <ExploreSetupView
+      areas={areas}
+      areaTiers={areaTiers}
+      selectedArea={selectedArea}
+      onSelectArea={(id, firstTier) => { setSelectedArea(id); setSelectedTier(firstTier); }}
+      selectedTier={selectedTier}
+      onSelectTier={setSelectedTier}
+      retreatHp={retreatHp}
+      onRetreatHpChange={setRetreatHp}
+      pending={pending}
+      tiersForSelected={tiersForSelected}
+      onStart={handleStart}
+      error={error}
+      deathInfo={deathInfo}
+      onDismissDeath={() => setDeathInfo(null)}
+    />
   );
 }
