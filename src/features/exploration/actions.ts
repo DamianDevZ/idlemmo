@@ -12,6 +12,8 @@ export type ExploreAction = 'collect' | 'leave' | 'fight' | 'flee' | 'campsite_c
 export interface ActOnEventResult {
   ok: boolean;
   autoRetreat?: boolean;
+  died?: boolean;
+  droppedItems?: Array<{ name: string; quantity: number }>;
   combatResult?: {
     victory: boolean;
     hpLost: number;
@@ -19,6 +21,8 @@ export interface ActOnEventResult {
     newHp: number;
     fleeSuccess?: boolean;
     lootDrops?: Array<{ item: string; quantity: number }>;
+    ultimateFired?: { name: string; bonusDamage: number } | null;
+    newRage?: number;
   };
 }
 
@@ -223,7 +227,7 @@ export async function actOnExploreEvent(
   // ── Fight / Flee ───────────────────────────────────────────────────────────
   const { data: session } = await supabase
     .from('exploration_sessions')
-    .select('id, retreat_hp_threshold')
+    .select('id, retreat_hp_threshold, current_rage')
     .eq('id', sessionId)
     .eq('character_id', characterId)
     .single();
@@ -272,14 +276,14 @@ export async function actOnExploreEvent(
     const enemyDmgRaw  = Math.max(1, enemyAtkBase * Math.random());
     const enemyDmg     = applyDefense(enemyDmgRaw, armorRating);
     const rounds    = Math.ceil(enemyHp / playerDmg);
-    hpLost  = Math.min(character.current_hp - 1, Math.floor(rounds * enemyDmg * 0.4));
+    // HP is no longer clamped to 1 — let it reach 0 so death can trigger
+    hpLost  = Math.floor(rounds * enemyDmg * 0.4);
     victory = playerDmg * rounds >= enemyHp;
     // Prefer xp_reward stored in event data (from enemy_types), fall back to formula
     xpGained = victory ? Number(d.xp_reward ?? (XP.combatBaseXp + level * XP.combatXpPerLevel)) : 0;
   }
 
-  // Roll loot drops from the enemy's loot_table stored in event data.
-  // Each entry has a weight-out-of-10 drop chance (e.g. weight=8 → 80% to drop).
+  // Loot drops only happen on victory
   type LootEntry = { item: string; min: number; max: number; weight: number };
   const lootTable = (d.loot_table as LootEntry[] | undefined) ?? [];
   const lootDrops: Array<{ item: string; quantity: number }> = [];
@@ -298,7 +302,98 @@ export async function actOnExploreEvent(
     }
   }
 
-  const newHp = Math.max(1, character.current_hp - hpLost);
+  // ── Rage meter ────────────────────────────────────────────────────────────
+  // Rage accumulates each time the player takes damage. At 100 the bound
+  // ultimate fires automatically and rage resets to 0.
+  const { exploration: EXP_CFG } = await getGameConfig();
+  let newRage = (session.current_rage as number) + (hpLost > 0 ? EXP_CFG.ragePerHit : 0);
+  let ultimateFired: { name: string; bonusDamage: number } | null = null;
+
+  if (newRage >= 100 && !victory) {
+    // Check for a bound ultimate whose rage_cost is met
+    const { data: boundUltimate } = await supabase
+      .from('character_special_attacks')
+      .select('scroll_id, special_attack_scrolls(rage_cost, components, item_definitions(display_name))')
+      .eq('character_id', characterId)
+      .not('bound_instance_id', 'is', null)
+      .maybeSingle();
+
+    type UltimateRow = {
+      scroll_id: string;
+      special_attack_scrolls: {
+        rage_cost: number;
+        components: Array<{ damage_type: string; percent_of_base: number }>;
+        item_definitions: { display_name: string } | null;
+      } | null;
+    };
+    const ult = boundUltimate as UltimateRow | null;
+    const scroll = ult?.special_attack_scrolls;
+    if (scroll && newRage >= scroll.rage_cost) {
+      // Each component contributes percent_of_base × weapon base damage
+      const bonusDamage = Math.floor(
+        scroll.components.reduce((sum, c) => sum + weaponDmgBase * c.percent_of_base, 0)
+      );
+      ultimateFired = {
+        name: scroll.item_definitions?.display_name ?? 'Ultimate',
+        bonusDamage,
+      };
+      newRage = 0; // reset after firing
+    }
+  }
+
+  newRage = Math.min(100, newRage);
+  await supabase
+    .from('exploration_sessions')
+    .update({ current_rage: newRage })
+    .eq('id', session.id);
+
+  const rawNewHp = character.current_hp - hpLost;
+  // ── Death check ────────────────────────────────────────────────────────────
+  if (rawNewHp <= 0) {
+    // Find all non-equipped inventory items and remove them (items in stash are safe)
+    const { data: invItems } = await supabase
+      .from('character_inventory')
+      .select('instance_id, item_id, quantity, item_definitions(display_name)')
+      .eq('character_id', characterId)
+      .is('equipped_slot', null);
+
+    type InvItem = { instance_id: string; item_id: string; quantity: number; item_definitions: { display_name: string } | null };
+    const dropped = ((invItems ?? []) as unknown as InvItem[]).map(i => ({
+      name: i.item_definitions?.display_name ?? i.item_id,
+      quantity: i.quantity,
+    }));
+
+    if ((invItems ?? []).length > 0) {
+      await supabase
+        .from('character_inventory')
+        .delete()
+        .eq('character_id', characterId)
+        .is('equipped_slot', null);
+    }
+
+    // Respawn at full HP
+    await supabase
+      .from('characters')
+      .update({ current_hp: maxHp, last_regen_at: new Date().toISOString() })
+      .eq('id', characterId);
+
+    await supabase
+      .from('exploration_sessions')
+      .update({ status: 'completed', current_rage: 0 })
+      .eq('id', session.id);
+
+    await supabase.from('exploration_events').insert({
+      session_id:   sessionId,
+      character_id: characterId,
+      event_type:   'character_died',
+      data:         { enemy: d.enemy, dropped },
+    });
+
+    revalidatePath('/game');
+    return { ok: true, died: true, droppedItems: dropped, combatResult: { victory: false, hpLost, xpGained: 0, newHp: maxHp, fleeSuccess: false, lootDrops: [] } };
+  }
+
+  const newHp = rawNewHp;
 
   if (hpLost > 0) {
     await supabase.from('characters').update({ current_hp: newHp }).eq('id', characterId);
@@ -319,7 +414,7 @@ export async function actOnExploreEvent(
     event_type:   action === 'flee' ? 'flee_result' : 'combat_result',
     data: action === 'flee'
       ? { enemy: d.enemy, fleeSuccess, hpLost, newHp }
-      : { enemy: d.enemy, level, victory, hpLost, xpGained, newHp, lootDrops },
+      : { enemy: d.enemy, level, victory, hpLost, xpGained, newHp, lootDrops, ultimateFired, newRage },
   });
 
   // Check auto-retreat threshold
@@ -340,7 +435,7 @@ export async function actOnExploreEvent(
     return { ok: true, autoRetreat: true, combatResult: { victory, hpLost, xpGained, newHp, fleeSuccess, lootDrops } };
   }
 
-  return { ok: true, combatResult: { victory, hpLost, xpGained, newHp, fleeSuccess, lootDrops } };
+  return { ok: true, combatResult: { victory, hpLost, xpGained, newHp, fleeSuccess, lootDrops, ultimateFired, newRage } };
 }
 
 /** Update collect preference for an item type in the active session. */

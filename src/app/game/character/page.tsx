@@ -6,6 +6,7 @@ import { GAME_CONFIG } from '@/config/game.config';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { EquipmentPanel } from '@/components/game/EquipmentPanel';
+import UltimatePanelClient from '@/components/game/UltimatePanelClient';
 import type { EquippedData, EquipItemData } from '@/components/game/EquipmentPanel';
 import type { DbCharacter, DbCharacterAttributes, AttributeName } from '@/types/game';
 
@@ -56,20 +57,31 @@ export default async function CharacterPage() {
   // ── Equipment data ──────────────────────────────────────────────────────────
   const EQUIP_TYPES = ['weapon', 'armor', 'tool'];
 
-  const [{ data: rawInv }, { data: rawStash }] = await Promise.all([
+  const [{ data: rawInv }, { data: rawStash }, { data: rawBoundUltimate }, { data: rawScrollsInInv }] = await Promise.all([
     supabase
       .from('character_inventory')
-      .select('item_id, quantity, equipped_slot, item_definitions(id, name, display_name, type, stats, base_damage, base_defense, equipment_tier)')
+      .select('item_id, instance_id, quantity, equipped_slot, item_definitions(id, name, display_name, type, stats, base_damage, base_defense, equipment_tier)')
       .eq('character_id', character.id),
     supabase
       .from('character_stash')
       .select('item_id, quantity, item_definitions(id, name, display_name, type, stats, base_damage, base_defense, equipment_tier)')
       .eq('character_id', character.id),
+    supabase
+      .from('character_special_attacks')
+      .select('id, scroll_id, bound_instance_id, special_attack_scrolls(id, rage_cost, item_definitions(id, display_name, name))')
+      .eq('character_id', character.id)
+      .not('bound_instance_id', 'is', null)
+      .maybeSingle(),
+    supabase
+      .from('character_inventory')
+      .select('instance_id, item_id, item_definitions(id, name, display_name, compatible_weapon_type_ids)')
+      .eq('character_id', character.id)
+      .is('equipped_slot', null),
   ]);
 
   type RawItemDef = { id: string; name: string; display_name: string; type: string; stats: Record<string, number>; base_damage: number | null; base_defense: number | null; equipment_tier: number | null };
   type RawInvRow = {
-    item_id: string; quantity: number; equipped_slot: string | null;
+    item_id: string; instance_id: string; quantity: number; equipped_slot: string | null;
     item_definitions: RawItemDef | null;
   };
   type RawStashRow = {
@@ -77,8 +89,37 @@ export default async function CharacterPage() {
     item_definitions: RawItemDef | null;
   };
 
+  type BoundUltimateRow = {
+    id: string; scroll_id: string; bound_instance_id: string | null;
+    special_attack_scrolls: {
+      id: string; rage_cost: number;
+      item_definitions: { id: string; display_name: string; name: string } | null;
+    } | null;
+  };
+
+  type ScrollInInvRow = {
+    instance_id: string; item_id: string;
+    item_definitions: { id: string; name: string; display_name: string; compatible_weapon_type_ids: string[] | null } | null;
+  };
+
   const invRows   = (rawInv   ?? []) as unknown as RawInvRow[];
   const stashRows = (rawStash ?? []) as unknown as RawStashRow[];
+  const boundUltimate = rawBoundUltimate as unknown as BoundUltimateRow | null;
+  const scrollsInInv  = ((rawScrollsInInv ?? []) as unknown as ScrollInInvRow[])
+    .filter(r => r.item_definitions != null);
+
+  // Equipped weapon for bind UI
+  const equippedWeaponRow = invRows.find(r => r.equipped_slot === 'weapon' && r.item_definitions?.type === 'weapon');
+
+  // Special-attack scrolls in inventory (for the bind panel)
+  const ultimateScrolls = scrollsInInv
+    .filter(r => r.item_definitions != null)
+    .map(r => ({
+      instanceId:   r.instance_id,
+      itemId:       r.item_id,
+      displayName:  r.item_definitions!.display_name,
+      compatibleWeaponTypeIds: r.item_definitions!.compatible_weapon_type_ids ?? [],
+    }));
 
   // Currently equipped items
   const equippedItems: EquippedData[] = invRows
@@ -150,6 +191,21 @@ export default async function CharacterPage() {
           />
         </CardContent>
       </Card>
+
+      {/* Ultimate / Special Attack binding */}
+      <UltimatePanelClient
+        characterId={character.id}
+        boundUltimate={boundUltimate ? {
+          scrollId:    boundUltimate.scroll_id,
+          name:        boundUltimate.special_attack_scrolls?.item_definitions?.display_name ?? 'Unknown',
+          rageCost:    boundUltimate.special_attack_scrolls?.rage_cost ?? 100,
+        } : null}
+        scrollsInInventory={ultimateScrolls}
+        equippedWeapon={equippedWeaponRow ? {
+          instanceId:  equippedWeaponRow.instance_id,
+          displayName: equippedWeaponRow.item_definitions?.display_name ?? 'Weapon',
+        } : null}
+      />
 
       {/* Attributes */}
       <Card>

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { GAME_CONFIG } from '@/config/game.config';
 import GameNav from '@/components/game/GameNav';
 import { AnalyticsBeacon } from '@/components/game/AnalyticsBeacon';
+import { applyPassiveRegen } from '@/features/character/regen-action';
 
 export default async function GameLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -27,6 +28,11 @@ export default async function GameLayout({ children }: { children: React.ReactNo
     .eq('character_id', character!.id)
     .single();
 
+  // Apply passive regen — updates DB and returns current HP post-regen so the
+  // nav shows the correct value without an extra round-trip.
+  const regenHp = await applyPassiveRegen(character!.id);
+  const displayHp = regenHp ?? character!.current_hp;
+
   const maxHp = GAME_CONFIG.attributes.baseHp +
     (attrs?.vigor ?? GAME_CONFIG.character.startingAttributeValue) * GAME_CONFIG.attributes.hpPerVigor;
 
@@ -34,7 +40,7 @@ export default async function GameLayout({ children }: { children: React.ReactNo
     <div className="flex h-screen overflow-hidden">
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-44 flex-col shrink-0 border-r border-border bg-card">
-        <GameNav character={{ ...character!, maxHp }} />
+        <GameNav character={{ ...character!, current_hp: displayHp, maxHp }} />
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -48,10 +54,10 @@ export default async function GameLayout({ children }: { children: React.ReactNo
               <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
                 <div
                   className="h-full rounded-full bg-red-500/70"
-                  style={{ width: `${Math.round((character!.current_hp / maxHp) * 100)}%` }}
+                  style={{ width: `${Math.round((displayHp / maxHp) * 100)}%` }}
                 />
               </div>
-              <span className="text-[10px] text-muted-foreground tabular-nums">{character!.current_hp}/{maxHp}</span>
+              <span className="text-[10px] text-muted-foreground tabular-nums">{displayHp}/{maxHp}</span>
             </div>
           </div>
         </header>
@@ -65,7 +71,7 @@ export default async function GameLayout({ children }: { children: React.ReactNo
 
       {/* Mobile bottom nav */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 border-t border-border bg-card/95 backdrop-blur-sm z-40">
-        <GameNav character={{ ...character!, maxHp }} mobile />
+        <GameNav character={{ ...character!, current_hp: displayHp, maxHp }} mobile />
       </nav>
     </div>
   );

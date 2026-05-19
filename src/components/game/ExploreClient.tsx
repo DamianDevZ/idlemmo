@@ -110,6 +110,7 @@ function formatEvent(ev: DbExplorationEvent): EventDisplay {
       const lootStr = loot?.length
         ? loot.map(l => `${l.quantity}× ${l.item.replace(/_/g, ' ')}`).join(', ')
         : null;
+      const ult = d.ultimateFired as { name: string; bonusDamage: number } | undefined;
       return {
         icon: d.victory ? '⚔️' : '💀',
         title: d.victory ? `Defeated ${d.enemy}` : `Lost to ${d.enemy}`,
@@ -117,8 +118,20 @@ function formatEvent(ev: DbExplorationEvent): EventDisplay {
           d.hpLost ? `−${d.hpLost} HP` : null,
           d.xpGained ? `+${d.xpGained} XP` : null,
           lootStr,
+          ult ? `✨ ${ult.name} +${ult.bonusDamage} dmg` : null,
         ].filter(Boolean).join(' · ') || undefined,
         accent: d.victory ? 'blue' : 'red',
+      };
+    }
+    case 'character_died': {
+      const dropped = d.dropped as Array<{ name: string; quantity: number }> | undefined;
+      return {
+        icon: '💀',
+        title: `Killed by ${d.enemy} — you died`,
+        subtitle: dropped?.length
+          ? `Lost: ${dropped.map(i => `${i.quantity}× ${i.name}`).join(', ')}`
+          : 'Lost all carried items',
+        accent: 'red',
       };
     }
     case 'flee_result':
@@ -202,6 +215,8 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
   const [error, setError] = useState('');
 
   const [currentHp, setCurrentHp] = useState(character.current_hp);
+  const [currentRage, setCurrentRage] = useState((initialSession as (typeof initialSession & { current_rage?: number }) | null)?.current_rage ?? 0);
+  const [deathInfo, setDeathInfo] = useState<{ droppedItems: Array<{ name: string; quantity: number }> } | null>(null);
   const [consumables, setConsumables] = useState<ConsumableItem[]>(initialConsumables);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [inventoryItems, setInventoryItems] = useState<Awaited<ReturnType<typeof getExploreInventory>>>([]);
@@ -314,11 +329,13 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
             const cr = result.combatResult;
             const d  = (ev.data ?? {}) as Record<string, unknown>;
             if (cr.newHp != null) setCurrentHp(cr.newHp);
+            if (cr.newRage != null) setCurrentRage(cr.newRage as number);
+            if (result.died) { setDeathInfo({ droppedItems: result.droppedItems ?? [] }); setActiveSession(null); return; }
             setEvents(prev => [{
               id: crypto.randomUUID(), session_id: session.id, character_id: character.id,
               event_type: 'combat_result',
               data: { enemy: d.enemy, level: d.level, victory: cr.victory,
-                      hpLost: cr.hpLost, xpGained: cr.xpGained, newHp: cr.newHp, lootDrops: cr.lootDrops },
+                      hpLost: cr.hpLost, xpGained: cr.xpGained, newHp: cr.newHp, lootDrops: cr.lootDrops, ultimateFired: cr.ultimateFired },
               occurred_at: new Date().toISOString(), acknowledged_at: null,
             } as DbExplorationEvent, ...prev].slice(0, 50));
           }
@@ -553,6 +570,13 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
           const cr = result.combatResult;
           const d  = (captured.data ?? {}) as Record<string, unknown>;
           if (cr.newHp != null) setCurrentHp(cr.newHp);
+          if ((cr as Record<string, unknown>).newRage != null) setCurrentRage((cr as Record<string, unknown>).newRage as number);
+          if (result.died) {
+            setDeathInfo({ droppedItems: result.droppedItems ?? [] });
+            setActiveSession(null);
+            setPendingEvent(null);
+            return;
+          }
           const synthetic: DbExplorationEvent = {
             id: crypto.randomUUID(),
             session_id:   sessionId,
@@ -560,7 +584,7 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
             event_type:   action === 'flee' ? 'flee_result' : 'combat_result',
             data: action === 'flee'
               ? { enemy: d.enemy, fleeSuccess: cr.fleeSuccess, hpLost: cr.hpLost, newHp: cr.newHp }
-              : { enemy: d.enemy, level: d.level, victory: cr.victory, hpLost: cr.hpLost, xpGained: cr.xpGained, newHp: cr.newHp, lootDrops: cr.lootDrops },
+              : { enemy: d.enemy, level: d.level, victory: cr.victory, hpLost: cr.hpLost, xpGained: cr.xpGained, newHp: cr.newHp, lootDrops: cr.lootDrops, ultimateFired: (cr as Record<string, unknown>).ultimateFired },
             occurred_at:     new Date().toISOString(),
             acknowledged_at: null,
           };
@@ -671,6 +695,21 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
             value={Math.min(100, (currentHp / maxHp) * 100)}
             className="h-1.5"
           />
+          {/* Rage meter — only show if player has dealt or received combat hits */}
+          {currentRage > 0 && (
+            <div className="space-y-1 pt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-orange-400 font-semibold uppercase tracking-widest">⚡ Rage</span>
+                <span className="text-[10px] text-orange-400 tabular-nums">{currentRage}/100</span>
+              </div>
+              <div className="w-full h-1 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-orange-500 transition-all duration-300"
+                  style={{ width: `${currentRage}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Offline catch-up summary ── */}
@@ -985,6 +1024,32 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
         <h2 className="text-2xl font-bold text-primary">Explore</h2>
         <p className="text-muted-foreground text-sm">Choose a location and set out. The game runs automatically.</p>
       </div>
+
+      {/* Death overlay — shown when character HP hits 0 during exploration */}
+      {deathInfo && (
+        <div className="rounded-xl border-2 border-red-500/50 bg-red-500/10 px-5 py-5 space-y-3 text-center">
+          <p className="text-3xl">💀</p>
+          <h3 className="text-lg font-bold text-red-400">You died</h3>
+          <p className="text-sm text-muted-foreground">
+            You have been revived at full HP — but everything you were carrying is gone.
+            Items safely stored in your stash are untouched.
+          </p>
+          {deathInfo.droppedItems.length > 0 && (
+            <div className="text-xs text-red-300/80 space-y-0.5">
+              <p className="font-semibold text-red-400 mb-1">Items lost:</p>
+              {deathInfo.droppedItems.map((i, idx) => (
+                <p key={idx}>{i.quantity}× {i.name}</p>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={() => setDeathInfo(null)}
+            className="mt-2 text-xs text-muted-foreground hover:text-body underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-md bg-destructive/10 border border-destructive/30 px-3 py-2 text-sm text-destructive">

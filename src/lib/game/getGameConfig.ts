@@ -73,6 +73,7 @@ export const getGameConfig = unstable_cache(
         collectPromptTimeoutSeconds:  v('collect_prompt_timeout',  G.exploration.collectPromptTimeoutSeconds),
         playerEncounterTimeoutSeconds:G.exploration.playerEncounterTimeoutSeconds,
         campsiteEveryTicks:           v('campsite_every_ticks',    G.exploration.campsiteEveryTicks),
+        ragePerHit:                   v('rage_per_hit',            20),
         focusMultipliers: {
           resources: {
             resource: v('focus_res_resource', G.exploration.focusMultipliers.resources.resource),

@@ -59,6 +59,7 @@ export type EventType =
   | 'enemy_encountered'
   | 'combat_result'
   | 'flee_result'
+  | 'character_died'
   | 'player_encountered'
   | 'treasure_found'
   | 'recipe_found'

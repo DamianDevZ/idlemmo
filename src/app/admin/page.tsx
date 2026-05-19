@@ -50,6 +50,7 @@ export default async function AdminDashboard() {
         <QuickLink href="/admin/items" icon="⚔️" label="Manage Items" desc="Add or edit weapons, armor, tools, consumables" />
         <QuickLink href="/admin/enemies" icon="👹" label="Manage Enemies" desc="Configure mobs, loot tables, armor presets" />
         <QuickLink href="/admin/players" icon="👥" label="Player Ledger" desc="View players, edit inventories, support tickets" />
+        <QuickLink href="/admin/skills" icon="🎯" label="Skills" desc="Edit display names and descriptions for all skills" />
       </div>
     </div>
   );
