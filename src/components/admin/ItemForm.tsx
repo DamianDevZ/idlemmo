@@ -1016,6 +1016,19 @@ export function ItemForm({
                         + Add
                       </button>
                     </div>
+
+                    {/* Propagate button — above the ingredient list, only for tiered items with ingredients and tiers above */}
+                    {item.is_tiered && activeRecipeTier < maxTier && recipe.ingredients.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={propagateFromCurrentTier}
+                        className="w-full py-1.5 text-xs rounded border border-dashed border-primary/50 text-primary hover:bg-primary/10 hover:border-primary transition-colors"
+                      >
+                        ↑ Apply T{activeRecipeTier} pattern to T{activeRecipeTier + 1}–T{maxTier}
+                        <span className="ml-1 text-muted-foreground">(ingredient tiers shift up)</span>
+                      </button>
+                    )}
+
                     {recipe.ingredients.length === 0 && (
                       <p className="text-xs text-muted-foreground italic">No ingredients yet.</p>
                     )}
@@ -1054,18 +1067,6 @@ export function ItemForm({
                         </div>
                       );
                     })}
-
-                    {/* Propagate button — only for tiered items with ingredients and tiers above */}
-                    {item.is_tiered && activeRecipeTier < maxTier && recipe.ingredients.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={propagateFromCurrentTier}
-                        className="mt-2 w-full py-1.5 text-xs rounded border border-dashed border-primary/50 text-primary hover:bg-primary/10 hover:border-primary transition-colors"
-                      >
-                        ↑ Apply T{activeRecipeTier} pattern to T{activeRecipeTier + 1}–T{maxTier}
-                        <span className="ml-1 text-muted-foreground">(ingredient tiers shift up)</span>
-                      </button>
-                    )}
                   </div>
                 </div>
               )}
