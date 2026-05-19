@@ -402,8 +402,49 @@ export function ItemForm({
     }
   }
 
-  // Copies the active tier's recipe to every tier above, incrementing ingredient tiers by delta
-  function propagateFromCurrentTier() {
+  // Copies the active tier's recipe to every tier above — same ingredient tiers verbatim
+  function duplicateToFollowing() {
+    if (!recipe) return;
+    const src = activeRecipeTier;
+    setTierRecipes(prev => {
+      const next = { ...prev };
+      for (let t = src + 1; t <= maxTier; t++) {
+        next[t] = {
+          ...recipe,
+          id: prev[t]?.id,
+          output_tier: t,
+          // ingredient tiers stay exactly as-is
+          ingredients: recipe.ingredients.map(ing => ({ ...ing })),
+        };
+      }
+      return next;
+    });
+  }
+
+  // Copies the active tier's recipe to every tier above — ingredient tiers are set to match the target tier
+  function matchToTier() {
+    if (!recipe) return;
+    const src = activeRecipeTier;
+    setTierRecipes(prev => {
+      const next = { ...prev };
+      for (let t = src + 1; t <= maxTier; t++) {
+        next[t] = {
+          ...recipe,
+          id: prev[t]?.id,
+          output_tier: t,
+          // each ingredient's tier becomes the destination tier
+          ingredients: recipe.ingredients.map(ing => ({
+            ...ing,
+            tier: ing.tier != null ? t : null,
+          })),
+        };
+      }
+      return next;
+    });
+  }
+
+  // Copies the active tier's recipe to every tier above — ingredient tiers increase by +1 per tier step
+  function increasePerTier() {
     if (!recipe) return;
     const src = activeRecipeTier;
     setTierRecipes(prev => {
@@ -412,7 +453,7 @@ export function ItemForm({
         const delta = t - src;
         next[t] = {
           ...recipe,
-          id: prev[t]?.id,          // preserve existing DB id if already saved
+          id: prev[t]?.id,
           output_tier: t,
           ingredients: recipe.ingredients.map(ing => ({
             ...ing,
@@ -1044,16 +1085,42 @@ export function ItemForm({
                       </button>
                     </div>
 
-                    {/* Propagate button — above the ingredient list, only for tiered items with ingredients and tiers above */}
+                    {/* Fill-down buttons — only for tiered items with ingredients and tiers above */}
                     {item.is_tiered && activeRecipeTier < maxTier && recipe.ingredients.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={propagateFromCurrentTier}
-                        className="w-full py-1.5 text-xs rounded border border-dashed border-primary/50 text-primary hover:bg-primary/10 hover:border-primary transition-colors"
-                      >
-                        ↑ Apply T{activeRecipeTier} pattern to T{activeRecipeTier + 1}–T{maxTier}
-                        <span className="ml-1 text-muted-foreground">(ingredient tiers shift up)</span>
-                      </button>
+                      <div className="flex flex-col gap-1.5">
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                          Fill T{activeRecipeTier + 1}–T{maxTier} from this tier:
+                        </p>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <button
+                            type="button"
+                            onClick={duplicateToFollowing}
+                            className="py-1.5 text-xs rounded border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
+                            title={`Copy T${activeRecipeTier} recipe exactly — all ingredient tiers stay the same`}
+                          >
+                            📋 Duplicate
+                            <span className="block text-[10px] leading-tight opacity-70">same ingredient tiers</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={matchToTier}
+                            className="py-1.5 text-xs rounded border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
+                            title={`Each following tier sets all ingredient tiers to match that tier number`}
+                          >
+                            🎯 Match to tier
+                            <span className="block text-[10px] leading-tight opacity-70">ingredients → T{'{n}'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={increasePerTier}
+                            className="py-1.5 text-xs rounded border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
+                            title={`Ingredient tiers go up +1 for each step above T${activeRecipeTier}`}
+                          >
+                            📈 Increase per tier
+                            <span className="block text-[10px] leading-tight opacity-70">+1 tier each step</span>
+                          </button>
+                        </div>
+                      </div>
                     )}
 
                     {recipe.ingredients.length === 0 && (

@@ -5,7 +5,7 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 type Enemy = { id: string; name: string; display_name: string; icon: string; sort_order: number };
-type Area  = { id: string; display_name: string; icon: string; tier: number };
+type Area  = { id: string; display_name: string; icon: string };
 
 function EnemyTable({ enemies, areaId }: { enemies: Enemy[]; areaId?: string }) {
   if (enemies.length === 0) {
@@ -44,7 +44,7 @@ export default async function AdminEnemiesPage() {
 
   const [enemiesResult, areasResult, assignmentsResult] = await Promise.all([
     db.from('enemies').select('id, name, display_name, icon, sort_order').order('sort_order').order('display_name'),
-    db.from('areas').select('id, display_name, icon, tier').order('sort_order').order('display_name'),
+    db.from('areas').select('id, display_name, icon').order('sort_order').order('display_name'),
     db.from('area_tier_enemies').select('area_id, enemy_id'),
   ]);
 
@@ -93,7 +93,6 @@ export default async function AdminEnemiesPage() {
             <div className="flex items-center gap-2">
               <span className="text-lg">{area.icon}</span>
               <span className="font-semibold text-heading">{area.display_name}</span>
-              <span className="text-xs text-muted-foreground">T{area.tier}</span>
             </div>
             <div className="flex items-center gap-3">
               <span className="text-xs text-muted-foreground">{enemiesByArea[area.id]?.length ?? 0} enemies</span>
