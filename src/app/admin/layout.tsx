@@ -10,6 +10,7 @@ const NAV = [
   { href: '/admin/tier-scaling',  label: '📈  Tier Scaling' },
   { href: '/admin/world',         label: '🗺️  World' },
   { href: '/admin/enemies',       label: '👹 Enemies' },
+  { href: '/admin/skills',        label: '🎯 Skills' },
   { href: '/admin/formulas',    label: '⚙️  Formulas & Config' },
   { label: '── Players ──',     href: null },
   { href: '/admin/players',     label: '👥 Ledger' },

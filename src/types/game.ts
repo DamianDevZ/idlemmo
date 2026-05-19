@@ -215,6 +215,7 @@ export interface DbExplorationSession {
   last_tick_at: string;
   ends_at: string | null;
   retreat_hp_threshold: number;
+  current_rage: number;
   /** JSON: { [itemId]: CollectPreference } */
   collect_preferences: Record<string, CollectPreference>;
   status: ExplorationStatus;

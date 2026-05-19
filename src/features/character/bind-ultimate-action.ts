@@ -12,7 +12,7 @@ export async function bindUltimate(
   characterId: string,
   scrollItemId: string,       // item_definitions.id of the special_attack item
   weaponInstanceId: string,   // character_inventory.instance_id of the equipped weapon
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; scrollId?: string; error?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Not authenticated' };
@@ -95,7 +95,7 @@ export async function bindUltimate(
     );
   if (bindErr) return { ok: false, error: bindErr.message };
 
-  return { ok: true };
+  return { ok: true, scrollId };
 }
 
 /**

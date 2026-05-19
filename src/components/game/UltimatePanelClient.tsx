@@ -44,7 +44,8 @@ export default function UltimatePanelClient({ characterId, boundUltimate: initia
     startTransition(async () => {
       const result = await bindUltimate(characterId, scroll.itemId, equippedWeapon.instanceId);
       if (!result.ok) { setError(result.error ?? 'Failed to bind'); return; }
-      setBound({ scrollId: scroll.instanceId, name: scroll.displayName, rageCost: 100 });
+      // result.scrollId is special_attack_scrolls.id — required for unbind
+      setBound({ scrollId: result.scrollId ?? scroll.itemId, name: scroll.displayName, rageCost: 100 });
     });
   }
 

@@ -215,7 +215,7 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
   const [error, setError] = useState('');
 
   const [currentHp, setCurrentHp] = useState(character.current_hp);
-  const [currentRage, setCurrentRage] = useState((initialSession as (typeof initialSession & { current_rage?: number }) | null)?.current_rage ?? 0);
+  const [currentRage, setCurrentRage] = useState(initialSession?.current_rage ?? 0);
   const [deathInfo, setDeathInfo] = useState<{ droppedItems: Array<{ name: string; quantity: number }> } | null>(null);
   const [consumables, setConsumables] = useState<ConsumableItem[]>(initialConsumables);
   const [inventoryOpen, setInventoryOpen] = useState(false);
@@ -503,7 +503,7 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
         });
         // Clear events from previous sessions so the new session starts fresh
         setEvents([]);
-        setActiveSession({ id: sessionId, character_id: character.id, area_id: selectedArea, area_tier: selectedTier, biome_tier_id: null, focus_type: 'balanced', status: 'active', started_at: new Date().toISOString(), last_tick_at: new Date().toISOString(), ends_at: null, retreat_hp_threshold: retreatHp, collect_preferences: {} });
+        setActiveSession({ id: sessionId, character_id: character.id, area_id: selectedArea, area_tier: selectedTier, biome_tier_id: null, focus_type: 'balanced', status: 'active', started_at: new Date().toISOString(), last_tick_at: new Date().toISOString(), ends_at: null, retreat_hp_threshold: retreatHp, collect_preferences: {}, current_rage: 0 });
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Failed to start');
       }
@@ -570,7 +570,7 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
           const cr = result.combatResult;
           const d  = (captured.data ?? {}) as Record<string, unknown>;
           if (cr.newHp != null) setCurrentHp(cr.newHp);
-          if ((cr as Record<string, unknown>).newRage != null) setCurrentRage((cr as Record<string, unknown>).newRage as number);
+          if (cr.newRage != null) setCurrentRage(cr.newRage);
           if (result.died) {
             setDeathInfo({ droppedItems: result.droppedItems ?? [] });
             setActiveSession(null);

@@ -74,8 +74,9 @@ export default async function CharacterPage() {
       .maybeSingle(),
     supabase
       .from('character_inventory')
-      .select('instance_id, item_id, item_definitions(id, name, display_name, compatible_weapon_type_ids)')
+      .select('instance_id, item_id, item_definitions!inner(id, name, display_name, compatible_weapon_type_ids)')
       .eq('character_id', character.id)
+      .eq('item_definitions.type', 'special_attack')
       .is('equipped_slot', null),
   ]);
 

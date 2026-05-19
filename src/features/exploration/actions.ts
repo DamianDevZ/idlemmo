@@ -432,7 +432,7 @@ export async function actOnExploreEvent(
       data:         { reason: 'auto_retreat', hp: newHp },
     });
     revalidatePath('/game');
-    return { ok: true, autoRetreat: true, combatResult: { victory, hpLost, xpGained, newHp, fleeSuccess, lootDrops } };
+    return { ok: true, autoRetreat: true, combatResult: { victory, hpLost, xpGained, newHp, fleeSuccess, lootDrops, ultimateFired, newRage } };
   }
 
   return { ok: true, combatResult: { victory, hpLost, xpGained, newHp, fleeSuccess, lootDrops, ultimateFired, newRage } };
