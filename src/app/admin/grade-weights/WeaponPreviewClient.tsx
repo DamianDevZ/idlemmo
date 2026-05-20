@@ -20,6 +20,7 @@ interface Props {
   weapons: WeaponRow[];
   tierScaling: ScalingRow[];
   maxTier: number;
+  gradeMults: Record<string, number>;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -27,7 +28,8 @@ interface Props {
 const GRADES = ['S', 'A', 'B', 'C', 'D', 'F'] as const;
 type Grade = typeof GRADES[number];
 
-const GRADE_MULT: Record<Grade, number> = { S: 1.5, A: 1.4, B: 1.3, C: 1.2, D: 1.1, F: 1.0 };
+// Grade multipliers now come from props (live from game_config)
+const GRADE_MULT_DEFAULTS: Record<Grade, number> = { S: 1.5, A: 1.4, B: 1.3, C: 1.2, D: 1.1, F: 1.0 };
 
 const GRADE_STYLE: Record<Grade, string> = {
   S: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
@@ -57,7 +59,7 @@ function fmt(n: number, decimals = 1): string {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function WeaponPreviewClient({ weapons, tierScaling, maxTier }: Props) {
+export default function WeaponPreviewClient({ weapons, tierScaling, maxTier, gradeMults }: Props) {
   const [weaponId, setWeaponId]   = useState(weapons[0]?.id ?? '');
   const [grade, setGrade]         = useState<Grade>('A');
   const [attrLevel, setAttrLevel] = useState(20);
@@ -78,7 +80,7 @@ export default function WeaponPreviewClient({ weapons, tierScaling, maxTier }: P
   }
 
   const statBonus  = calcStatBonus(attrLevel);
-  const gradeMult  = GRADE_MULT[grade];
+  const gradeMult  = gradeMults[grade] ?? GRADE_MULT_DEFAULTS[grade];
   const tiers      = Array.from({ length: maxTier }, (_, i) => i + 1);
 
   const rows = tiers.map(t => {
@@ -177,7 +179,7 @@ export default function WeaponPreviewClient({ weapons, tierScaling, maxTier }: P
             <span className="font-mono text-body font-semibold">+{fmt(statBonus, 0)}</span>
           </span>
           <span className={`text-xs px-2 py-0.5 rounded-full border font-bold ${GRADE_STYLE[grade]}`}>
-            {grade} ×{GRADE_MULT[grade]}
+            {grade} ×{(gradeMults[grade] ?? GRADE_MULT_DEFAULTS[grade]).toFixed(2)}
           </span>
         </div>
       </div>
@@ -240,8 +242,8 @@ export default function WeaponPreviewClient({ weapons, tierScaling, maxTier }: P
       {/* Footer note */}
       <div className="px-6 py-3 border-t border-border">
         <p className="text-[11px] text-muted-foreground">
-          <span className="font-semibold text-body">F-grade DPS</span> = baseline (stat bonus × 1.0).{' '}
-          <span className={`font-semibold ${GRADE_STYLE[grade].split(' ')[1]}`}>{grade}-grade</span> applies ×{GRADE_MULT[grade]} to the stat-bonus portion only — not to the flat weapon base damage.
+            <span className="font-semibold text-body">F-grade DPS</span> = baseline (stat bonus × {(gradeMults['F'] ?? 1.0).toFixed(2)}).{' '}
+            <span className={`font-semibold ${GRADE_STYLE[grade].split(' ')[1]}`}>{grade}-grade</span> applies ×{(gradeMults[grade] ?? GRADE_MULT_DEFAULTS[grade]).toFixed(2)} to the stat-bonus portion only — not to the flat weapon base damage.
           Speed column is the weapon&apos;s base attack speed at that tier (dexterity not included here).
         </p>
       </div>
