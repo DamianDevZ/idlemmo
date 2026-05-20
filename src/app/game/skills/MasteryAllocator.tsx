@@ -29,7 +29,8 @@ export type MasteryCategoryData = {
 
 type AllocationMap = Record<string, number>; // masteryId -> XP amount
 
-function CategoryCard({ cat, maxTier }: { cat: MasteryCategoryData; maxTier: number }) {
+/** Item list + XP allocation for the selected category */
+function CategoryItemList({ cat, maxTier }: { cat: MasteryCategoryData; maxTier: number }) {
   const [allocations, setAllocations] = useState<AllocationMap>({});
   const [error, setError]             = useState<string | null>(null);
   const [success, setSuccess]         = useState(false);
@@ -66,104 +67,95 @@ function CategoryCard({ cat, maxTier }: { cat: MasteryCategoryData; maxTier: num
     });
   }
 
-  return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden mb-3">
-      {/* Category header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <span className="text-sm font-semibold">{cat.displayName}</span>
-        <span className="tabular-nums text-sm font-medium text-primary">
-          {cat.poolXp.toLocaleString()} XP available
-        </span>
-      </div>
-
-      {cat.items.length === 0 ? (
-        <p className="px-4 py-5 text-sm text-muted-foreground text-center">
+  if (cat.items.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-card px-4 py-8 text-center">
+        <p className="text-sm text-muted-foreground">
           No items discovered yet. Find or craft items to unlock mastery.
         </p>
-      ) : (
-        <>
-          <div className="divide-y divide-border">
-            {cat.items.map(item => {
-              const alloc    = allocations[item.masteryId] ?? 0;
-              const isMaxed  = item.currentTier >= maxTier;
-              const pct      = isMaxed
-                ? 100
-                : item.xpCostNext > 0
-                  ? Math.min(100, Math.round(((item.xpTowardNext + alloc) / item.xpCostNext) * 100))
-                  : 0;
+      </div>
+    );
+  }
 
-              return (
-                <div key={item.masteryId} className="flex items-center gap-3 px-4 py-3">
-                  {/* Item icon / name */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      {item.imageUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={item.imageUrl} alt="" className="w-6 h-6 object-contain shrink-0" />
-                      )}
-                      <span className="text-sm font-medium truncate">{item.displayName}</span>
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] shrink-0 ${isMaxed ? 'text-yellow-400 border-yellow-400/40' : 'text-primary border-primary/40'}`}
-                      >
-                        {isMaxed ? 'MAX' : `T${item.currentTier}`}
-                      </Badge>
-                    </div>
-                    {!isMaxed && (
-                      <>
-                        <Progress value={pct} className="h-1 mb-1" />
-                        <p className="text-[11px] text-muted-foreground/70">
-                          {(item.xpTowardNext + alloc).toLocaleString()} / {item.xpCostNext.toLocaleString()} XP to T{item.currentTier + 1}
-                        </p>
-                      </>
-                    )}
-                  </div>
+  return (
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="divide-y divide-border">
+        {cat.items.map(item => {
+          const alloc   = allocations[item.masteryId] ?? 0;
+          const isMaxed = item.currentTier >= maxTier;
+          const pct     = isMaxed
+            ? 100
+            : item.xpCostNext > 0
+              ? Math.min(100, Math.round(((item.xpTowardNext + alloc) / item.xpCostNext) * 100))
+              : 0;
 
-                  {/* XP input */}
-                  {!isMaxed && (
-                    <input
-                      type="number"
-                      min={0}
-                      max={cat.poolXp}
-                      value={alloc || ''}
-                      placeholder="0"
-                      onChange={e => setAllocation(item.masteryId, e.target.value)}
-                      className="w-24 rounded-md border border-border bg-background px-2 py-1 text-sm text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
+          return (
+            <div key={item.masteryId} className="flex items-center gap-3 px-4 py-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  {item.imageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={item.imageUrl} alt="" className="w-6 h-6 object-contain shrink-0" />
                   )}
+                  <span className="text-sm font-medium truncate">{item.displayName}</span>
+                  <Badge
+                    variant="outline"
+                    className={`text-[10px] shrink-0 ${isMaxed ? 'text-yellow-400 border-yellow-400/40' : 'text-primary border-primary/40'}`}
+                  >
+                    {isMaxed ? 'MAX' : `T${item.currentTier}`}
+                  </Badge>
                 </div>
-              );
-            })}
-          </div>
-
-          {/* Footer: summary + apply */}
-          <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-border bg-card/50">
-            <div className="text-xs text-muted-foreground">
-              Allocating{' '}
-              <span className={`font-semibold ${overBudget ? 'text-red-400' : 'text-foreground'}`}>
-                {totalAllocated.toLocaleString()}
-              </span>{' '}
-              /{' '}
-              <span className="text-foreground font-semibold">{cat.poolXp.toLocaleString()}</span> XP
-              {!overBudget && remaining > 0 && (
-                <span className="text-muted-foreground/60"> ({remaining.toLocaleString()} remaining)</span>
+                {!isMaxed && (
+                  <>
+                    <Progress value={pct} className="h-1 mb-1" />
+                    <p className="text-[11px] text-muted-foreground/70">
+                      {(item.xpTowardNext + alloc).toLocaleString()} / {item.xpCostNext.toLocaleString()} XP to T{item.currentTier + 1}
+                    </p>
+                  </>
+                )}
+              </div>
+              {!isMaxed && (
+                <input
+                  type="number"
+                  min={0}
+                  max={cat.poolXp}
+                  value={alloc || ''}
+                  placeholder="0"
+                  onChange={e => setAllocation(item.masteryId, e.target.value)}
+                  className="w-24 rounded-md border border-border bg-background px-2 py-1 text-sm text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-primary"
+                />
               )}
             </div>
-            <div className="flex items-center gap-2">
-              {error && <span className="text-xs text-red-400">{error}</span>}
-              {success && <span className="text-xs text-green-400">Applied!</span>}
-              <Button
-                size="sm"
-                disabled={pending || totalAllocated === 0 || overBudget}
-                onClick={handleApply}
-                className="text-xs px-3 py-1.5 h-auto"
-              >
-                {pending ? 'Applying...' : 'Apply XP'}
-              </Button>
-            </div>
-          </div>
-        </>
-      )}
+          );
+        })}
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-border bg-card/50">
+        <div className="text-xs text-muted-foreground">
+          Allocating{' '}
+          <span className={`font-semibold ${overBudget ? 'text-red-400' : 'text-foreground'}`}>
+            {totalAllocated.toLocaleString()}
+          </span>
+          {' / '}
+          <span className="text-foreground font-semibold">{cat.poolXp.toLocaleString()}</span> XP
+          {!overBudget && remaining > 0 && (
+            <span className="text-muted-foreground/60"> ({remaining.toLocaleString()} left)</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {error   && <span className="text-xs text-red-400">{error}</span>}
+          {success && <span className="text-xs text-green-400">Applied!</span>}
+          <Button
+            size="sm"
+            disabled={pending || totalAllocated === 0 || overBudget}
+            onClick={handleApply}
+            className="text-xs px-3 py-1.5 h-auto"
+          >
+            {pending ? 'Applying...' : 'Apply XP'}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -175,9 +167,11 @@ interface MasteryAllocatorProps {
 
 /**
  * Client component rendered inside the Mastery, Crafting, and Refining tabs.
- * Shows discovered items per category with XP allocation inputs.
+ * Shows category selector cards at the top; clicking one reveals its item list below.
  */
 export function MasteryAllocator({ categories, maxTier }: MasteryAllocatorProps) {
+  const [selectedName, setSelectedName] = useState<string>(categories[0]?.name ?? '');
+
   if (categories.length === 0) {
     return (
       <p className="text-sm text-muted-foreground text-center py-8">
@@ -186,11 +180,40 @@ export function MasteryAllocator({ categories, maxTier }: MasteryAllocatorProps)
     );
   }
 
+  const selected = categories.find(c => c.name === selectedName) ?? categories[0];
+
   return (
-    <div>
-      {categories.map(cat => (
-        <CategoryCard key={cat.name} cat={cat} maxTier={maxTier} />
-      ))}
+    <div className="space-y-3">
+      {/* Category selector cards */}
+      <div className={`grid gap-2 ${categories.length === 1 ? 'grid-cols-1' : categories.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+        {categories.map(cat => {
+          const isActive = cat.name === selected.name;
+          return (
+            <button
+              key={cat.name}
+              onClick={() => setSelectedName(cat.name)}
+              className={`rounded-xl border px-3 py-3 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50
+                ${isActive
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border bg-card hover:border-primary/40 hover:bg-card/80'
+                }`}
+            >
+              <p className={`text-xs font-semibold truncate ${isActive ? 'text-primary' : 'text-foreground'}`}>
+                {cat.displayName}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 tabular-nums">
+                {cat.poolXp.toLocaleString()} XP
+              </p>
+              <p className="text-[11px] text-muted-foreground/60 mt-0.5">
+                {cat.items.length} {cat.items.length === 1 ? 'item' : 'items'}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Item list for selected category */}
+      <CategoryItemList key={selected.name} cat={selected} maxTier={maxTier} />
     </div>
   );
 }
