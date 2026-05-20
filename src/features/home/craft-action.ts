@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { awardMainXp, awardCategoryXp } from '@/lib/game/xp';
+import { awardMainXp, awardCategoryXp, getCategoryXpRates } from '@/lib/game/xp';
 
 type Ingredient = { item_id: string; quantity: number };
 
@@ -116,10 +116,11 @@ export async function craftItem(characterId: string, recipeId: string) {
     outputItemType === 'armor'  ? 'armor_crafting'  :
     outputItemType === 'tool'   ? 'tool_crafting'   :
     'weapon_crafting'; // fallback for misc/refined items crafted via crafting skill
-  const tier = recipe.tier as number;
+  const tier     = recipe.tier as number;
+  const catRates = await getCategoryXpRates(supabase);
   await Promise.all([
     awardMainXp(supabase, characterId, tier * 10),
-    awardCategoryXp(supabase, characterId, craftingCategory, tier * 20),
+    awardCategoryXp(supabase, characterId, craftingCategory, Math.round(tier * (catRates.get(craftingCategory) ?? 20))),
   ]);
 
   revalidatePath('/game/home');

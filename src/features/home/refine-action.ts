@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { awardMainXp, awardCategoryXp } from '@/lib/game/xp';
+import { awardMainXp, awardCategoryXp, getCategoryXpRates } from '@/lib/game/xp';
 
 type Ingredient = { item_id: string; quantity: number };
 
@@ -99,11 +99,12 @@ export async function refineItem(characterId: string, recipeId: string) {
     p_quantity:     recipe.output_quantity as number,
   });
 
-  // Award XP for refining
-  const tier = recipe.tier as number;
+  // Award XP for refining — rate from per-category config
+  const tier     = recipe.tier as number;
+  const catRates = await getCategoryXpRates(supabase);
   await Promise.all([
     awardMainXp(supabase, characterId, tier * 6),
-    awardCategoryXp(supabase, characterId, 'refining', tier * 15),
+    awardCategoryXp(supabase, characterId, 'refining', Math.round(tier * (catRates.get('refining') ?? 15))),
   ]);
 
   revalidatePath('/game/home');

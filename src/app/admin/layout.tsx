@@ -11,6 +11,7 @@ const NAV = [
   { href: '/admin/world',         label: '🗺️  World' },
   { href: '/admin/enemies',       label: '👹 Enemies' },
   { href: '/admin/skills',        label: '🎯 Skills' },
+  { href: '/admin/progression',   label: '📈 Progression' },
   { href: '/admin/formulas',      label: '⚙️  Formulas & Config' },
   { href: '/admin/grade-weights', label: '🎖️  Grading System' },
   { label: '── Players ──',     href: null },

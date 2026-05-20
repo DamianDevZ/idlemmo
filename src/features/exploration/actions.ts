@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { getGameConfig } from '@/lib/game/getGameConfig';
 import { pickGrade } from '@/lib/game/pickGrade';
-import { awardMainXp, awardCategoryXp } from '@/lib/game/xp';
+import { awardMainXp, awardCategoryXp, getCategoryXpRates } from '@/lib/game/xp';
 import { calcMeleeDamage, applyDefense } from '@/lib/game/formulas';
 import type { CollectPreference } from '@/types/game';
 
@@ -212,11 +212,12 @@ export async function actOnExploreEvent(
       p_item_name:    String(d.item),
       p_quantity:     Number(d.quantity),
     });
-    // Award XP proportional to item tier
-    const itemTier = Number(d.item_tier ?? 1);
+    // Award XP proportional to item tier — rate from per-category config
+    const itemTier  = Number(d.item_tier ?? 1);
+    const catRates  = await getCategoryXpRates(supabase);
     await Promise.all([
       awardMainXp(supabase, characterId, itemTier * XP.gatherMainXpPerTier),
-      awardCategoryXp(supabase, characterId, 'tool_mastery', itemTier * XP.gatherCatXpPerTier),
+      awardCategoryXp(supabase, characterId, 'tool_mastery', Math.round(itemTier * (catRates.get('tool_mastery') ?? 2))),
     ]);
     return { ok: true };
   }
@@ -439,12 +440,12 @@ export async function actOnExploreEvent(
 
   // Award XP for combat — main XP and usage category
   if (victory && xpGained > 0) {
-    // Combat XP splits 50/50 between weapon mastery and armor mastery pools.
-    const combatCatXp = level * XP.combatUsageCatXpPerLevel;
+    // Combat XP — each mastery category uses its own action_xp_per_unit (fraction of main XP)
+    const catRates = await getCategoryXpRates(supabase);
     await Promise.all([
       awardMainXp(supabase, characterId, xpGained),
-      awardCategoryXp(supabase, characterId, 'weapon_mastery', Math.floor(combatCatXp / 2)),
-      awardCategoryXp(supabase, characterId, 'armor_mastery',  Math.ceil(combatCatXp  / 2)),
+      awardCategoryXp(supabase, characterId, 'weapon_mastery', Math.round(xpGained * (catRates.get('weapon_mastery') ?? 0.5))),
+      awardCategoryXp(supabase, characterId, 'armor_mastery',  Math.round(xpGained * (catRates.get('armor_mastery')  ?? 0.5))),
     ]);
   }
 

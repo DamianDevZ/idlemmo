@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getGameConfig } from '@/lib/game/getGameConfig';
 import { pickGrade } from '@/lib/game/pickGrade';
-import { awardMainXp, awardCategoryXp } from '@/lib/game/xp';
+import { awardMainXp, awardCategoryXp, getCategoryXpRates } from '@/lib/game/xp';
 import { calcMeleeDamage, applyDefense } from '@/lib/game/formulas';
 
 export interface OfflineSummary {
@@ -402,15 +402,17 @@ export async function POST(req: NextRequest) {
         supabase.rpc('add_to_inventory', { p_character_id: characterId, p_item_name: 'coin', p_quantity: coinsGained })
       );
     }
-    if (totalXpGained > 0) {
-      writes.push(awardMainXp(supabase, characterId, totalXpGained));
-      // Combat XP splits 50/50 between weapon mastery and armor mastery pools.
-      writes.push(awardCategoryXp(supabase, characterId, 'weapon_mastery', Math.floor(totalXpGained / 2)));
-      writes.push(awardCategoryXp(supabase, characterId, 'armor_mastery',  Math.ceil(totalXpGained  / 2)));
-    }
     const resourceQty = Object.values(resourceAccum).reduce((s, r) => s + r.quantity, 0);
-    if (resourceQty > 0) {
-      writes.push(awardCategoryXp(supabase, characterId, 'tool_mastery', resourceQty * 2));
+    if (totalXpGained > 0 || resourceQty > 0) {
+      const catRates = await getCategoryXpRates(supabase);
+      if (totalXpGained > 0) {
+        writes.push(awardMainXp(supabase, characterId, totalXpGained));
+        writes.push(awardCategoryXp(supabase, characterId, 'weapon_mastery', Math.round(totalXpGained * (catRates.get('weapon_mastery') ?? 0.5))));
+        writes.push(awardCategoryXp(supabase, characterId, 'armor_mastery',  Math.round(totalXpGained * (catRates.get('armor_mastery')  ?? 0.5))));
+      }
+      if (resourceQty > 0) {
+        writes.push(awardCategoryXp(supabase, characterId, 'tool_mastery', Math.round(resourceQty * (catRates.get('tool_mastery') ?? 2))));
+      }
     }
     if (totalHpLost > 0) {
       writes.push(supabase.from('characters').update({ current_hp: currentHp }).eq('id', characterId));

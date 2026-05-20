@@ -39,8 +39,17 @@ export async function allocateCategoryXp(
   const maxTier = GAME_CONFIG.skills.maxSkillLevel;
   if (currentTier >= maxTier) throw new Error('Skill already at max tier');
 
+  // Fetch per-category tier cost params (overrides global defaults)
+  const { data: catRow } = await supabase
+    .from('skill_categories')
+    .select('tier_xp_base, tier_xp_scaling')
+    .eq('id', categoryId)
+    .single();
+  const tierXpBase    = (catRow?.tier_xp_base    as number | null) ?? undefined;
+  const tierXpScaling = (catRow?.tier_xp_scaling as number | null) ?? undefined;
+
   // Server-side cost — client cannot influence this
-  const cost = skillTierXpCost(currentTier);
+  const cost = skillTierXpCost(currentTier, tierXpBase, tierXpScaling);
 
   // Get available XP
   const { data: catXp } = await supabase
@@ -106,6 +115,15 @@ export async function bulkAllocateCategoryXp(
   const available = (catXp?.xp_available as number) ?? 0;
   const maxTier = GAME_CONFIG.skills.maxSkillLevel;
 
+  // Fetch per-category tier cost params
+  const { data: catRow } = await supabase
+    .from('skill_categories')
+    .select('tier_xp_base, tier_xp_scaling')
+    .eq('id', categoryId)
+    .single();
+  const tierXpBase    = (catRow?.tier_xp_base    as number | null) ?? undefined;
+  const tierXpScaling = (catRow?.tier_xp_scaling as number | null) ?? undefined;
+
   // Fetch current tiers for all requested skills
   const skillIds = allocations.map(a => a.skillId);
   const { data: charSkills } = await supabase
@@ -125,7 +143,7 @@ export async function bulkAllocateCategoryXp(
   for (const { skillId, xpAmount } of allocations) {
     if (xpAmount <= 0) continue;
     const currentTier = tierBySkill.get(skillId) ?? 0;
-    const { tiersGained, xpSpent } = tiersFromXp(currentTier, maxTier, xpAmount);
+    const { tiersGained, xpSpent } = tiersFromXp(currentTier, maxTier, xpAmount, tierXpBase, tierXpScaling);
     results.push({ skillId, tiersGained, newTier: currentTier + tiersGained, xpSpent });
     totalSpent += xpSpent;
   }

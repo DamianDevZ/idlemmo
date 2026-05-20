@@ -254,26 +254,38 @@ export function calcCraftSuccessChance(
  * XP required to advance a skill from `currentTier` to `currentTier + 1`.
  * Scales exponentially: cost = floor(base × scaling^currentTier).
  *
+ * Pass per-category values from skill_categories.tier_xp_base / tier_xp_scaling
+ * to override the global defaults. Falls back to GAME_CONFIG values when omitted.
+ *
  * With defaults (base=100, scaling=1.5):
  *   T0→T1 = 100 XP, T1→T2 = 150, T2→T3 = 225, T3→T4 = 337 …
  */
-export function skillTierXpCost(currentTier: number): number {
-  return Math.floor(S.skillXpBase * Math.pow(S.skillXpScaling, currentTier));
+export function skillTierXpCost(
+  currentTier: number,
+  xpBase?: number,
+  xpScaling?: number,
+): number {
+  const base    = xpBase    ?? S.skillXpBase;
+  const scaling = xpScaling ?? S.skillXpScaling;
+  return Math.floor(base * Math.pow(scaling, currentTier));
 }
 
 /**
  * How many tiers a given amount of XP will unlock starting from `startTier`,
  * and the leftover XP after all unlocks.
+ * Accepts optional per-category base/scaling (same as skillTierXpCost).
  */
 export function tiersFromXp(
   startTier: number,
   maxTier: number,
   xpBudget: number,
+  xpBase?: number,
+  xpScaling?: number,
 ): { tiersGained: number; xpSpent: number } {
   let tier = startTier;
   let spent = 0;
   while (tier < maxTier) {
-    const cost = skillTierXpCost(tier);
+    const cost = skillTierXpCost(tier, xpBase, xpScaling);
     if (xpBudget - spent < cost) break;
     spent += cost;
     tier++;

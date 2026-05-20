@@ -82,3 +82,22 @@ export async function awardCategoryXp(
       xp_total_earned: ((row?.xp_total_earned as number) ?? 0) + amount,
     }, { onConflict: 'character_id,category_id' });
 }
+
+/**
+ * Fetch action_xp_per_unit for all skill categories in one query.
+ * Returns a name→rate map. Use this once per server action / tick and reuse
+ * the map for all awardCategoryXp calls in that request.
+ */
+export async function getCategoryXpRates(
+  supabase: SupabaseClient,
+): Promise<Map<string, number>> {
+  const { data } = await supabase
+    .from('skill_categories')
+    .select('name, action_xp_per_unit');
+  return new Map(
+    (data ?? []).map((c: { name: string; action_xp_per_unit: number }) => [
+      c.name,
+      Number(c.action_xp_per_unit),
+    ]),
+  );
+}
