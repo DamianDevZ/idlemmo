@@ -27,11 +27,13 @@ function inferSlot(itemName: string, itemType: string, toolSlot?: string | null)
 /**
  * Equip an item. When source='stash', the item is moved from stash into
  * inventory (with equipped_slot set) before equipping.
+ * `tier` identifies which tier of a tiered item to equip (defaults to 1).
  */
 export async function equipItem(
   characterId: string,
   itemId: string,
   source: 'inventory' | 'stash' = 'inventory',
+  tier = 1,
 ) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -48,7 +50,7 @@ export async function equipItem(
   // Resolve item definition regardless of source
   const { data: itemDef } = await supabase
     .from('item_definitions')
-    .select('name, type, tool_slot, required_mastery_skill_id, required_mastery_level')
+    .select('name, type, tool_slot, is_tiered, required_mastery_skill_id, required_mastery_level')
     .eq('id', itemId)
     .single();
   if (!itemDef) throw new Error('Item definition not found');
@@ -56,10 +58,14 @@ export async function equipItem(
   const slot = inferSlot(itemDef.name as string, itemDef.type as string, itemDef.tool_slot as string | null);
   if (!slot) throw new Error('This item cannot be equipped');
 
-  // Enforce mastery level requirement if the item has one
+  // Enforce mastery requirement if the item has one.
+  // For tiered items the required tier equals the item's own tier (T2 sword → skill T2).
+  // For non-tiered items use the explicit required_mastery_level field.
   const masterySkillId = itemDef.required_mastery_skill_id as string | null;
   if (masterySkillId) {
-    const requiredLevel = Number(itemDef.required_mastery_level ?? 1);
+    const requiredLevel = (itemDef.is_tiered as boolean)
+      ? tier
+      : Number(itemDef.required_mastery_level ?? 1);
     const { data: skillRow } = await supabase
       .from('character_skills')
       .select('level')
@@ -68,7 +74,7 @@ export async function equipItem(
       .maybeSingle();
     const currentLevel = (skillRow as { level?: number } | null)?.level ?? 0;
     if (currentLevel < requiredLevel) {
-      throw new Error(`Requires skill level ${requiredLevel} (you have ${currentLevel})`);
+      throw new Error(`Requires skill Tier ${requiredLevel} (you have Tier ${currentLevel})`);
     }
   }
 
@@ -80,12 +86,13 @@ export async function equipItem(
     .eq('equipped_slot', slot);
 
   if (source === 'stash') {
-    // Validate item is in stash
+    // Validate item is in stash at the correct tier
     const { data: stashRow } = await supabase
       .from('character_stash')
       .select('quantity')
       .eq('character_id', characterId)
       .eq('item_id', itemId)
+      .eq('tier', tier)
       .single();
     if (!stashRow) throw new Error('Item not in stash');
 
@@ -93,10 +100,10 @@ export async function equipItem(
     const remaining = (stashRow.quantity as number) - 1;
     if (remaining === 0) {
       await supabase.from('character_stash').delete()
-        .eq('character_id', characterId).eq('item_id', itemId);
+        .eq('character_id', characterId).eq('item_id', itemId).eq('tier', tier);
     } else {
       await supabase.from('character_stash').update({ quantity: remaining })
-        .eq('character_id', characterId).eq('item_id', itemId);
+        .eq('character_id', characterId).eq('item_id', itemId).eq('tier', tier);
     }
 
     // Upsert into inventory with the equipped slot
@@ -105,29 +112,31 @@ export async function equipItem(
       .select('quantity')
       .eq('character_id', characterId)
       .eq('item_id', itemId)
+      .eq('tier', tier)
       .single();
 
     if (existingInv) {
       await supabase.from('character_inventory')
         .update({ equipped_slot: slot })
-        .eq('character_id', characterId).eq('item_id', itemId);
+        .eq('character_id', characterId).eq('item_id', itemId).eq('tier', tier);
     } else {
       await supabase.from('character_inventory')
-        .insert({ character_id: characterId, item_id: itemId, quantity: 1, equipped_slot: slot });
+        .insert({ character_id: characterId, item_id: itemId, tier, quantity: 1, equipped_slot: slot });
     }
   } else {
-    // Validate item is in inventory
+    // Validate item is in inventory at the correct tier
     const { data: invRow } = await supabase
       .from('character_inventory')
       .select('item_id')
       .eq('character_id', characterId)
       .eq('item_id', itemId)
+      .eq('tier', tier)
       .single();
     if (!invRow) throw new Error('Item not in inventory');
 
     await supabase.from('character_inventory')
       .update({ equipped_slot: slot })
-      .eq('character_id', characterId).eq('item_id', itemId);
+      .eq('character_id', characterId).eq('item_id', itemId).eq('tier', tier);
   }
 
   revalidatePath('/game/character');
@@ -135,7 +144,7 @@ export async function equipItem(
 }
 
 /** Remove an equipped item from its slot (sets equipped_slot to null). */
-export async function unequipItem(characterId: string, itemId: string) {
+export async function unequipItem(characterId: string, itemId: string, tier = 1) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthenticated');
@@ -152,7 +161,8 @@ export async function unequipItem(characterId: string, itemId: string) {
     .from('character_inventory')
     .update({ equipped_slot: null })
     .eq('character_id', characterId)
-    .eq('item_id', itemId);
+    .eq('item_id', itemId)
+    .eq('tier', tier);
 
   revalidatePath('/game/character');
   revalidatePath('/game/home');

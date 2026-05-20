@@ -60,11 +60,11 @@ export default async function CharacterPage() {
   const [{ data: rawInv }, { data: rawStash }, { data: rawBoundUltimate }, { data: rawScrollsInInv }] = await Promise.all([
     supabase
       .from('character_inventory')
-      .select('item_id, instance_id, quantity, equipped_slot, item_definitions(id, name, display_name, type, stats, base_damage, base_defense, equipment_tier)')
+      .select('item_id, instance_id, quantity, equipped_slot, tier, item_definitions(id, name, display_name, type, stats, base_damage, base_defense, equipment_tier)')
       .eq('character_id', character.id),
     supabase
       .from('character_stash')
-      .select('item_id, quantity, item_definitions(id, name, display_name, type, stats, base_damage, base_defense, equipment_tier)')
+      .select('item_id, quantity, tier, item_definitions(id, name, display_name, type, stats, base_damage, base_defense, equipment_tier)')
       .eq('character_id', character.id),
     supabase
       .from('character_special_attacks')
@@ -82,11 +82,11 @@ export default async function CharacterPage() {
 
   type RawItemDef = { id: string; name: string; display_name: string; type: string; stats: Record<string, number>; base_damage: number | null; base_defense: number | null; equipment_tier: number | null };
   type RawInvRow = {
-    item_id: string; instance_id: string; quantity: number; equipped_slot: string | null;
+    item_id: string; instance_id: string; quantity: number; equipped_slot: string | null; tier: number;
     item_definitions: RawItemDef | null;
   };
   type RawStashRow = {
-    item_id: string; quantity: number;
+    item_id: string; quantity: number; tier: number;
     item_definitions: RawItemDef | null;
   };
 
@@ -135,21 +135,20 @@ export default async function CharacterPage() {
       base_damage:    r.item_definitions!.base_damage,
       base_defense:   r.item_definitions!.base_defense,
       equipment_tier: r.item_definitions!.equipment_tier,
+      tier:           r.tier ?? 1,
     }));
 
-  // Unequipped equippable items from inventory
   const invAvailable: EquipItemData[] = invRows
     .filter(r => !r.equipped_slot && r.item_definitions && EQUIP_TYPES.includes(r.item_definitions.type))
-    .map(r => ({ ...r.item_definitions!, item_id: r.item_id, source: 'inventory' as const }));
+    .map(r => ({ ...r.item_definitions!, item_id: r.item_id, tier: r.tier ?? 1, source: 'inventory' as const }));
 
-  // Equippable items from stash
   const stashAvailable: EquipItemData[] = stashRows
     .filter(r => r.item_definitions && EQUIP_TYPES.includes(r.item_definitions.type))
-    .map(r => ({ ...r.item_definitions!, item_id: r.item_id, source: 'stash' as const }));
+    .map(r => ({ ...r.item_definitions!, item_id: r.item_id, tier: r.tier ?? 1, source: 'stash' as const }));
 
-  // Merge — prefer inventory item if same item_id exists in both
+  // Merge — prefer inventory item if same item_id+tier exists in both
   const stashNotInInv = stashAvailable.filter(
-    s => !invAvailable.some(i => i.item_id === s.item_id)
+    s => !invAvailable.some(i => i.item_id === s.item_id && i.tier === s.tier)
   );
   const availableItems: EquipItemData[] = [...invAvailable, ...stashNotInInv];
 

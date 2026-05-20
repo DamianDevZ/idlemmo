@@ -15,6 +15,8 @@ export interface EquipItemData {
   base_damage: number | null;
   base_defense: number | null;
   equipment_tier: number | null;
+  /** The inventory row's tier (used for PK lookup and mastery check) */
+  tier: number;
   source: 'inventory' | 'stash';
 }
 
@@ -28,6 +30,8 @@ export interface EquippedData {
   base_damage: number | null;
   base_defense: number | null;
   equipment_tier: number | null;
+  /** The inventory row's tier */
+  tier: number;
 }
 
 interface Props {
@@ -87,7 +91,7 @@ export function EquipmentPanel({ characterId, equipped, available }: Props) {
     setError(null);
     startTransition(async () => {
       try {
-        await equipItem(characterId, item.item_id, item.source);
+        await equipItem(characterId, item.item_id, item.source, item.tier);
         setSelectedSlot(null);
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Failed to equip');
@@ -95,11 +99,13 @@ export function EquipmentPanel({ characterId, equipped, available }: Props) {
     });
   }
 
-  function handleUnequip(itemId: string) {
+  function handleUnequip(slot: string) {
     setError(null);
+    const equipped = equippedBySlot.get(slot);
+    if (!equipped) return;
     startTransition(async () => {
       try {
-        await unequipItem(characterId, itemId);
+        await unequipItem(characterId, equipped.item_id, equipped.tier);
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Failed to unequip');
       }
@@ -174,7 +180,7 @@ export function EquipmentPanel({ characterId, equipped, available }: Props) {
           {equippedBySlot.get(selectedSlot) && (
             <button
               disabled={pending}
-              onClick={() => handleUnequip(equippedBySlot.get(selectedSlot)!.item_id)}
+              onClick={() => handleUnequip(selectedSlot)}
               className="w-full flex items-center justify-between rounded-md border border-border px-3 py-2 text-left hover:border-red-500/40 hover:bg-red-500/5 transition-colors disabled:opacity-40"
             >
               <div>

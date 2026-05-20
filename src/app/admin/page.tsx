@@ -51,6 +51,7 @@ export default async function AdminDashboard() {
         <QuickLink href="/admin/enemies" icon="👹" label="Manage Enemies" desc="Configure mobs, loot tables, armor presets" />
         <QuickLink href="/admin/players" icon="👥" label="Player Ledger" desc="View players, edit inventories, support tickets" />
         <QuickLink href="/admin/skills" icon="🎯" label="Skills" desc="Edit display names and descriptions for all skills" />
+        <QuickLink href="/admin/grade-weights" icon="⚗️" label="Grade Weights" desc="Tune S/A/B/C/D/F drop probability weights" />
       </div>
     </div>
   );

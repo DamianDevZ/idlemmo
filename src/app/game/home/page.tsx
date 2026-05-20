@@ -95,16 +95,18 @@ export default async function HomeBasePage() {
       base_damage:  i.item_definitions.base_damage,
       base_defense: i.item_definitions.base_defense,
       equipment_tier: i.item_definitions.equipment_tier,
+      tier:         i.tier ?? 1,
     }));
   const invAvailable: EquipItemData[] = inventory
     .filter(i => !i.equipped_slot && i.item_definitions && EQUIP_TYPES.has(i.item_definitions.type))
-    .map(i => ({ ...i.item_definitions, item_id: i.item_id, source: 'inventory' as const }));
+    .map(i => ({ ...i.item_definitions, item_id: i.item_id, tier: i.tier ?? 1, source: 'inventory' as const }));
   const stashAvailable: EquipItemData[] = stash
     .filter(s => s.item_definitions && EQUIP_TYPES.has(s.item_definitions.type))
-    .map(s => ({ ...s.item_definitions, item_id: s.item_id, source: 'stash' as const }));
+    .map(s => ({ ...s.item_definitions, item_id: s.item_id, tier: s.tier ?? 1, source: 'stash' as const }));
   const equipAvailable: EquipItemData[] = [
     ...invAvailable,
-    ...stashAvailable.filter(s => !invAvailable.some(i => i.item_id === s.item_id)),
+    // Exclude stash entries where an inventory copy of the same item+tier already exists
+    ...stashAvailable.filter(s => !invAvailable.some(i => i.item_id === s.item_id && i.tier === s.tier)),
   ];
 
   // Equipment that lives in inventory (equipped or just held) — shown in Stash tab

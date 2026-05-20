@@ -806,10 +806,12 @@ export function ItemForm({
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Mastery Requirement</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Usage skill needed to equip. Tier auto-set: a Tier N item requires skill Tier N.
+                    {item.is_tiered
+                      ? 'Usage skill needed to equip. For tiered items the required tier equals the item\'s own tier automatically.'
+                      : 'Usage skill needed to equip. Set the minimum tier the player must have unlocked.'}
                   </p>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className={item.is_tiered ? '' : 'grid grid-cols-2 gap-4'}>
                   <Field label="Usage Skill">
                     <Select value={item.required_mastery_skill_id ?? ''} onChange={e => set('required_mastery_skill_id', e.target.value || null)}>
                       <option value="">None required</option>
@@ -818,11 +820,13 @@ export function ItemForm({
                       ))}
                     </Select>
                   </Field>
-                  <Field label="Min Tier">
-                    <Input type="number" min={1} max={maxTier}
-                      value={item.required_mastery_level}
-                      onChange={e => set('required_mastery_level', Number(e.target.value))} />
-                  </Field>
+                  {!item.is_tiered && (
+                    <Field label="Min Tier">
+                      <Input type="number" min={1} max={maxTier}
+                        value={item.required_mastery_level}
+                        onChange={e => set('required_mastery_level', Number(e.target.value))} />
+                    </Field>
+                  )}
                 </div>
               </div>
             </div>
@@ -881,10 +885,12 @@ export function ItemForm({
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Mastery Requirement</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Usage skill needed to equip. Tier auto-set: a Tier N item requires skill Tier N.
+                    {item.is_tiered
+                      ? 'Usage skill needed to equip. For tiered items the required tier equals the item\'s own tier automatically.'
+                      : 'Usage skill needed to equip. Set the minimum tier the player must have unlocked.'}
                   </p>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className={item.is_tiered ? '' : 'grid grid-cols-2 gap-4'}>
                   <Field label="Usage Skill">
                     <Select value={item.required_mastery_skill_id ?? ''} onChange={e => set('required_mastery_skill_id', e.target.value || null)}>
                       <option value="">None required</option>
@@ -893,11 +899,13 @@ export function ItemForm({
                       ))}
                     </Select>
                   </Field>
-                  <Field label="Min Tier">
-                    <Input type="number" min={1} max={maxTier}
-                      value={item.required_mastery_level}
-                      onChange={e => set('required_mastery_level', Number(e.target.value))} />
-                  </Field>
+                  {!item.is_tiered && (
+                    <Field label="Min Tier">
+                      <Input type="number" min={1} max={maxTier}
+                        value={item.required_mastery_level}
+                        onChange={e => set('required_mastery_level', Number(e.target.value))} />
+                    </Field>
+                  )}
                 </div>
               </div>
             </div>
