@@ -120,6 +120,7 @@ export default async function GradeWeightsPage() {
         tierScaling={(scaling ?? []) as ScalingRow[]}
         maxTier={maxTier}
         gradeMults={gradeMults}
+        statScaling={Object.fromEntries(statRows.map(r => [r.key, r.value]))}
       />
     </div>
   );

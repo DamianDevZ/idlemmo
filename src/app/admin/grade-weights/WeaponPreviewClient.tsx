@@ -21,6 +21,7 @@ interface Props {
   tierScaling: ScalingRow[];
   maxTier: number;
   gradeMults: Record<string, number>;
+  statScaling: Record<string, number>;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -36,20 +37,27 @@ const GRADE_STYLE: Record<Grade, string> = {
   A: 'bg-violet-500/15 text-violet-400 border-violet-500/30',
   B: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
   C: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-  D: 'bg-yellow-500/15 text-yellow-500 border-yellow-500/30',
+  D: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
   F: 'bg-border/40 text-muted-foreground border-border',
 };
 
-// Mirror of GAME_CONFIG.attributes tiered stat bonus constants
-const T1_RATE = 5, T2_RATE = 3, T3_RATE = 2, T4_RATE = 1;
-const T1_CAP  = 30, T2_CAP  = 60, T3_CAP  = 100;
+// Fallback defaults only — live values come from statScaling prop
+const T1_RATE_DEFAULT = 5, T2_RATE_DEFAULT = 3, T3_RATE_DEFAULT = 2, T4_RATE_DEFAULT = 1;
+const T1_CAP_DEFAULT  = 30, T2_CAP_DEFAULT  = 60, T3_CAP_DEFAULT  = 100;
 
-function calcStatBonus(stat: number): number {
+function calcStatBonus(stat: number, s: Record<string, number>): number {
+  const t1Rate = s.stat_tier1_rate ?? T1_RATE_DEFAULT;
+  const t2Rate = s.stat_tier2_rate ?? T2_RATE_DEFAULT;
+  const t3Rate = s.stat_tier3_rate ?? T3_RATE_DEFAULT;
+  const t4Rate = s.stat_tier4_rate ?? T4_RATE_DEFAULT;
+  const t1Cap  = s.stat_tier1_cap  ?? T1_CAP_DEFAULT;
+  const t2Cap  = s.stat_tier2_cap  ?? T2_CAP_DEFAULT;
+  const t3Cap  = s.stat_tier3_cap  ?? T3_CAP_DEFAULT;
   return (
-    Math.min(stat, T1_CAP) * T1_RATE +
-    Math.max(0, Math.min(stat, T2_CAP) - T1_CAP) * T2_RATE +
-    Math.max(0, Math.min(stat, T3_CAP) - T2_CAP) * T3_RATE +
-    Math.max(0, stat - T3_CAP) * T4_RATE
+    Math.min(stat, t1Cap) * t1Rate +
+    Math.max(0, Math.min(stat, t2Cap) - t1Cap) * t2Rate +
+    Math.max(0, Math.min(stat, t3Cap) - t2Cap) * t3Rate +
+    Math.max(0, stat - t3Cap) * t4Rate
   );
 }
 
@@ -59,7 +67,7 @@ function fmt(n: number, decimals = 1): string {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function WeaponPreviewClient({ weapons, tierScaling, maxTier, gradeMults }: Props) {
+export default function WeaponPreviewClient({ weapons, tierScaling, maxTier, gradeMults, statScaling }: Props) {
   const [weaponId, setWeaponId]   = useState(weapons[0]?.id ?? '');
   const [grade, setGrade]         = useState<Grade>('A');
   const [attrLevel, setAttrLevel] = useState(20);
@@ -79,7 +87,7 @@ export default function WeaponPreviewClient({ weapons, tierScaling, maxTier, gra
     if (r.stat_key === 'attack_speed') spdMults[r.tier] = r.multiplier;
   }
 
-  const statBonus  = calcStatBonus(attrLevel);
+  const statBonus  = calcStatBonus(attrLevel, statScaling);
   const gradeMult  = gradeMults[grade] ?? GRADE_MULT_DEFAULTS[grade];
   const tiers      = Array.from({ length: maxTier }, (_, i) => i + 1);
 
@@ -99,6 +107,7 @@ export default function WeaponPreviewClient({ weapons, tierScaling, maxTier, gra
       baseDps:      tieredDmg * tieredSpeed,
       fStatContrib, fDmg, fDps: fDmg * tieredSpeed,
       gStatContrib, gDmg, gDps: gDmg * tieredSpeed,
+      gStatDps: gStatContrib * tieredSpeed,
       bonus:        gDmg - fDmg,
     };
   });
@@ -202,7 +211,7 @@ export default function WeaponPreviewClient({ weapons, tierScaling, maxTier, gra
                 {grade} Stats
               </th>
               <th className={`text-right px-3 py-2.5 font-semibold border-r border-border ${GRADE_STYLE[grade].split(' ')[1]}`}>
-                {grade} DPS
+                {grade} Stat DPS
               </th>
               <th className="text-right px-3 py-2.5 text-body font-semibold">Total DMG</th>
               <th className="text-right px-4 py-2.5 text-body font-semibold border-r border-border">Total DPS</th>
@@ -227,7 +236,7 @@ export default function WeaponPreviewClient({ weapons, tierScaling, maxTier, gra
                     +{fmt(r.gStatContrib, 0)}
                   </td>
                   <td className={`px-3 py-2 text-right tabular-nums font-semibold border-r border-border ${GRADE_STYLE[grade].split(' ')[1]}`}>
-                    {fmt(r.gDps)}
+                    {fmt(r.gStatDps)}
                   </td>
                   {/* Total = Base + Grade stats */}
                   <td className="px-3 py-2 text-right text-body tabular-nums font-semibold">{fmt(r.gDmg)}</td>
