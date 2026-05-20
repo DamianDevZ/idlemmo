@@ -96,9 +96,10 @@ export default async function GradeWeightsPage() {
         </div>
       </div>
 
-      <GradeWeightsClient rows={rows} />
-
-      <GradeMultipliersClient rows={multRows} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <GradeWeightsClient rows={rows} />
+        <GradeMultipliersClient rows={multRows} />
+      </div>
 
       <WeaponPreviewClient
         weapons={(weapons ?? []) as WeaponRow[]}
