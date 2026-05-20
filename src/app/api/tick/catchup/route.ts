@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getGameConfig } from '@/lib/game/getGameConfig';
 import { pickGrade } from '@/lib/game/pickGrade';
 import { awardMainXp, awardCategoryXp, getCategoryXpRates } from '@/lib/game/xp';
-import { calcMeleeDamage, applyDefense } from '@/lib/game/formulas';
+import { calcMeleeDamage, applyDefense, actionXpForTier } from '@/lib/game/formulas';
 
 export interface OfflineSummary {
   ticksProcessed: number;
@@ -407,11 +407,12 @@ export async function POST(req: NextRequest) {
       const catRates = await getCategoryXpRates(supabase);
       if (totalXpGained > 0) {
         writes.push(awardMainXp(supabase, characterId, totalXpGained));
-        writes.push(awardCategoryXp(supabase, characterId, 'weapon_mastery', Math.round(totalXpGained * (catRates.get('weapon_mastery') ?? 0.5))));
-        writes.push(awardCategoryXp(supabase, characterId, 'armor_mastery',  Math.round(totalXpGained * (catRates.get('armor_mastery')  ?? 0.5))));
+        writes.push(awardCategoryXp(supabase, characterId, 'weapon_mastery', Math.round(totalXpGained * (catRates.base.get('weapon_mastery') ?? 0.5))));
+        writes.push(awardCategoryXp(supabase, characterId, 'armor_mastery',  Math.round(totalXpGained * (catRates.base.get('armor_mastery')  ?? 0.5))));
       }
       if (resourceQty > 0) {
-        writes.push(awardCategoryXp(supabase, characterId, 'tool_mastery', Math.round(resourceQty * (catRates.get('tool_mastery') ?? 2))));
+        // Use session tier as proxy for item tier in catchup (no per-item tier available)
+        writes.push(awardCategoryXp(supabase, characterId, 'tool_mastery', resourceQty * actionXpForTier(catRates.base.get('tool_mastery') ?? 2, catRates.scaling.get('tool_mastery') ?? 1.5, biomeTierNumber)));
       }
     }
     if (totalHpLost > 0) {

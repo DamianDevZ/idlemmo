@@ -85,19 +85,20 @@ export async function awardCategoryXp(
 
 /**
  * Fetch action_xp_per_unit for all skill categories in one query.
- * Returns a name→rate map. Use this once per server action / tick and reuse
- * the map for all awardCategoryXp calls in that request.
+ * Returns `{ base, scaling }` maps keyed by category name.
+ * - `base`    → action_xp_per_unit  (mastery: fraction of combat XP; others: T1 earned XP)
+ * - `scaling` → tier_xp_scaling     (shared curve for both tier costs and earned XP)
+ * Fetch once per request and reuse across all awardCategoryXp calls.
  */
 export async function getCategoryXpRates(
   supabase: SupabaseClient,
-): Promise<Map<string, number>> {
+): Promise<{ base: Map<string, number>; scaling: Map<string, number> }> {
   const { data } = await supabase
     .from('skill_categories')
-    .select('name, action_xp_per_unit');
-  return new Map(
-    (data ?? []).map((c: { name: string; action_xp_per_unit: number }) => [
-      c.name,
-      Number(c.action_xp_per_unit),
-    ]),
-  );
+    .select('name, action_xp_per_unit, tier_xp_scaling');
+  const rows = (data ?? []) as { name: string; action_xp_per_unit: number; tier_xp_scaling: number }[];
+  return {
+    base:    new Map(rows.map(c => [c.name, Number(c.action_xp_per_unit)])),
+    scaling: new Map(rows.map(c => [c.name, Number(c.tier_xp_scaling)])),
+  };
 }

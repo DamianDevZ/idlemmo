@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { awardMainXp, awardCategoryXp, getCategoryXpRates } from '@/lib/game/xp';
+import { actionXpForTier } from '@/lib/game/formulas';
 
 type Ingredient = { item_id: string; quantity: number };
 
@@ -120,7 +121,7 @@ export async function craftItem(characterId: string, recipeId: string) {
   const catRates = await getCategoryXpRates(supabase);
   await Promise.all([
     awardMainXp(supabase, characterId, tier * 10),
-    awardCategoryXp(supabase, characterId, craftingCategory, Math.round(tier * (catRates.get(craftingCategory) ?? 20))),
+    awardCategoryXp(supabase, characterId, craftingCategory, actionXpForTier(catRates.base.get(craftingCategory) ?? 20, catRates.scaling.get(craftingCategory) ?? 1.5, tier)),
   ]);
 
   revalidatePath('/game/home');

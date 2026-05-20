@@ -271,6 +271,20 @@ export function skillTierXpCost(
 }
 
 /**
+ * XP awarded for completing one action at a given item/recipe tier.
+ * Uses the same exponential curve as skillTierXpCost so admins only tune one
+ * scaling value per category.
+ * T1 = base, T2 = floor(base × scaling), T3 = floor(base × scaling²), etc.
+ */
+export function actionXpForTier(
+  base: number,
+  scaling: number,
+  tier: number,
+): number {
+  return Math.floor(base * Math.pow(scaling, Math.max(0, tier - 1)));
+}
+
+/**
  * How many tiers a given amount of XP will unlock starting from `startTier`,
  * and the leftover XP after all unlocks.
  * Accepts optional per-category base/scaling (same as skillTierXpCost).
