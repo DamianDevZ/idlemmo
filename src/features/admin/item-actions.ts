@@ -18,9 +18,7 @@ export type ItemFormData = {
   primary_damage_type: string | null;
   material_type: string | null;
   primary_scaling_attr: string | null;
-  primary_scaling_grade: string | null;
   secondary_scaling_attr: string | null;
-  secondary_scaling_grade: string | null;
   image_url: string | null;
   resistances?: Record<string, { value: number; mode: 'percent' | 'flat' }>;
   required_mastery_skill_id?: string | null;

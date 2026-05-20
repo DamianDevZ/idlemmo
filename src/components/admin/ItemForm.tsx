@@ -33,9 +33,7 @@ type Item = {
   primary_damage_type: string | null;
   material_type: string | null;
   primary_scaling_attr: string | null;
-  primary_scaling_grade: string | null;
   secondary_scaling_attr: string | null;
-  secondary_scaling_grade: string | null;
   image_url: string | null;
   resistances?: ResistancesMap;
   required_mastery_skill_id: string | null;
@@ -781,22 +779,14 @@ export function ItemForm({
               <div className="border-t border-border pt-4 space-y-3">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Attribute Scaling</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">S=1.5× A=1.4× B=1.3× C=1.2× D=1.1× F=1.0×</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">The scaling multiplier uses the item's drop grade — S=1.5× A=1.4× B=1.3× C=1.2× D=1.1× F=1.0×</p>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Attribute">
-                    <Select value={item.primary_scaling_attr ?? ''} onChange={e => set('primary_scaling_attr', e.target.value || null)}>
-                      <option value="">None</option>
-                      {SCALE_ATTRS.map(a => <option key={a} value={a}>{a.toUpperCase()}</option>)}
-                    </Select>
-                  </Field>
-                  <Field label="Grade">
-                    <Select value={item.primary_scaling_grade ?? ''} onChange={e => set('primary_scaling_grade', e.target.value || null)}>
-                      <option value="">None</option>
-                      {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
-                    </Select>
-                  </Field>
-                </div>
+                <Field label="Attribute">
+                  <Select value={item.primary_scaling_attr ?? ''} onChange={e => set('primary_scaling_attr', e.target.value || null)}>
+                    <option value="">None</option>
+                    {SCALE_ATTRS.map(a => <option key={a} value={a}>{a.toUpperCase()}</option>)}
+                  </Select>
+                </Field>
                 <p className="text-xs text-muted-foreground italic">
                   Secondary scaling is configured per Ultimate, not on the weapon.
                 </p>
@@ -1450,22 +1440,14 @@ export function ItemForm({
               <div className="border-t border-border pt-4 space-y-3">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Attribute Scaling</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">S=1.5× A=1.4× B=1.3× C=1.2× D=1.1× F=1.0×</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">The scaling multiplier uses the item's drop grade — S=1.5× A=1.4× B=1.3× C=1.2× D=1.1× F=1.0×</p>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Attribute">
-                    <Select value={item.primary_scaling_attr ?? ''} onChange={e => set('primary_scaling_attr', e.target.value || null)}>
-                      <option value="">None</option>
-                      {SCALE_ATTRS.map(a => <option key={a} value={a}>{a.toUpperCase()}</option>)}
-                    </Select>
-                  </Field>
-                  <Field label="Grade">
-                    <Select value={item.primary_scaling_grade ?? ''} onChange={e => set('primary_scaling_grade', e.target.value || null)}>
-                      <option value="">None</option>
-                      {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
-                    </Select>
-                  </Field>
-                </div>
+                <Field label="Attribute">
+                  <Select value={item.primary_scaling_attr ?? ''} onChange={e => set('primary_scaling_attr', e.target.value || null)}>
+                    <option value="">None</option>
+                    {SCALE_ATTRS.map(a => <option key={a} value={a}>{a.toUpperCase()}</option>)}
+                  </Select>
+                </Field>
               </div>
 
               <div className="border-t border-border pt-4 space-y-3">
@@ -1509,7 +1491,7 @@ export function ItemForm({
                 <p className="text-xs text-muted-foreground mt-1">
                   Controls how likely each quality grade is when this item drops from an enemy.
                   Leave all blank to use the global defaults configured in{' '}
-                  <a href="/admin/formulas" className="text-primary hover:underline">Formulas → Equipment Grade Weights</a>.
+                  <a href="/admin/grade-weights" className="text-primary hover:underline">Grade Weights</a>.
                   Higher weight = more common. S is best quality, F is worst.
                 </p>
               </div>

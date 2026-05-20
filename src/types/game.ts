@@ -169,9 +169,7 @@ export interface DbItemDefinition {
   primary_damage_type: DamageType | null;
   base_damage: number | null;
   primary_scaling_attr: ScalingAttr | null;
-  primary_scaling_grade: ItemRating | null;
   secondary_scaling_attr: ScalingAttr | null;
-  secondary_scaling_grade: ItemRating | null;
   // Defense fields (armor)
   base_defense: number | null;
   material_type: 'metal' | 'leather' | 'cloth' | null;

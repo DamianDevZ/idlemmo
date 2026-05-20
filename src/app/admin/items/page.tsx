@@ -271,7 +271,7 @@ export default async function AdminItemsPage({
 
   let query = db
     .from('item_definitions')
-    .select('id, name, display_name, type, equipment_tier, base_damage, base_defense, primary_damage_type, primary_scaling_attr, primary_scaling_grade, secondary_scaling_attr, secondary_scaling_grade, material_type, material_subtype, stackable, image_url')
+    .select('id, name, display_name, type, equipment_tier, base_damage, base_defense, primary_damage_type, primary_scaling_attr, secondary_scaling_attr, material_type, material_subtype, stackable, image_url')
     .eq('type', typeKey!);
   if (subtype) query = query.eq('material_subtype', subtype);
   if (q) query = query.ilike('display_name', `%${q}%`);
@@ -363,12 +363,10 @@ export default async function AdminItemsPage({
                           <span style={{ color: SCALING_HEX[item.primary_scaling_attr] ?? '#94a3b8' }}>
                             {item.primary_scaling_attr.toUpperCase()}
                           </span>
-                          {item.primary_scaling_grade && <span className="text-muted-foreground">({item.primary_scaling_grade})</span>}
                           {item.secondary_scaling_attr && (
                             <> / <span style={{ color: SCALING_HEX[item.secondary_scaling_attr] ?? '#94a3b8' }}>
                               {item.secondary_scaling_attr.toUpperCase()}
                             </span>
-                            {item.secondary_scaling_grade && <span className="text-muted-foreground">({item.secondary_scaling_grade})</span>}
                             </>
                           )}
                         </span>
