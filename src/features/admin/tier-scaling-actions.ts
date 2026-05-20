@@ -28,6 +28,20 @@ export async function upsertTierScalingRows(rows: TierScalingRow[]) {
   revalidatePath('/admin/items/[id]', 'page');
 }
 
+/** Update the global max_tier value in game_config. */
+export async function saveMaxTier(value: number) {
+  await requireAdmin();
+  if (!Number.isInteger(value) || value < 1 || value > 20) throw new Error('max_tier must be 1–20');
+  const db = createAdminClient();
+  const { error } = await db
+    .from('game_config')
+    .update({ value })
+    .eq('key', 'max_tier');
+  if (error) throw new Error(error.message);
+  revalidatePath('/admin/tier-scaling');
+  revalidatePath('/admin/progression');
+}
+
 /** Remove all tier rows for a specific (item_type, stat_key) pair. */
 export async function deleteTierScalingStat(item_type: string, stat_key: string) {
   const db = createAdminClient();

@@ -29,7 +29,6 @@ const CAT_ORDER = [
   'combat_damage', 'combat_speed_crit', 'skills',
   'exploration', 'focus_mults', 'combat_settings',
   'death', 'world_boss', 'arena', 'rarities',
-  'items',
 ];
 
 const CAT_META: Record<string, { title: string; icon: string; formula: string; desc: string }> = {
@@ -116,12 +115,6 @@ const CAT_META: Record<string, { title: string; icon: string; formula: string; d
     icon: '⚗️',
     formula: 'grade = weightedRandom({ S, A, B, C, D, F })\n— higher weight = more common grade; S is rarest, F most common',
     desc: 'Controls how often each quality grade (S–F) appears when weapons, armor, or tools drop from enemies. Global defaults; individual items can override these in the Items admin.',
-  },
-  items: {
-    title: 'Items & Tiers',
-    icon: '🗡️',
-    formula: 'tierLevel(t) = 1 + (t − 1) × 69 / (maxTier − 1)',
-    desc: 'Global item constants. max_tier sets how many tiers every tiered item has. The tier→level formula distributes skill requirements evenly from level 1 (T1) to level 70 (T_max).',
   },
 };
 
@@ -316,9 +309,6 @@ const FIELD_EXAMPLES: Record<string, (v: number) => string> = {
     return `Legendary accounts for ${(v / total * 100).toFixed(2)}% of drops — the rarest tier. Roughly 1 in ${Math.round(total / v)} items. Even a small increase here makes Legendaries feel far less coveted.`;
   },
 
-  // Items & Tiers
-  max_tier: v =>
-    `Items can have up to ${v} tiers. T1 requires level 1; T${v} requires level 70. Tier level gates: ${Array.from({ length: v }, (_, i) => i + 1).map(t => `T${t}=L${v <= 1 ? 1 : Math.max(1, Math.round(1 + (t - 1) * 69 / (v - 1)))}`).join(' · ')}. Raise this to add more endgame content tiers without a code deploy.`,
 };
 
 // ─── Field Panel ──────────────────────────────────────────────────────────

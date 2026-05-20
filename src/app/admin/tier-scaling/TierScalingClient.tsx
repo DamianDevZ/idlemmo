@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { upsertTierScalingRows, deleteTierScalingStat } from '@/features/admin/tier-scaling-actions';
+import { upsertTierScalingRows, deleteTierScalingStat, saveMaxTier } from '@/features/admin/tier-scaling-actions';
 import type { TierScalingRow } from '@/features/admin/tier-scaling-actions';
 
 const ITEM_TYPES = [
@@ -53,6 +53,26 @@ export function TierScalingClient({
   const [previewItemId, setPreviewItemId] = useState<string>('');
   const [isPending, startTransition] = useTransition();
   const [status, setStatus] = useState<string | null>(null);
+
+  // Max tier editing
+  const [maxTierEdit, setMaxTierEdit] = useState(String(maxTier));
+  const [maxTierPending, startMaxTierTransition] = useTransition();
+  const [maxTierStatus, setMaxTierStatus] = useState<string | null>(null);
+
+  function handleSaveMaxTier() {
+    const v = parseInt(maxTierEdit, 10);
+    if (!v || v < 1 || v > 20) { setMaxTierStatus('Must be 1–20'); return; }
+    startMaxTierTransition(async () => {
+      try {
+        await saveMaxTier(v);
+        setMaxTierStatus('Saved!');
+      } catch {
+        setMaxTierStatus('Error saving.');
+      } finally {
+        setTimeout(() => setMaxTierStatus(null), 3000);
+      }
+    });
+  }
 
   const tierNums = Array.from({ length: maxTier }, (_, i) => i + 1);
   const statMap = buildStatMap(rows, activeType);
@@ -125,6 +145,28 @@ export function TierScalingClient({
 
   return (
     <div className="space-y-4">
+      {/* Max tier setting */}
+      <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
+        <div>
+          <p className="text-sm font-semibold text-heading">Max Tiers</p>
+          <p className="text-xs text-muted-foreground">Global cap on how many tiers tiered items can have (1–20).</p>
+        </div>
+        <input
+          type="number" min={1} max={20} step={1}
+          value={maxTierEdit}
+          onChange={e => setMaxTierEdit(e.target.value)}
+          className="ml-auto w-20 rounded border border-border bg-background px-2 py-1.5 text-sm text-body focus:border-primary focus:outline-none"
+        />
+        <button
+          onClick={handleSaveMaxTier}
+          disabled={maxTierPending}
+          className="rounded-md bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
+        >
+          {maxTierPending ? 'Saving...' : 'Save'}
+        </button>
+        {maxTierStatus && <span className={`text-sm ${maxTierStatus === 'Saved!' ? 'text-green-500' : 'text-red-400'}`}>{maxTierStatus}</span>}
+      </div>
+
       {/* Type tabs */}
       <div className="flex gap-2 flex-wrap">
         {ITEM_TYPES.map(t => (
