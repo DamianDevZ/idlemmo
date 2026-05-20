@@ -71,14 +71,14 @@ export default function StatScalingClient({ rows }: Props) {
       <div className="px-6 py-4 space-y-6">
         {/* Rates */}
         <div className="space-y-3">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Rates (damage per point)</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Rates (damage per point)</p>
           {rateRows.map(({ key, value, meta }) => (
             <div key={key} className="flex items-center gap-3">
-              <div className="w-24 shrink-0">
-                <p className="text-xs font-medium text-body">{meta.label}</p>
-                <p className="text-[10px] text-muted-foreground leading-tight">{meta.desc}</p>
+              <div className="w-32 shrink-0">
+                <p className="text-sm font-medium text-body">{meta.label}</p>
+                <p className="text-xs text-muted-foreground leading-tight">{meta.desc}</p>
               </div>
-              {/* Bar */}
+              {/* Bar */
               <div className="flex-1 h-1.5 bg-border/40 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-primary/60 rounded-full transition-all"
@@ -92,19 +92,19 @@ export default function StatScalingClient({ rows }: Props) {
                 onChange={e => set(key, Number(e.target.value))}
                 className="w-16 text-sm bg-background border border-border rounded-md px-2 py-1 text-right text-body focus:outline-none focus:ring-1 focus:ring-primary tabular-nums"
               />
-              <span className="text-[10px] text-muted-foreground w-10 shrink-0">{meta.unit}</span>
+              <span className="text-xs text-muted-foreground w-10 shrink-0">{meta.unit}</span>
             </div>
           ))}
         </div>
 
         {/* Caps */}
         <div className="space-y-3">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Tier caps (stat level)</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Tier caps (stat level)</p>
           {capRows.map(({ key, value, meta }) => (
             <div key={key} className="flex items-center gap-3">
-              <div className="w-24 shrink-0">
-                <p className="text-xs font-medium text-body">{meta.label}</p>
-                <p className="text-[10px] text-muted-foreground leading-tight">{meta.desc}</p>
+              <div className="w-32 shrink-0">
+                <p className="text-sm font-medium text-body">{meta.label}</p>
+                <p className="text-xs text-muted-foreground leading-tight">{meta.desc}</p>
               </div>
               <div className="flex-1 h-1.5 bg-border/40 rounded-full overflow-hidden">
                 <div
@@ -119,7 +119,7 @@ export default function StatScalingClient({ rows }: Props) {
                 onChange={e => set(key, Number(e.target.value))}
                 className="w-16 text-sm bg-background border border-border rounded-md px-2 py-1 text-right text-body focus:outline-none focus:ring-1 focus:ring-primary tabular-nums"
               />
-              <span className="text-[10px] text-muted-foreground w-10 shrink-0">{meta.unit}</span>
+              <span className="text-xs text-muted-foreground w-10 shrink-0">{meta.unit}</span>
             </div>
           ))}
         </div>
