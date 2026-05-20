@@ -217,7 +217,7 @@ export async function actOnExploreEvent(
     const catRates  = await getCategoryXpRates(supabase);
     await Promise.all([
       awardMainXp(supabase, characterId, itemTier * XP.gatherMainXpPerTier),
-      awardCategoryXp(supabase, characterId, 'tool_mastery', actionXpForTier(catRates.base.get('tool_mastery') ?? 2, catRates.scaling.get('tool_mastery') ?? 1.5, itemTier)),
+      awardCategoryXp(supabase, characterId, 'tool_mastery', actionXpForTier(catRates.base.get('tool_mastery') ?? 2, catRates.earnedScaling.get('tool_mastery') ?? 1.5, itemTier)),
     ]);
     return { ok: true };
   }

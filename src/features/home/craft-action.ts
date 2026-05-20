@@ -121,7 +121,7 @@ export async function craftItem(characterId: string, recipeId: string) {
   const catRates = await getCategoryXpRates(supabase);
   await Promise.all([
     awardMainXp(supabase, characterId, tier * 10),
-    awardCategoryXp(supabase, characterId, craftingCategory, actionXpForTier(catRates.base.get(craftingCategory) ?? 20, catRates.scaling.get(craftingCategory) ?? 1.5, tier)),
+    awardCategoryXp(supabase, characterId, craftingCategory, actionXpForTier(catRates.base.get(craftingCategory) ?? 20, catRates.earnedScaling.get(craftingCategory) ?? 1.5, tier)),
   ]);
 
   revalidatePath('/game/home');

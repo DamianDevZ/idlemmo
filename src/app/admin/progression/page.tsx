@@ -12,7 +12,7 @@ export default async function ProgressionPage() {
 
   const { data } = await db
     .from('skill_categories')
-    .select('id, name, display_name, action_xp_per_unit, tier_xp_base, tier_xp_scaling')
+    .select('id, name, display_name, action_xp_per_unit, action_xp_scaling, tier_xp_base, tier_xp_scaling')
     .order('name');
 
   type RawCategory = {
@@ -20,6 +20,7 @@ export default async function ProgressionPage() {
     name: string;
     display_name: string;
     action_xp_per_unit: number;
+    action_xp_scaling:  number;
     tier_xp_base: number;
     tier_xp_scaling: number;
   };

@@ -412,7 +412,7 @@ export async function POST(req: NextRequest) {
       }
       if (resourceQty > 0) {
         // Use session tier as proxy for item tier in catchup (no per-item tier available)
-        writes.push(awardCategoryXp(supabase, characterId, 'tool_mastery', resourceQty * actionXpForTier(catRates.base.get('tool_mastery') ?? 2, catRates.scaling.get('tool_mastery') ?? 1.5, biomeTierNumber)));
+        writes.push(awardCategoryXp(supabase, characterId, 'tool_mastery', resourceQty * actionXpForTier(catRates.base.get('tool_mastery') ?? 2, catRates.earnedScaling.get('tool_mastery') ?? 1.5, biomeTierNumber)));
       }
     }
     if (totalHpLost > 0) {

@@ -85,20 +85,22 @@ export async function awardCategoryXp(
 
 /**
  * Fetch action_xp_per_unit for all skill categories in one query.
- * Returns `{ base, scaling }` maps keyed by category name.
- * - `base`    → action_xp_per_unit  (mastery: fraction of combat XP; others: T1 earned XP)
- * - `scaling` → tier_xp_scaling     (shared curve for both tier costs and earned XP)
+ * Returns `{ base, earnedScaling, costScaling }` maps keyed by category name.
+ * - `base`          → action_xp_per_unit  (mastery: fraction of combat XP; others: T1 earned XP)
+ * - `earnedScaling` → action_xp_scaling   (scaling curve for XP earned per action)
+ * - `costScaling`   → tier_xp_scaling     (scaling curve for tier-up XP cost)
  * Fetch once per request and reuse across all awardCategoryXp calls.
  */
 export async function getCategoryXpRates(
   supabase: SupabaseClient,
-): Promise<{ base: Map<string, number>; scaling: Map<string, number> }> {
+): Promise<{ base: Map<string, number>; earnedScaling: Map<string, number>; costScaling: Map<string, number> }> {
   const { data } = await supabase
     .from('skill_categories')
-    .select('name, action_xp_per_unit, tier_xp_scaling');
-  const rows = (data ?? []) as { name: string; action_xp_per_unit: number; tier_xp_scaling: number }[];
+    .select('name, action_xp_per_unit, action_xp_scaling, tier_xp_scaling');
+  const rows = (data ?? []) as { name: string; action_xp_per_unit: number; action_xp_scaling: number; tier_xp_scaling: number }[];
   return {
-    base:    new Map(rows.map(c => [c.name, Number(c.action_xp_per_unit)])),
-    scaling: new Map(rows.map(c => [c.name, Number(c.tier_xp_scaling)])),
+    base:          new Map(rows.map(c => [c.name, Number(c.action_xp_per_unit)])),
+    earnedScaling: new Map(rows.map(c => [c.name, Number(c.action_xp_scaling)])),
+    costScaling:   new Map(rows.map(c => [c.name, Number(c.tier_xp_scaling)])),
   };
 }

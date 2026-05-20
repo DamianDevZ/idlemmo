@@ -105,7 +105,7 @@ export async function refineItem(characterId: string, recipeId: string) {
   const catRates = await getCategoryXpRates(supabase);
   await Promise.all([
     awardMainXp(supabase, characterId, tier * 6),
-    awardCategoryXp(supabase, characterId, 'refining', actionXpForTier(catRates.base.get('refining') ?? 15, catRates.scaling.get('refining') ?? 1.5, tier)),
+    awardCategoryXp(supabase, characterId, 'refining', actionXpForTier(catRates.base.get('refining') ?? 15, catRates.earnedScaling.get('refining') ?? 1.5, tier)),
   ]);
 
   revalidatePath('/game/home');
