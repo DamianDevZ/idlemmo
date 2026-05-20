@@ -6,6 +6,7 @@ import { getGameConfig } from '@/lib/game/getGameConfig';
 import { pickGrade } from '@/lib/game/pickGrade';
 import { awardMainXp, awardCategoryXp, getCategoryXpRates } from '@/lib/game/xp';
 import { calcMeleeDamage, applyDefense, actionXpForTier } from '@/lib/game/formulas';
+import { recordItemDiscovery } from '@/lib/game/discovery';
 import type { CollectPreference } from '@/types/game';
 
 export type ExploreAction = 'collect' | 'leave' | 'fight' | 'flee' | 'campsite_continue';
@@ -212,6 +213,8 @@ export async function actOnExploreEvent(
       p_item_name:    String(d.item),
       p_quantity:     Number(d.quantity),
     });
+    // Record discovery so gathered items appear on the Skills page
+    await recordItemDiscovery(supabase, characterId, [String(d.item)]);
     // Award XP proportional to item tier — exponential curve: floor(base × scaling^(tier-1))
     const itemTier  = Number(d.item_tier ?? 1);
     const catRates  = await getCategoryXpRates(supabase);
@@ -338,6 +341,11 @@ export async function actOnExploreEvent(
         });
         lootDrops.push({ item: entry.item, quantity: qty, grade: itemRating });
       }
+    }
+
+    // Record discovery for all looted items so they appear on the Skills page
+    if (lootDrops.length > 0) {
+      await recordItemDiscovery(supabase, characterId, lootDrops.map(l => l.item));
     }
   }
 

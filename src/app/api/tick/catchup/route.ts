@@ -4,6 +4,7 @@ import { getGameConfig } from '@/lib/game/getGameConfig';
 import { pickGrade } from '@/lib/game/pickGrade';
 import { awardMainXp, awardCategoryXp, getCategoryXpRates } from '@/lib/game/xp';
 import { calcMeleeDamage, applyDefense, actionXpForTier } from '@/lib/game/formulas';
+import { recordItemDiscovery } from '@/lib/game/discovery';
 
 export interface OfflineSummary {
   ticksProcessed: number;
@@ -420,6 +421,16 @@ export async function POST(req: NextRequest) {
     }
 
     await Promise.all(writes);
+
+    // Record discovery for all items that entered inventory this catchup batch
+    const discoveredNames = [
+      ...Object.keys(resourceAccum),
+      ...Object.keys(lootAccum),
+      ...equipmentDropsWithGrades.map(d => d.itemName),
+    ];
+    if (discoveredNames.length > 0) {
+      await recordItemDiscovery(supabase, characterId, discoveredNames);
+    }
 
     if (sessionEnded) {
       await supabase.from('exploration_sessions').update({ status: 'completed' }).eq('id', session.id);

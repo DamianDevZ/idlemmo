@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { awardMainXp, awardCategoryXp, getCategoryXpRates } from '@/lib/game/xp';
+import { recordItemDiscovery } from '@/lib/game/discovery';
 import { actionXpForTier } from '@/lib/game/formulas';
 
 type Ingredient = { item_id: string; quantity: number };
@@ -109,6 +110,9 @@ export async function craftItem(characterId: string, recipeId: string) {
     p_item_name:    outputItemName,
     p_quantity:     recipe.output_quantity as number,
   });
+
+  // Record discovery so the item appears on the Skills page
+  await recordItemDiscovery(supabase, characterId, [outputItemName]);
 
   // Award XP — crafting category depends on what was crafted.
   // weapon_crafting / armor_crafting / tool_crafting each have their own XP pool.

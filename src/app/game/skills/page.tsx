@@ -1,20 +1,17 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { skillTierXpCost, xpRequiredForLevel } from '@/lib/game/formulas';
 import { GAME_CONFIG } from '@/config/game.config';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PersistentTabs } from '@/components/ui/PersistentTabs';
-import AllocatePointButton from '@/components/game/AllocatePointButton';
 import AttributeSpendButton from '@/components/game/AttributeSpendButton';
+import { MasteryAllocator, type MasteryCategoryData, type MasteryItemData } from './MasteryAllocator';
 import type {
   DbCharacter,
   DbCharacterAttributes,
   DbSkillCategory,
-  DbSkill,
-  DbCharacterSkill,
   DbCharacterCategoryPoints,
   AttributeName,
 } from '@/types/game';
@@ -27,39 +24,31 @@ const ATTRIBUTE_META: {
   icon: string;
   description: string;
 }[] = [
-  { name: 'vigor',        label: 'Vigor',        icon: '❤️',  description: `+${GAME_CONFIG.attributes.hpPerVigor} max HP per point` },
-  { name: 'endurance',    label: 'Endurance',     icon: '🛡️', description: `+${GAME_CONFIG.attributes.slotsPerEndurance} carry slots per point` },
-  { name: 'strength',     label: 'Strength',      icon: '💪',  description: 'Melee damage and gather yield' },
-  { name: 'dexterity',    label: 'Dexterity',     icon: '🏃',  description: 'Attack speed, gather speed and crit chance' },
-  { name: 'intelligence', label: 'Intelligence',  icon: '🧠',  description: 'Magic damage and refining efficiency' },
-  { name: 'faith',        label: 'Faith',         icon: '✨',  description: `Craft success +${GAME_CONFIG.attributes.faithCraftBonus}% and HP regen` },
-  { name: 'arcane',       label: 'Arcane',        icon: '🔮',  description: `Rare item find +${GAME_CONFIG.attributes.arcaneRareFactor}% per point` },
+  { name: 'vigor',        label: 'Vigor',        icon: 'heart',  description: `+${GAME_CONFIG.attributes.hpPerVigor} max HP per point` },
+  { name: 'endurance',    label: 'Endurance',     icon: 'shield', description: `+${GAME_CONFIG.attributes.slotsPerEndurance} carry slots per point` },
+  { name: 'strength',     label: 'Strength',      icon: 'fist',  description: 'Melee damage and gather yield' },
+  { name: 'dexterity',    label: 'Dexterity',     icon: 'run',  description: 'Attack speed, gather speed and crit chance' },
+  { name: 'intelligence', label: 'Intelligence',  icon: 'brain',  description: 'Magic damage and refining efficiency' },
+  { name: 'faith',        label: 'Faith',         icon: 'spark',  description: `Craft success +${GAME_CONFIG.attributes.faithCraftBonus}% and HP regen` },
+  { name: 'arcane',       label: 'Arcane',        icon: 'gem',  description: `Rare item find +${GAME_CONFIG.attributes.arcaneRareFactor}% per point` },
 ];
 
-/** Emoji icon mapped by skill name. */
-const SKILL_ICONS: Record<string, string> = {
-  // weapon mastery
-  axe_mastery: '🪓', bow_mastery: '🏹', hammer_mastery: '🔨',
-  knife_mastery: '🗡️', staff_mastery: '🪄', sword_mastery: '⚔️',
-  // armor mastery
-  leather_mastery: '🧤', plate_mastery: '🛡️', robe_mastery: '🧙',
-  // tool mastery
-  pickaxe_mastery: '⛏️', sickle_mastery: '🌾',
-  // weapon crafting
-  axe_crafting: '🪓', bow_crafting: '🏹', hammer_crafting: '🔨',
-  knife_crafting: '🗡️', staff_crafting: '🪄', sword_crafting: '⚔️',
-  // armor crafting
-  leather_crafting: '🧤', plate_crafting: '🛡️', robe_crafting: '🧥',
-  // tool crafting
-  pickaxe_crafting: '⛏️', sickle_crafting: '🌾',
-  // refining
-  fiber_refining: '🧵', hide_refining: '🦌', lumber_refining: '🪵',
-  ore_refining: '🪨', stone_refining: '🪨',
+const ATTR_DISPLAY_ICON: Record<string, string> = {
+  vigor: '\u2764\uFE0F', endurance: '\uD83D\uDEE1\uFE0F', strength: '\uD83D\uDCAA',
+  dexterity: '\uD83C\uDFC3', intelligence: '\uD83E\uDDE0', faith: '\u2728', arcane: '\uD83D\uDD2E',
 };
 
-/** Groups of categories to render inside the Mastery and Crafting tabs. */
-const MASTERY_CATS  = ['weapon_mastery', 'armor_mastery', 'tool_mastery'] as const;
-const CRAFTING_CATS = ['weapon_crafting', 'armor_crafting', 'tool_crafting'] as const;
+const MASTERY_CATS  = ['weapon_mastery',  'armor_mastery',  'tool_mastery'];
+const CRAFTING_CATS = ['weapon_crafting', 'armor_crafting', 'tool_crafting'];
+const REFINING_CATS = ['refining'];
+
+type RawMastery = {
+  id: string;
+  category_name: string;
+  tier: number;
+  xp_toward_next_tier: number;
+  item_definitions: { id: string; display_name: string; image_url: string | null } | null;
+};
 
 export default async function SkillsPage() {
   const supabase = await createClient();
@@ -77,103 +66,77 @@ export default async function SkillsPage() {
   const [
     { data: attrs },
     { data: categories },
-    { data: skills },
-    { data: charSkills },
     { data: catPoints },
+    { data: rawMasteries },
+    { data: maxTierConfig },
   ] = await Promise.all([
     supabase.from('character_attributes').select('*').eq('character_id', character.id).single() as unknown as Promise<{ data: DbCharacterAttributes | null }>,
     supabase.from('skill_categories').select('*').order('name'),
-    supabase.from('skills').select('*').order('display_name'),
-    supabase.from('character_skills').select('*').eq('character_id', character.id),
     supabase.from('character_category_points').select('*').eq('character_id', character.id),
+    supabase
+      .from('character_item_mastery')
+      .select('id, category_name, tier, xp_toward_next_tier, item_definitions(id, display_name, image_url)')
+      .eq('character_id', character.id),
+    supabase.from('game_config').select('value').eq('key', 'max_tier').single(),
   ]);
 
-  const allSkills     = (skills     as DbSkill[]                   ) ?? [];
-  const allCharSkills = (charSkills as DbCharacterSkill[]          ) ?? [];
-  const allCats       = (categories as DbSkillCategory[]           ) ?? [];
-  const allPoints     = (catPoints  as DbCharacterCategoryPoints[] ) ?? [];
+  const allCats    = (categories as DbSkillCategory[] | null) ?? [];
+  const allPoints  = (catPoints  as DbCharacterCategoryPoints[] | null) ?? [];
+  const masteries  = (rawMasteries as unknown as RawMastery[] | null) ?? [];
+  const maxTier    = Number((maxTierConfig as { value?: unknown } | null)?.value ?? 10);
 
-  const skillByName  = new Map(allSkills.map(s => [s.name, s]));
-  const catByName    = new Map(allCats.map(c => [c.name, c]));
-  const catById      = new Map(allCats.map(c => [c.id,   c]));
-  const pointsByCat  = new Map(allPoints.map(p => [p.category_id, p]));
+  const catByName  = new Map(allCats.map(c => [c.name, c]));
+  const pointsByCat = new Map(allPoints.map(p => [p.category_id, p]));
 
-  const skillLevelByName = new Map<string, number>(
-    allSkills.map(s => {
-      const cs = allCharSkills.find(c => c.skill_id === s.id);
-      return [s.name, cs?.level ?? 0];
-    })
-  );
-
-  function getCatXp(catName: string): number {
-    const cat = catByName.get(catName as never);
-    if (!cat) return 0;
-    return (pointsByCat.get(cat.id)?.xp_available as number) ?? 0;
+  // Index mastery rows by category_name
+  const masteriesByCategory = new Map<string, RawMastery[]>();
+  for (const m of masteries) {
+    if (!masteriesByCategory.has(m.category_name)) masteriesByCategory.set(m.category_name, []);
+    masteriesByCategory.get(m.category_name)!.push(m);
   }
 
-  function getAllocProps(skillName: string) {
-    const skill = skillByName.get(skillName);
-    if (!skill) return null;
-    const cat  = catById.get(skill.category_id);
-    if (!cat)  return null;
-    const tier  = skillLevelByName.get(skillName) ?? 0;
-    const avail = (pointsByCat.get(cat.id)?.xp_available as number) ?? 0;
-    const cost  = skillTierXpCost(tier);
-    return {
-      characterId:  character!.id,
-      categoryId:   cat.id,
-      skillId:      skill.id,
-      cost,
-      xpAvailable:  avail,
-      canAllocate:  avail >= cost && tier < GAME_CONFIG.skills.maxSkillLevel,
-    };
+  function buildCategoryData(catNames: string[]): MasteryCategoryData[] {
+    return catNames.map(catName => {
+      const cat = catByName.get(catName as never);
+      if (!cat) return null;
+      const pool     = pointsByCat.get(cat.id);
+      const poolXp   = (pool?.xp_available as number) ?? 0;
+      const xpBase   = (cat as unknown as { tier_xp_base?: number }).tier_xp_base;
+      const xpScale  = (cat as unknown as { tier_xp_scaling?: number }).tier_xp_scaling;
+      const catItems = masteriesByCategory.get(catName) ?? [];
+      const items: MasteryItemData[] = catItems
+        .filter(m => m.item_definitions !== null)
+        .map(m => {
+          const tier        = m.tier;
+          const xpTowardNext = m.xp_toward_next_tier;
+          const xpCostNext  = skillTierXpCost(tier, xpBase, xpScale);
+          const def         = m.item_definitions!;
+          return {
+            masteryId:        m.id,
+            itemDefinitionId: def.id,
+            displayName:      def.display_name,
+            imageUrl:         def.image_url,
+            currentTier:      tier,
+            xpTowardNext,
+            xpCostNext,
+            maxTier,
+          };
+        })
+        .sort((a, b) => a.displayName.localeCompare(b.displayName));
+      return {
+        name:        catName,
+        displayName: cat.display_name,
+        categoryId:  cat.id,
+        characterId: character!.id,
+        poolXp,
+        items,
+      } satisfies MasteryCategoryData;
+    }).filter((c): c is MasteryCategoryData => c !== null);
   }
 
-  /** Renders an XP pool banner + skill list for one category. */
-  function CategorySection({ catName }: { catName: string }) {
-    const xp    = getCatXp(catName);
-    const cat   = catByName.get(catName as never);
-    const label = cat?.display_name ?? catName;
-    const skills = allSkills.filter(s => catById.get(s.category_id)?.name === catName);
-    return (
-      <div className="space-y-2">
-        <div className="flex items-center justify-between px-4 py-2.5 rounded-lg border border-border bg-card">
-          <span className="text-xs font-semibold text-muted-foreground">{label} XP Pool</span>
-          <span className="text-foreground font-semibold tabular-nums text-sm">{xp.toLocaleString()} XP available</span>
-        </div>
-        {skills.map(s => {
-          const tier    = skillLevelByName.get(s.name) ?? 0;
-          const ap      = getAllocProps(s.name);
-          const isMax   = tier >= GAME_CONFIG.skills.maxSkillLevel;
-          const cost    = ap?.cost ?? skillTierXpCost(tier);
-          const xpAvail = ap?.xpAvailable ?? 0;
-          const pct     = isMax ? 100 : Math.min(100, Math.round((xpAvail / cost) * 100));
-          return (
-            <div key={s.name} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card">
-              <span className="text-2xl shrink-0">{SKILL_ICONS[s.name] ?? '⚙️'}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold">{s.display_name}</p>
-                <p className="text-xs text-muted-foreground">{s.description}</p>
-                {!isMax && (
-                  <div className="mt-1.5">
-                    <Progress value={pct} className="h-1 mb-0.5" />
-                    <p className="text-[11px] text-muted-foreground/70">
-                      {Math.min(xpAvail, cost).toLocaleString()} / {cost.toLocaleString()} XP to Tier {tier + 1}
-                    </p>
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-primary font-bold tabular-nums text-sm">T{tier}</span>
-                {ap && !isMax && <AllocatePointButton {...ap} />}
-                {isMax && <span className="text-[10px] text-primary/60">MAX</span>}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
+  const masteryCats  = buildCategoryData(MASTERY_CATS);
+  const craftingCats = buildCategoryData(CRAFTING_CATS);
+  const refiningCats = buildCategoryData(REFINING_CATS);
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
@@ -185,30 +148,21 @@ export default async function SkillsPage() {
       <PersistentTabs storageKey="skills" defaultValue="attributes">
         <TabsList className="w-full grid grid-cols-4 p-0.5 mb-4">
           <TabsTrigger value="attributes" className="gap-1 text-[11px] data-[state=active]:text-primary">
-            <span>⚡</span>
-            <span className="hidden sm:inline">Attributes</span>
-            <span className="sm:hidden">Stats</span>
+            <span>Stats</span>
           </TabsTrigger>
           <TabsTrigger value="mastery" className="gap-1 text-[11px] data-[state=active]:text-primary">
-            <span>⚔️</span>
-            <span className="hidden sm:inline">Mastery</span>
-            <span className="sm:hidden">Master</span>
+            <span>Mastery</span>
           </TabsTrigger>
           <TabsTrigger value="crafting" className="gap-1 text-[11px] data-[state=active]:text-primary">
-            <span>🔨</span>
-            <span className="hidden sm:inline">Crafting</span>
-            <span className="sm:hidden">Craft</span>
+            <span>Crafting</span>
           </TabsTrigger>
           <TabsTrigger value="refining" className="gap-1 text-[11px] data-[state=active]:text-primary">
-            <span>🔥</span>
-            <span className="hidden sm:inline">Refining</span>
-            <span className="sm:hidden">Refine</span>
+            <span>Refining</span>
           </TabsTrigger>
         </TabsList>
 
-        {/* ─── Attributes ─── */}
+        {/* Attributes */}
         <TabsContent value="attributes" className="space-y-2">
-          {/* Overall character level XP bar */}
           {(() => {
             const lvl    = character.main_level ?? 1;
             const curXp  = character.main_xp   ?? 0;
@@ -241,7 +195,7 @@ export default async function SkillsPage() {
             const pct   = Math.round((value / GAME_CONFIG.attributes.maxValue) * 100);
             return (
               <div key={attr.name} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card">
-                <span className="text-2xl w-8 text-center shrink-0">{attr.icon}</span>
+                <span className="text-2xl w-8 text-center shrink-0">{ATTR_DISPLAY_ICON[attr.name]}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm font-semibold">{attr.label}</span>
@@ -263,29 +217,28 @@ export default async function SkillsPage() {
           })}
         </TabsContent>
 
-        {/* ─── Mastery (weapon + armor + tool) ─── */}
-        <TabsContent value="mastery" className="space-y-6">
-          <p className="text-xs text-muted-foreground">
-            Mastery XP is earned from combat (weapon &amp; armor) and gathering (tool). Spend it to unlock higher equipment tiers.
+        {/* Mastery */}
+        <TabsContent value="mastery">
+          <p className="text-xs text-muted-foreground mb-3">
+            Mastery XP comes from combat and gathering. Spend it on discovered weapons, armor, and tools to unlock higher tiers.
           </p>
-          {MASTERY_CATS.map(cat => (
-            <CategorySection key={cat} catName={cat} />
-          ))}
+          <MasteryAllocator categories={masteryCats} maxTier={maxTier} />
         </TabsContent>
 
-        {/* ─── Crafting (weapon + armor + tool) ─── */}
-        <TabsContent value="crafting" className="space-y-6">
-          <p className="text-xs text-muted-foreground">
-            Crafting XP is earned by crafting items. Weapon crafting XP from weapons, armor from armor, tool from tools.
+        {/* Crafting */}
+        <TabsContent value="crafting">
+          <p className="text-xs text-muted-foreground mb-3">
+            Crafting XP is earned by crafting items. Unlock higher-quality crafting for each item you have made before.
           </p>
-          {CRAFTING_CATS.map(cat => (
-            <CategorySection key={cat} catName={cat} />
-          ))}
+          <MasteryAllocator categories={craftingCats} maxTier={maxTier} />
         </TabsContent>
 
-        {/* ─── Refining ─── */}
-        <TabsContent value="refining" className="space-y-3">
-          <CategorySection catName="refining" />
+        {/* Refining */}
+        <TabsContent value="refining">
+          <p className="text-xs text-muted-foreground mb-3">
+            Refining XP comes from refining raw materials. Discover new materials by gathering them in the world.
+          </p>
+          <MasteryAllocator categories={refiningCats} maxTier={maxTier} />
         </TabsContent>
       </PersistentTabs>
     </div>
