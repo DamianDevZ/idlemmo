@@ -88,16 +88,18 @@ export default function WeaponPreviewClient({ weapons, tierScaling, maxTier, gra
     const tieredSpeed = baseSpeed * (spdMults[t] ?? 1.0);
 
     // formula: final_damage = weapon_base_at_tier + round(stat_bonus × grade_mult)
-    const fDmg       = tieredDmg + Math.round(statBonus * 1.0);    // F grade (baseline)
-    const gDmg       = tieredDmg + Math.round(statBonus * gradeMult);
+    const fStatContrib = Math.round(statBonus * 1.0);
+    const gStatContrib = Math.round(statBonus * gradeMult);
+    const fDmg         = tieredDmg + fStatContrib;
+    const gDmg         = tieredDmg + gStatContrib;
     return {
-      tier:     t,
+      tier:         t,
       tieredDmg,
       tieredSpeed,
-      baseDps:  tieredDmg * tieredSpeed,
-      fDmg,     fDps:  fDmg * tieredSpeed,
-      gDmg,     gDps:  gDmg * tieredSpeed,
-      bonus:    gDmg - fDmg,
+      baseDps:      tieredDmg * tieredSpeed,
+      fStatContrib, fDmg, fDps: fDmg * tieredSpeed,
+      gStatContrib, gDmg, gDps: gDmg * tieredSpeed,
+      bonus:        gDmg - fDmg,
     };
   });
 
@@ -194,14 +196,16 @@ export default function WeaponPreviewClient({ weapons, tierScaling, maxTier, gra
               <th className="text-right px-3 py-2.5 text-muted-foreground font-medium">Speed</th>
               <th className="text-right px-3 py-2.5 text-muted-foreground font-medium">Base DMG</th>
               <th className="text-right px-4 py-2.5 text-muted-foreground font-medium border-r border-border">Base DPS</th>
-              <th className="text-right px-3 py-2.5 text-muted-foreground font-medium">F DMG</th>
+              <th className="text-right px-3 py-2.5 text-muted-foreground font-medium">F Stats</th>
+              <th className="text-right px-3 py-2.5 text-muted-foreground font-medium border-r border-border">F DPS</th>
               <th className={`text-right px-3 py-2.5 font-semibold ${GRADE_STYLE[grade].split(' ')[1]}`}>
-                {grade} DMG
+                {grade} Stats
               </th>
-              <th className="text-right px-3 py-2.5 text-muted-foreground font-medium border-l border-border">F DPS</th>
               <th className={`text-right px-3 py-2.5 font-semibold border-r border-border ${GRADE_STYLE[grade].split(' ')[1]}`}>
                 {grade} DPS
               </th>
+              <th className="text-right px-3 py-2.5 text-body font-semibold">Total DMG</th>
+              <th className="text-right px-4 py-2.5 text-body font-semibold border-r border-border">Total DPS</th>
               <th className="text-right px-4 py-2.5 text-muted-foreground font-medium">Grade Bonus</th>
             </tr>
           </thead>
@@ -215,24 +219,23 @@ export default function WeaponPreviewClient({ weapons, tierScaling, maxTier, gra
                   <td className="px-3 py-2 text-right text-body tabular-nums">{fmt(r.tieredSpeed, 2)}</td>
                   <td className="px-3 py-2 text-right text-body tabular-nums">{fmt(r.tieredDmg)}</td>
                   <td className="px-4 py-2 text-right text-body tabular-nums border-r border-border">{fmt(r.baseDps)}</td>
-                  {/* F grade */}
-                  <td className="px-3 py-2 text-right text-muted-foreground tabular-nums">{fmt(r.fDmg)}</td>
-                  {/* Selected grade DMG */}
+                  {/* F stat contribution and F DPS */}
+                  <td className="px-3 py-2 text-right text-muted-foreground tabular-nums">+{fmt(r.fStatContrib, 0)}</td>
+                  <td className="px-3 py-2 text-right text-muted-foreground tabular-nums border-r border-border">{fmt(r.fDps)}</td>
+                  {/* Selected grade stat contribution and DPS */}
                   <td className={`px-3 py-2 text-right tabular-nums font-semibold ${GRADE_STYLE[grade].split(' ')[1]}`}>
-                    {fmt(r.gDmg)}
+                    +{fmt(r.gStatContrib, 0)}
                   </td>
-                  {/* F DPS */}
-                  <td className="px-3 py-2 text-right text-muted-foreground tabular-nums border-l border-border">{fmt(r.fDps)}</td>
-                  {/* Selected grade DPS */}
                   <td className={`px-3 py-2 text-right tabular-nums font-semibold border-r border-border ${GRADE_STYLE[grade].split(' ')[1]}`}>
                     {fmt(r.gDps)}
                   </td>
-                  {/* Grade Bonus */}
+                  {/* Total = Base + Grade stats */}
+                  <td className="px-3 py-2 text-right text-body tabular-nums font-semibold">{fmt(r.gDmg)}</td>
+                  <td className="px-4 py-2 text-right text-body tabular-nums font-semibold border-r border-border">{fmt(r.gDps)}</td>
+                  {/* Grade Bonus vs F */}
                   <td className="px-4 py-2 text-right tabular-nums">
-                    <span className="text-emerald-400">
-                      +{fmt(r.bonus, 0)} dmg
-                    </span>
-                    <span className="text-muted-foreground ml-1">({fmt(dpsDelta, 1)}% DPS)</span>
+                    <span className="text-emerald-400">+{fmt(r.bonus, 0)} dmg</span>
+                    <span className="text-muted-foreground ml-1">({fmt(dpsDelta, 1)}% vs F)</span>
                   </td>
                 </tr>
               );
@@ -244,10 +247,10 @@ export default function WeaponPreviewClient({ weapons, tierScaling, maxTier, gra
       {/* Footer note */}
       <div className="px-6 py-3 border-t border-border">
         <p className="text-[11px] text-muted-foreground">
-            <span className="font-semibold text-body">F-grade DPS</span> = baseline (stat bonus × {(gradeMults['F'] ?? 1.0).toFixed(2)}).{' '}
-            <span className={`font-semibold ${GRADE_STYLE[grade].split(' ')[1]}`}>{grade}-grade</span> applies ×{(gradeMults[grade] ?? GRADE_MULT_DEFAULTS[grade]).toFixed(2)} to the stat-bonus portion only — not to the flat weapon base damage.
-          Speed column is the weapon&apos;s base attack speed at that tier (dexterity not included here).
-        </p>
+            <span className="font-semibold text-body">F Stats / {grade} Stats</span> = the flat damage your attributes add at grade F vs {grade} (Base + Stats = Total DMG).{' '}
+            <span className="font-semibold text-body">Grade Bonus %</span> = how much more DPS grade {grade} deals compared to F grade at the same tier.{' '}
+            Speed shown is weapon base attack speed at that tier — DEX not included.
+          </p>
       </div>
     </div>
   );
