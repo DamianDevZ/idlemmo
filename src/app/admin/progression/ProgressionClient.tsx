@@ -19,21 +19,19 @@ const SORT_ORDER: Record<string, number> = {
 };
 
 const GROUP_COLORS: Record<string, { border: string; bg: string }> = {
-  refining:        { border: 'border-l-amber-500', bg: 'bg-amber-500/10'  },
-  tool_mastery:    { border: 'border-l-green-500', bg: 'bg-green-500/10'  },
-  tool_crafting:   { border: 'border-l-green-500', bg: 'bg-green-500/10'  },
-  weapon_mastery:  { border: 'border-l-red-500',   bg: 'bg-red-500/10'    },
-  weapon_crafting: { border: 'border-l-red-500',   bg: 'bg-red-500/10'    },
-  armor_mastery:   { border: 'border-l-blue-500',  bg: 'bg-blue-500/10'   },
-  armor_crafting:  { border: 'border-l-blue-500',  bg: 'bg-blue-500/10'   },
+  refining:        { border: 'border-l-amber-500', bg: 'bg-amber-500/10' },
+  tool_mastery:    { border: 'border-l-green-500', bg: 'bg-green-500/10' },
+  tool_crafting:   { border: 'border-l-green-500', bg: 'bg-green-500/10' },
+  weapon_mastery:  { border: 'border-l-red-500',   bg: 'bg-red-500/10'   },
+  weapon_crafting: { border: 'border-l-red-500',   bg: 'bg-red-500/10'   },
+  armor_mastery:   { border: 'border-l-blue-500',  bg: 'bg-blue-500/10'  },
+  armor_crafting:  { border: 'border-l-blue-500',  bg: 'bg-blue-500/10'  },
 };
 
 const IS_TIER_BASED: Record<string, boolean> = {
   refining: true, tool_mastery: true, tool_crafting: true,
   weapon_mastery: false, weapon_crafting: true, armor_mastery: false, armor_crafting: true,
 };
-
-const PREVIEW_TIERS = [1, 2, 3, 4, 5, 6, 7, 8];
 
 const inp = 'w-20 rounded border border-border bg-background px-2 py-1 text-sm text-body focus:border-primary focus:outline-none';
 
@@ -51,7 +49,14 @@ type RowState = {
   tier_xp_scaling:    string;
 };
 
-export function ProgressionClient({ categories }: { categories: Category[] }) {
+export function ProgressionClient({
+  categories,
+  maxTier,
+}: {
+  categories: Category[];
+  maxTier: number;
+}) {
+  const previewTiers = Array.from({ length: maxTier }, (_, i) => i + 1);
   const sorted = [...categories].sort((a, b) => (SORT_ORDER[a.name] ?? 99) - (SORT_ORDER[b.name] ?? 99));
 
   const [rows, setRows] = useState<Record<string, RowState>>(() =>
@@ -92,90 +97,101 @@ export function ProgressionClient({ categories }: { categories: Category[] }) {
       )}
 
       {sorted.map(cat => {
-        const row       = rows[cat.id];
-        const colors    = GROUP_COLORS[cat.name] ?? { border: 'border-l-border', bg: '' };
+        const row      = rows[cat.id];
+        const colors   = GROUP_COLORS[cat.name] ?? { border: 'border-l-border', bg: '' };
         const tierBased = IS_TIER_BASED[cat.name] ?? true;
-        const eBase     = parseFloat(row.action_xp_per_unit) || cat.action_xp_per_unit;
-        const eScaling  = parseFloat(row.action_xp_scaling)  || cat.action_xp_scaling;
-        const cBase     = parseFloat(row.tier_xp_base)        || cat.tier_xp_base;
-        const cScaling  = parseFloat(row.tier_xp_scaling)     || cat.tier_xp_scaling;
+        const eBase    = parseFloat(row.action_xp_per_unit) || cat.action_xp_per_unit;
+        const eScaling = parseFloat(row.action_xp_scaling)  || cat.action_xp_scaling;
+        const cBase    = parseFloat(row.tier_xp_base)        || cat.tier_xp_base;
+        const cScaling = parseFloat(row.tier_xp_scaling)     || cat.tier_xp_scaling;
 
         return (
           <div key={cat.id} className={`rounded-xl border border-border border-l-4 ${colors.border} overflow-hidden`}>
-            {/* Header */}
             <div className={`px-4 py-2 flex items-center gap-2 ${colors.bg} border-b border-border`}>
               <span className="font-semibold text-heading text-sm">{cat.display_name}</span>
               <span className="font-mono text-xs text-muted-foreground">{cat.name}</span>
             </div>
 
-            {/* Two-panel body */}
             <div className="grid grid-cols-2 divide-x divide-border">
 
-              {/* â”€â”€ Left: XP Earned â”€â”€ */}
+              {/* Left: XP Earned per Action */}
               <div className="p-4 space-y-2">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">XP Earned per Action</p>
 
                 <div className="flex items-end gap-2">
                   <div>
                     <div className="text-[10px] text-muted-foreground mb-0.5">{tierBased ? 'Base (T1)' : 'Fraction'}</div>
-                    <input type="number" min={0} step={tierBased ? '1' : '0.01'}
+                    <input
+                      type="number" min={0} step={tierBased ? '1' : '0.01'}
                       value={row.action_xp_per_unit}
                       onChange={e => setField(cat.id, 'action_xp_per_unit', e.target.value)}
-                      className={inp} />
+                      className={inp}
+                    />
                   </div>
                   {tierBased && (
                     <div>
-                      <div className="text-[10px] text-muted-foreground mb-0.5">Scaling Ã—</div>
-                      <input type="number" min={1} step="0.01"
+                      <div className="text-[10px] text-muted-foreground mb-0.5">Scaling x</div>
+                      <input
+                        type="number" min={1} step="0.01"
                         value={row.action_xp_scaling}
                         onChange={e => setField(cat.id, 'action_xp_scaling', e.target.value)}
-                        className={inp} />
+                        className={inp}
+                      />
                     </div>
                   )}
                 </div>
 
                 {tierBased ? (
                   <div className="flex gap-3 flex-wrap pt-1">
-                    {PREVIEW_TIERS.map(t => (
+                    {previewTiers.map(t => (
                       <div key={t} className="flex flex-col items-center min-w-[2rem]">
                         <span className="text-[9px] text-muted-foreground">T{t}</span>
-                        <span className="text-xs font-semibold text-heading tabular-nums">{earnedXp(eBase, eScaling, t).toLocaleString()}</span>
+                        <span className="text-xs font-semibold text-heading tabular-nums">
+                          {earnedXp(eBase, eScaling, t).toLocaleString()}
+                        </span>
                       </div>
                     ))}
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground pt-1">
-                    {row.action_xp_per_unit} Ã— combat XP. e.g. 100 combat XP â†’ <strong>{Math.round(parseFloat(row.action_xp_per_unit) * 100)}</strong> mastery XP.
+                    {row.action_xp_per_unit} x combat XP &mdash; e.g. 100 combat XP ={' '}
+                    <strong>{Math.round(parseFloat(row.action_xp_per_unit) * 100)}</strong> mastery XP.
                   </p>
                 )}
               </div>
 
-              {/* â”€â”€ Right: Tier Cost â”€â”€ */}
+              {/* Right: XP Cost to Level Up */}
               <div className="p-4 space-y-2">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">XP Cost to Level Up</p>
 
                 <div className="flex items-end gap-2">
                   <div>
-                    <div className="text-[10px] text-muted-foreground mb-0.5">Base (T0â†’T1)</div>
-                    <input type="number" min={1} step="1"
+                    <div className="text-[10px] text-muted-foreground mb-0.5">Base (T0 to T1)</div>
+                    <input
+                      type="number" min={1} step="1"
                       value={row.tier_xp_base}
                       onChange={e => setField(cat.id, 'tier_xp_base', e.target.value)}
-                      className={inp} />
+                      className={inp}
+                    />
                   </div>
                   <div>
-                    <div className="text-[10px] text-muted-foreground mb-0.5">Scaling Ã—</div>
-                    <input type="number" min={1} step="0.01"
+                    <div className="text-[10px] text-muted-foreground mb-0.5">Scaling x</div>
+                    <input
+                      type="number" min={1} step="0.01"
                       value={row.tier_xp_scaling}
                       onChange={e => setField(cat.id, 'tier_xp_scaling', e.target.value)}
-                      className={inp} />
+                      className={inp}
+                    />
                   </div>
                 </div>
 
                 <div className="flex gap-3 flex-wrap pt-1">
-                  {PREVIEW_TIERS.map(t => (
+                  {previewTiers.map(t => (
                     <div key={t} className="flex flex-col items-center min-w-[2rem]">
-                      <span className="text-[9px] text-muted-foreground">T{t-1}â†’{t}</span>
-                      <span className="text-xs font-semibold text-heading tabular-nums">{tierCost(cBase, cScaling, t - 1).toLocaleString()}</span>
+                      <span className="text-[9px] text-muted-foreground">T{t - 1} to {t}</span>
+                      <span className="text-xs font-semibold text-heading tabular-nums">
+                        {tierCost(cBase, cScaling, t - 1).toLocaleString()}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -187,9 +203,12 @@ export function ProgressionClient({ categories }: { categories: Category[] }) {
       })}
 
       <div className="flex items-center gap-3 pt-2">
-        <button onClick={handleSave} disabled={isPending}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors">
-          {isPending ? 'Savingâ€¦' : 'Save Changes'}
+        <button
+          onClick={handleSave}
+          disabled={isPending}
+          className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
+        >
+          {isPending ? 'Saving...' : 'Save Changes'}
         </button>
         {saved && !isPending && <span className="text-sm text-green-500">Saved successfully.</span>}
       </div>
