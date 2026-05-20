@@ -1,6 +1,7 @@
 /**
  * Server-side XP award utilities.
- * Handles main level XP + category XP → category point conversion.
+ * Handles main level XP (cascade level-ups + skill points) and category XP
+ * (accumulates directly into the category pool for manual tier allocation).
  * Must be called from server actions only (Supabase client passed in).
  */
 import { xpRequiredForLevel } from './formulas';
@@ -45,7 +46,8 @@ export async function awardMainXp(
 
 /**
  * Award XP to a skill category (e.g. 'gathering', 'crafting', 'usage').
- * Converts XP to category points when the threshold is crossed.
+ * XP accumulates directly in the category pool; players spend it manually
+ * to unlock skill tiers.
  */
 export async function awardCategoryXp(
   supabase: SupabaseClient,
@@ -65,25 +67,18 @@ export async function awardCategoryXp(
 
   const { data: row } = await supabase
     .from('character_category_points')
-    .select('xp_current, points_available, points_total_earned')
+    .select('xp_available, xp_total_earned')
     .eq('character_id', characterId)
     .eq('category_id', cat.id as string)
     .single();
 
-  const xpPerPoint = GAME_CONFIG.skills.categoryXpPerPoint;
-  // If the row is somehow missing (pre-fix characters), start from 0
-  let newXp   = ((row?.xp_current as number) ?? 0) + amount;
-  const earned = Math.floor(newXp / xpPerPoint);
-  newXp        = newXp % xpPerPoint;
-
-  // Upsert — creates the row if it was never seeded (safety net for old chars)
+  // Upsert — creates the row if it was never seeded (safety net for new chars)
   await supabase
     .from('character_category_points')
     .upsert({
-      character_id:        characterId,
-      category_id:         cat.id as string,
-      xp_current:          newXp,
-      points_available:    ((row?.points_available    as number) ?? 0) + earned,
-      points_total_earned: ((row?.points_total_earned as number) ?? 0) + earned,
+      character_id:    characterId,
+      category_id:     cat.id as string,
+      xp_available:    ((row?.xp_available    as number) ?? 0) + amount,
+      xp_total_earned: ((row?.xp_total_earned as number) ?? 0) + amount,
     }, { onConflict: 'character_id,category_id' });
 }

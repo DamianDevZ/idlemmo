@@ -128,9 +128,8 @@ export interface DbCharacterSkill {
 export interface DbCharacterCategoryPoints {
   character_id: string;
   category_id: string;
-  points_available: number;
-  points_total_earned: number;
-  xp_current: number;
+  xp_available: number;
+  xp_total_earned: number;
 }
 
 export interface DbBiome {

@@ -96,11 +96,10 @@ export default function CreateCharacterPage() {
     if (categories && categories.length > 0) {
       await supabase.from('character_category_points').insert(
         categories.map(cat => ({
-          character_id: character.id,
-          category_id:  cat.id,
-          xp_current:          0,
-          points_available:    0,
-          points_total_earned: 0,
+          character_id:    character.id,
+          category_id:     cat.id,
+          xp_available:    0,
+          xp_total_earned: 0,
         }))
       );
     }

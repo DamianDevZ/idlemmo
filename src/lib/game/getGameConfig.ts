@@ -55,8 +55,8 @@ export const getGameConfig = unstable_cache(
       },
       skills: {
         categoryXpPerTick:  v('category_xp_per_tick',  G.skills.categoryXpPerTick),
-        categoryXpPerPoint: v('category_xp_per_point', G.skills.categoryXpPerPoint),
-        levelCostCycle:     G.skills.levelCostCycle,
+        skillXpBase:        v('skill_xp_base',         G.skills.skillXpBase),
+        skillXpScaling:     v('skill_xp_scaling',      G.skills.skillXpScaling),
         maxSkillLevel:      v('max_skill_level',        G.skills.maxSkillLevel),
         speedFactor:        v('speed_factor',           G.skills.speedFactor),
         yieldFactor:        v('yield_factor',           G.skills.yieldFactor),

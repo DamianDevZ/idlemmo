@@ -86,15 +86,15 @@ export const GAME_CONFIG = {
   skills: {
     /** Category XP earned per activity action tick. */
     categoryXpPerTick: 15,
-    /** Category XP required to earn one category point. */
-    categoryXpPerPoint: 100,
     /**
-     * Cost (in category points) to level a sub-skill from level N.
-     * Index = level % length. Repeating cycle with a floor multiplier.
+     * Base XP required to unlock Tier 1 of any skill.
+     * Tier N cost = floor(skillXpBase × skillXpScaling^N).
      */
-    levelCostCycle: [1, 1, 2, 2, 3, 3, 4, 5, 5, 6] as const,
-    /** Hard cap on any sub-skill. */
-    maxSkillLevel: 99,
+    skillXpBase: 100,
+    /** Scaling multiplier applied per tier. 1.5 → each tier costs 50% more. */
+    skillXpScaling: 1.5,
+    /** Hard cap on any sub-skill tier. */
+    maxSkillLevel: 10,
 
     // Per level bonuses applied in formulas:
     /** Speed bonus per skill level. tickMs /= (1 + level × FACTOR) */

@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { skillLevelUpCost, xpRequiredForLevel } from '@/lib/game/formulas';
+import { skillTierXpCost, xpRequiredForLevel } from '@/lib/game/formulas';
 import { GAME_CONFIG } from '@/config/game.config';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -90,11 +90,10 @@ export default async function SkillsPage() {
     })
   );
 
-  function getCatPoints(catName: string) {
+  function getCatXp(catName: string): number {
     const cat = catByName.get(catName as never);
-    if (!cat) return { available: 0, xpCurrent: 0 };
-    const pts = pointsByCat.get(cat.id);
-    return { available: pts?.points_available ?? 0, xpCurrent: pts?.xp_current ?? 0 };
+    if (!cat) return 0;
+    return (pointsByCat.get(cat.id)?.xp_available as number) ?? 0;
   }
 
   function getAllocProps(skillName: string) {
@@ -102,20 +101,18 @@ export default async function SkillsPage() {
     if (!skill) return null;
     const cat  = catById.get(skill.category_id);
     if (!cat)  return null;
-    const level = skillLevelByName.get(skillName) ?? 0;
-    const pts   = pointsByCat.get(cat.id);
-    const avail = pts?.points_available ?? 0;
-    const cost  = skillLevelUpCost(level);
+    const tier  = skillLevelByName.get(skillName) ?? 0;
+    const avail = (pointsByCat.get(cat.id)?.xp_available as number) ?? 0;
+    const cost  = skillTierXpCost(tier);
     return {
-      characterId: character!.id,
-      categoryId:  cat.id,
-      skillId:     skill.id,
+      characterId:  character!.id,
+      categoryId:   cat.id,
+      skillId:      skill.id,
       cost,
-      canAllocate: avail >= cost && level < GAME_CONFIG.skills.maxSkillLevel,
+      xpAvailable:  avail,
+      canAllocate:  avail >= cost && tier < GAME_CONFIG.skills.maxSkillLevel,
     };
   }
-
-  const xpPerPt        = GAME_CONFIG.skills.categoryXpPerPoint;
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
@@ -213,17 +210,11 @@ export default async function SkillsPage() {
         {/* ─── Gathering ─── */}
         <TabsContent value="gathering" className="space-y-3">
           {(() => {
-            const { available, xpCurrent } = getCatPoints('gathering');
-            const pct = Math.round(((xpCurrent % xpPerPt) / xpPerPt) * 100);
+            const xp = getCatXp('gathering');
             return (
-              <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-border bg-card">
-                <div className="flex-1">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-muted-foreground">Gathering XP</span>
-                    <span className="text-foreground font-semibold">{available} pts available</span>
-                  </div>
-                  <Progress value={pct} className="h-1" />
-                </div>
+              <div className="flex items-center justify-between px-4 py-2.5 rounded-lg border border-border bg-card">
+                <span className="text-xs text-muted-foreground">Gathering XP Pool</span>
+                <span className="text-foreground font-semibold tabular-nums text-sm">{xp.toLocaleString()} XP available</span>
               </div>
             );
           })()}
@@ -231,21 +222,28 @@ export default async function SkillsPage() {
             {allSkills
               .filter(s => catById.get(s.category_id)?.name === 'gathering')
               .map(s => {
-                const level = skillLevelByName.get(s.name) ?? 0;
+                const tier  = skillLevelByName.get(s.name) ?? 0;
                 const ap    = getAllocProps(s.name);
-                const isMax = level >= GAME_CONFIG.skills.maxSkillLevel;
-                const cost  = ap?.cost ?? skillLevelUpCost(level);
+                const isMax = tier >= GAME_CONFIG.skills.maxSkillLevel;
+                const cost  = ap?.cost ?? skillTierXpCost(tier);
+                const xpAvail = ap?.xpAvailable ?? 0;
+                const pct   = isMax ? 100 : Math.min(100, Math.round((xpAvail / cost) * 100));
                 return (
                   <div key={s.name} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card">
                     <span className="text-2xl shrink-0">{SKILL_ICONS[s.name] ?? '⚙️'}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold">{s.display_name}</p>
                       <p className="text-xs text-muted-foreground">{s.description}</p>
-                      {!isMax && <p className="text-[11px] text-muted-foreground/70 mt-0.5">Next level: {cost} pt{cost !== 1 ? 's' : ''}</p>}
+                      {!isMax && (
+                        <div className="mt-1.5">
+                          <Progress value={pct} className="h-1 mb-0.5" />
+                          <p className="text-[11px] text-muted-foreground/70">{Math.min(xpAvail, cost).toLocaleString()} / {cost.toLocaleString()} XP to Tier {tier + 1}</p>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-primary font-bold tabular-nums text-sm">{level}</span>
-                      {ap && <AllocatePointButton {...ap} />}
+                      <span className="text-primary font-bold tabular-nums text-sm">T{tier}</span>
+                      {ap && !isMax && <AllocatePointButton {...ap} />}
                       {isMax && <span className="text-[10px] text-primary/60">MAX</span>}
                     </div>
                   </div>
@@ -257,17 +255,11 @@ export default async function SkillsPage() {
         {/* ─── Refining ─── */}
         <TabsContent value="refining" className="space-y-3">
           {(() => {
-            const { available, xpCurrent } = getCatPoints('refining');
-            const pct = Math.round(((xpCurrent % xpPerPt) / xpPerPt) * 100);
+            const xp = getCatXp('refining');
             return (
-              <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-border bg-card">
-                <div className="flex-1">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-muted-foreground">Refining XP</span>
-                    <span className="text-foreground font-semibold">{available} pts available</span>
-                  </div>
-                  <Progress value={pct} className="h-1" />
-                </div>
+              <div className="flex items-center justify-between px-4 py-2.5 rounded-lg border border-border bg-card">
+                <span className="text-xs text-muted-foreground">Refining XP Pool</span>
+                <span className="text-foreground font-semibold tabular-nums text-sm">{xp.toLocaleString()} XP available</span>
               </div>
             );
           })()}
@@ -275,21 +267,28 @@ export default async function SkillsPage() {
             {allSkills
               .filter(s => catById.get(s.category_id)?.name === 'refining')
               .map(s => {
-                const level = skillLevelByName.get(s.name) ?? 0;
+                const tier  = skillLevelByName.get(s.name) ?? 0;
                 const ap    = getAllocProps(s.name);
-                const isMax = level >= GAME_CONFIG.skills.maxSkillLevel;
-                const cost  = ap?.cost ?? skillLevelUpCost(level);
+                const isMax = tier >= GAME_CONFIG.skills.maxSkillLevel;
+                const cost  = ap?.cost ?? skillTierXpCost(tier);
+                const xpAvail = ap?.xpAvailable ?? 0;
+                const pct   = isMax ? 100 : Math.min(100, Math.round((xpAvail / cost) * 100));
                 return (
                   <div key={s.name} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card">
                     <span className="text-2xl shrink-0">{SKILL_ICONS[s.name] ?? '⚙️'}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold">{s.display_name}</p>
                       <p className="text-xs text-muted-foreground">{s.description}</p>
-                      {!isMax && <p className="text-[11px] text-muted-foreground/70 mt-0.5">Next level: {cost} pt{cost !== 1 ? 's' : ''}</p>}
+                      {!isMax && (
+                        <div className="mt-1.5">
+                          <Progress value={pct} className="h-1 mb-0.5" />
+                          <p className="text-[11px] text-muted-foreground/70">{Math.min(xpAvail, cost).toLocaleString()} / {cost.toLocaleString()} XP to Tier {tier + 1}</p>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-primary font-bold tabular-nums text-sm">{level}</span>
-                      {ap && <AllocatePointButton {...ap} />}
+                      <span className="text-primary font-bold tabular-nums text-sm">T{tier}</span>
+                      {ap && !isMax && <AllocatePointButton {...ap} />}
                       {isMax && <span className="text-[10px] text-primary/60">MAX</span>}
                     </div>
                   </div>
@@ -298,19 +297,13 @@ export default async function SkillsPage() {
           </div>
         </TabsContent>
         {/* ─── Crafting ─── */}
-        <TabsContent value="crafting" className="space-y-6">
+        <TabsContent value="crafting" className="space-y-3">
           {(() => {
-            const { available, xpCurrent } = getCatPoints('crafting');
-            const pct = Math.round(((xpCurrent % xpPerPt) / xpPerPt) * 100);
+            const xp = getCatXp('crafting');
             return (
-              <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-border bg-card">
-                <div className="flex-1">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-muted-foreground">Crafting XP</span>
-                    <span className="text-foreground font-semibold">{available} pts available</span>
-                  </div>
-                  <Progress value={pct} className="h-1" />
-                </div>
+              <div className="flex items-center justify-between px-4 py-2.5 rounded-lg border border-border bg-card">
+                <span className="text-xs text-muted-foreground">Crafting XP Pool</span>
+                <span className="text-foreground font-semibold tabular-nums text-sm">{xp.toLocaleString()} XP available</span>
               </div>
             );
           })()}
@@ -318,21 +311,28 @@ export default async function SkillsPage() {
             {allSkills
               .filter(s => catById.get(s.category_id)?.name === 'crafting')
               .map(s => {
-                const level = skillLevelByName.get(s.name) ?? 0;
+                const tier  = skillLevelByName.get(s.name) ?? 0;
                 const ap    = getAllocProps(s.name);
-                const isMax = level >= GAME_CONFIG.skills.maxSkillLevel;
-                const cost  = ap?.cost ?? skillLevelUpCost(level);
+                const isMax = tier >= GAME_CONFIG.skills.maxSkillLevel;
+                const cost  = ap?.cost ?? skillTierXpCost(tier);
+                const xpAvail = ap?.xpAvailable ?? 0;
+                const pct   = isMax ? 100 : Math.min(100, Math.round((xpAvail / cost) * 100));
                 return (
                   <div key={s.name} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card">
                     <span className="text-2xl shrink-0">{SKILL_ICONS[s.name] ?? '⚙️'}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold">{s.display_name}</p>
                       <p className="text-xs text-muted-foreground">{s.description}</p>
-                      {!isMax && <p className="text-[11px] text-muted-foreground/70 mt-0.5">Next level: {cost} pt{cost !== 1 ? 's' : ''}</p>}
+                      {!isMax && (
+                        <div className="mt-1.5">
+                          <Progress value={pct} className="h-1 mb-0.5" />
+                          <p className="text-[11px] text-muted-foreground/70">{Math.min(xpAvail, cost).toLocaleString()} / {cost.toLocaleString()} XP to Tier {tier + 1}</p>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-primary font-bold tabular-nums text-sm">{level}</span>
-                      {ap && <AllocatePointButton {...ap} />}
+                      <span className="text-primary font-bold tabular-nums text-sm">T{tier}</span>
+                      {ap && !isMax && <AllocatePointButton {...ap} />}
                       {isMax && <span className="text-[10px] text-primary/60">MAX</span>}
                     </div>
                   </div>
@@ -342,19 +342,13 @@ export default async function SkillsPage() {
         </TabsContent>
 
         {/* ─── Usage ─── */}
-        <TabsContent value="usage" className="space-y-4">
+        <TabsContent value="usage" className="space-y-3">
           {(() => {
-            const { available, xpCurrent } = getCatPoints('usage');
-            const pct = Math.round(((xpCurrent % xpPerPt) / xpPerPt) * 100);
+            const xp = getCatXp('usage');
             return (
-              <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-border bg-card">
-                <div className="flex-1">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-muted-foreground">Usage XP</span>
-                    <span className="text-foreground font-semibold">{available} pts available</span>
-                  </div>
-                  <Progress value={pct} className="h-1" />
-                </div>
+              <div className="flex items-center justify-between px-4 py-2.5 rounded-lg border border-border bg-card">
+                <span className="text-xs text-muted-foreground">Usage XP Pool</span>
+                <span className="text-foreground font-semibold tabular-nums text-sm">{xp.toLocaleString()} XP available</span>
               </div>
             );
           })()}
@@ -362,21 +356,28 @@ export default async function SkillsPage() {
             {allSkills
               .filter(s => catById.get(s.category_id)?.name === 'usage')
               .map(s => {
-                const level = skillLevelByName.get(s.name) ?? 0;
+                const tier  = skillLevelByName.get(s.name) ?? 0;
                 const ap    = getAllocProps(s.name);
-                const isMax = level >= GAME_CONFIG.skills.maxSkillLevel;
-                const cost  = ap?.cost ?? skillLevelUpCost(level);
+                const isMax = tier >= GAME_CONFIG.skills.maxSkillLevel;
+                const cost  = ap?.cost ?? skillTierXpCost(tier);
+                const xpAvail = ap?.xpAvailable ?? 0;
+                const pct   = isMax ? 100 : Math.min(100, Math.round((xpAvail / cost) * 100));
                 return (
                   <div key={s.name} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card">
                     <span className="text-2xl shrink-0">{SKILL_ICONS[s.name] ?? '⚙️'}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold">{s.display_name}</p>
                       <p className="text-xs text-muted-foreground">{s.description}</p>
-                      {!isMax && <p className="text-[11px] text-muted-foreground/70 mt-0.5">Next level: {cost} pt{cost !== 1 ? 's' : ''}</p>}
+                      {!isMax && (
+                        <div className="mt-1.5">
+                          <Progress value={pct} className="h-1 mb-0.5" />
+                          <p className="text-[11px] text-muted-foreground/70">{Math.min(xpAvail, cost).toLocaleString()} / {cost.toLocaleString()} XP to Tier {tier + 1}</p>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-primary font-bold tabular-nums text-sm">{level}</span>
-                      {ap && <AllocatePointButton {...ap} />}
+                      <span className="text-primary font-bold tabular-nums text-sm">T{tier}</span>
+                      {ap && !isMax && <AllocatePointButton {...ap} />}
                       {isMax && <span className="text-[10px] text-primary/60">MAX</span>}
                     </div>
                   </div>

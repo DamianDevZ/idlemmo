@@ -248,14 +248,35 @@ export function calcCraftSuccessChance(
   );
 }
 
-// ─── Category Points & Skill Levelling ───────────────────────────────────────
+// ─── Skill Tier XP Costs ─────────────────────────────────────────────────────
 
 /**
- * Category points cost to level a sub-skill from `currentLevel` to `currentLevel + 1`.
- * Uses a repeating cycle that increases cost every full cycle.
+ * XP required to advance a skill from `currentTier` to `currentTier + 1`.
+ * Scales exponentially: cost = floor(base × scaling^currentTier).
+ *
+ * With defaults (base=100, scaling=1.5):
+ *   T0→T1 = 100 XP, T1→T2 = 150, T2→T3 = 225, T3→T4 = 337 …
  */
-export function skillLevelUpCost(currentLevel: number): number {
-  const cycle = S.levelCostCycle;
-  const cycleMult = Math.floor(currentLevel / cycle.length) + 1;
-  return cycle[currentLevel % cycle.length] * cycleMult;
+export function skillTierXpCost(currentTier: number): number {
+  return Math.floor(S.skillXpBase * Math.pow(S.skillXpScaling, currentTier));
+}
+
+/**
+ * How many tiers a given amount of XP will unlock starting from `startTier`,
+ * and the leftover XP after all unlocks.
+ */
+export function tiersFromXp(
+  startTier: number,
+  maxTier: number,
+  xpBudget: number,
+): { tiersGained: number; xpSpent: number } {
+  let tier = startTier;
+  let spent = 0;
+  while (tier < maxTier) {
+    const cost = skillTierXpCost(tier);
+    if (xpBudget - spent < cost) break;
+    spent += cost;
+    tier++;
+  }
+  return { tiersGained: tier - startTier, xpSpent: spent };
 }
