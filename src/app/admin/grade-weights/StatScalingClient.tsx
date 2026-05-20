@@ -78,7 +78,7 @@ export default function StatScalingClient({ rows }: Props) {
                 <p className="text-sm font-medium text-body">{meta.label}</p>
                 <p className="text-xs text-muted-foreground leading-tight">{meta.desc}</p>
               </div>
-              {/* Bar */
+              {/* Bar */}
               <div className="flex-1 h-1.5 bg-border/40 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-primary/60 rounded-full transition-all"
