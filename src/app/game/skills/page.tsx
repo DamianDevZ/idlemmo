@@ -36,15 +36,30 @@ const ATTRIBUTE_META: {
   { name: 'arcane',       label: 'Arcane',        icon: '🔮',  description: `Rare item find +${GAME_CONFIG.attributes.arcaneRareFactor}% per point` },
 ];
 
-/** Emoji icon mapped by skill name — supplements DB display_name/description. */
+/** Emoji icon mapped by skill name. */
 const SKILL_ICONS: Record<string, string> = {
-  wood_chopping: '🪵', stone_mining: '🪨', ore_mining: '⛏️',
-  herb_gathering: '🌿', fishing: '🎣', hunting: '🏹',
-  woodcutting: '🪵', stonecutting: '🪨', smelting: '🔩',
-  cooking: '🍳', tanning: '🧤',
-  carpentry: '🔨', blacksmithing: '⚒️', leatherworking: '🧶', tailoring: '🪡',
-  one_handed: '🗡️', two_handed: '⚔️', archery: '🏹', magic: '🪄', defense: '🛡️',
+  // weapon mastery
+  axe_mastery: '🪓', bow_mastery: '🏹', hammer_mastery: '🔨',
+  knife_mastery: '🗡️', staff_mastery: '🪄', sword_mastery: '⚔️',
+  // armor mastery
+  leather_mastery: '🧤', plate_mastery: '🛡️', robe_mastery: '🧙',
+  // tool mastery
+  pickaxe_mastery: '⛏️', sickle_mastery: '🌾',
+  // weapon crafting
+  axe_crafting: '🪓', bow_crafting: '🏹', hammer_crafting: '🔨',
+  knife_crafting: '🗡️', staff_crafting: '🪄', sword_crafting: '⚔️',
+  // armor crafting
+  leather_crafting: '🧤', plate_crafting: '🛡️', robe_crafting: '🧥',
+  // tool crafting
+  pickaxe_crafting: '⛏️', sickle_crafting: '🌾',
+  // refining
+  fiber_refining: '🧵', hide_refining: '🦌', lumber_refining: '🪵',
+  ore_refining: '🪨', stone_refining: '🪨',
 };
+
+/** Groups of categories to render inside the Mastery and Crafting tabs. */
+const MASTERY_CATS  = ['weapon_mastery', 'armor_mastery', 'tool_mastery'] as const;
+const CRAFTING_CATS = ['weapon_crafting', 'armor_crafting', 'tool_crafting'] as const;
 
 export default async function SkillsPage() {
   const supabase = await createClient();
@@ -114,6 +129,52 @@ export default async function SkillsPage() {
     };
   }
 
+  /** Renders an XP pool banner + skill list for one category. */
+  function CategorySection({ catName }: { catName: string }) {
+    const xp    = getCatXp(catName);
+    const cat   = catByName.get(catName);
+    const label = cat?.display_name ?? catName;
+    const skills = allSkills.filter(s => catById.get(s.category_id)?.name === catName);
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between px-4 py-2.5 rounded-lg border border-border bg-card">
+          <span className="text-xs font-semibold text-muted-foreground">{label} XP Pool</span>
+          <span className="text-foreground font-semibold tabular-nums text-sm">{xp.toLocaleString()} XP available</span>
+        </div>
+        {skills.map(s => {
+          const tier    = skillLevelByName.get(s.name) ?? 0;
+          const ap      = getAllocProps(s.name);
+          const isMax   = tier >= GAME_CONFIG.skills.maxSkillLevel;
+          const cost    = ap?.cost ?? skillTierXpCost(tier);
+          const xpAvail = ap?.xpAvailable ?? 0;
+          const pct     = isMax ? 100 : Math.min(100, Math.round((xpAvail / cost) * 100));
+          return (
+            <div key={s.name} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card">
+              <span className="text-2xl shrink-0">{SKILL_ICONS[s.name] ?? '⚙️'}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold">{s.display_name}</p>
+                <p className="text-xs text-muted-foreground">{s.description}</p>
+                {!isMax && (
+                  <div className="mt-1.5">
+                    <Progress value={pct} className="h-1 mb-0.5" />
+                    <p className="text-[11px] text-muted-foreground/70">
+                      {Math.min(xpAvail, cost).toLocaleString()} / {cost.toLocaleString()} XP to Tier {tier + 1}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-primary font-bold tabular-nums text-sm">T{tier}</span>
+                {ap && !isMax && <AllocatePointButton {...ap} />}
+                {isMax && <span className="text-[10px] text-primary/60">MAX</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
       <div className="mb-5">
@@ -122,31 +183,26 @@ export default async function SkillsPage() {
       </div>
 
       <PersistentTabs storageKey="skills" defaultValue="attributes">
-        <TabsList className="w-full grid grid-cols-5 p-0.5 mb-4">
+        <TabsList className="w-full grid grid-cols-4 p-0.5 mb-4">
           <TabsTrigger value="attributes" className="gap-1 text-[11px] data-[state=active]:text-primary">
             <span>⚡</span>
             <span className="hidden sm:inline">Attributes</span>
             <span className="sm:hidden">Stats</span>
           </TabsTrigger>
-          <TabsTrigger value="gathering" className="gap-1 text-[11px] data-[state=active]:text-primary">
-            <span>🪓</span>
-            <span className="hidden sm:inline">Gathering</span>
-            <span className="sm:hidden">Gather</span>
-          </TabsTrigger>
-          <TabsTrigger value="refining" className="gap-1 text-[11px] data-[state=active]:text-primary">
-            <span>🔥</span>
-            <span className="hidden sm:inline">Refining</span>
-            <span className="sm:hidden">Refine</span>
+          <TabsTrigger value="mastery" className="gap-1 text-[11px] data-[state=active]:text-primary">
+            <span>⚔️</span>
+            <span className="hidden sm:inline">Mastery</span>
+            <span className="sm:hidden">Master</span>
           </TabsTrigger>
           <TabsTrigger value="crafting" className="gap-1 text-[11px] data-[state=active]:text-primary">
             <span>🔨</span>
             <span className="hidden sm:inline">Crafting</span>
             <span className="sm:hidden">Craft</span>
           </TabsTrigger>
-          <TabsTrigger value="usage" className="gap-1 text-[11px] data-[state=active]:text-primary">
-            <span>⚔️</span>
-            <span className="hidden sm:inline">Usage</span>
-            <span className="sm:hidden">Use</span>
+          <TabsTrigger value="refining" className="gap-1 text-[11px] data-[state=active]:text-primary">
+            <span>🔥</span>
+            <span className="hidden sm:inline">Refining</span>
+            <span className="sm:hidden">Refine</span>
           </TabsTrigger>
         </TabsList>
 
@@ -207,183 +263,29 @@ export default async function SkillsPage() {
           })}
         </TabsContent>
 
-        {/* ─── Gathering ─── */}
-        <TabsContent value="gathering" className="space-y-3">
-          {(() => {
-            const xp = getCatXp('gathering');
-            return (
-              <div className="flex items-center justify-between px-4 py-2.5 rounded-lg border border-border bg-card">
-                <span className="text-xs text-muted-foreground">Gathering XP Pool</span>
-                <span className="text-foreground font-semibold tabular-nums text-sm">{xp.toLocaleString()} XP available</span>
-              </div>
-            );
-          })()}
-          <div className="space-y-2">
-            {allSkills
-              .filter(s => catById.get(s.category_id)?.name === 'gathering')
-              .map(s => {
-                const tier  = skillLevelByName.get(s.name) ?? 0;
-                const ap    = getAllocProps(s.name);
-                const isMax = tier >= GAME_CONFIG.skills.maxSkillLevel;
-                const cost  = ap?.cost ?? skillTierXpCost(tier);
-                const xpAvail = ap?.xpAvailable ?? 0;
-                const pct   = isMax ? 100 : Math.min(100, Math.round((xpAvail / cost) * 100));
-                return (
-                  <div key={s.name} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card">
-                    <span className="text-2xl shrink-0">{SKILL_ICONS[s.name] ?? '⚙️'}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold">{s.display_name}</p>
-                      <p className="text-xs text-muted-foreground">{s.description}</p>
-                      {!isMax && (
-                        <div className="mt-1.5">
-                          <Progress value={pct} className="h-1 mb-0.5" />
-                          <p className="text-[11px] text-muted-foreground/70">{Math.min(xpAvail, cost).toLocaleString()} / {cost.toLocaleString()} XP to Tier {tier + 1}</p>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-primary font-bold tabular-nums text-sm">T{tier}</span>
-                      {ap && !isMax && <AllocatePointButton {...ap} />}
-                      {isMax && <span className="text-[10px] text-primary/60">MAX</span>}
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
+        {/* ─── Mastery (weapon + armor + tool) ─── */}
+        <TabsContent value="mastery" className="space-y-6">
+          <p className="text-xs text-muted-foreground">
+            Mastery XP is earned from combat (weapon &amp; armor) and gathering (tool). Spend it to unlock higher equipment tiers.
+          </p>
+          {MASTERY_CATS.map(cat => (
+            <CategorySection key={cat} catName={cat} />
+          ))}
+        </TabsContent>
+
+        {/* ─── Crafting (weapon + armor + tool) ─── */}
+        <TabsContent value="crafting" className="space-y-6">
+          <p className="text-xs text-muted-foreground">
+            Crafting XP is earned by crafting items. Weapon crafting XP from weapons, armor from armor, tool from tools.
+          </p>
+          {CRAFTING_CATS.map(cat => (
+            <CategorySection key={cat} catName={cat} />
+          ))}
         </TabsContent>
 
         {/* ─── Refining ─── */}
         <TabsContent value="refining" className="space-y-3">
-          {(() => {
-            const xp = getCatXp('refining');
-            return (
-              <div className="flex items-center justify-between px-4 py-2.5 rounded-lg border border-border bg-card">
-                <span className="text-xs text-muted-foreground">Refining XP Pool</span>
-                <span className="text-foreground font-semibold tabular-nums text-sm">{xp.toLocaleString()} XP available</span>
-              </div>
-            );
-          })()}
-          <div className="space-y-2">
-            {allSkills
-              .filter(s => catById.get(s.category_id)?.name === 'refining')
-              .map(s => {
-                const tier  = skillLevelByName.get(s.name) ?? 0;
-                const ap    = getAllocProps(s.name);
-                const isMax = tier >= GAME_CONFIG.skills.maxSkillLevel;
-                const cost  = ap?.cost ?? skillTierXpCost(tier);
-                const xpAvail = ap?.xpAvailable ?? 0;
-                const pct   = isMax ? 100 : Math.min(100, Math.round((xpAvail / cost) * 100));
-                return (
-                  <div key={s.name} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card">
-                    <span className="text-2xl shrink-0">{SKILL_ICONS[s.name] ?? '⚙️'}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold">{s.display_name}</p>
-                      <p className="text-xs text-muted-foreground">{s.description}</p>
-                      {!isMax && (
-                        <div className="mt-1.5">
-                          <Progress value={pct} className="h-1 mb-0.5" />
-                          <p className="text-[11px] text-muted-foreground/70">{Math.min(xpAvail, cost).toLocaleString()} / {cost.toLocaleString()} XP to Tier {tier + 1}</p>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-primary font-bold tabular-nums text-sm">T{tier}</span>
-                      {ap && !isMax && <AllocatePointButton {...ap} />}
-                      {isMax && <span className="text-[10px] text-primary/60">MAX</span>}
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        </TabsContent>
-        {/* ─── Crafting ─── */}
-        <TabsContent value="crafting" className="space-y-3">
-          {(() => {
-            const xp = getCatXp('crafting');
-            return (
-              <div className="flex items-center justify-between px-4 py-2.5 rounded-lg border border-border bg-card">
-                <span className="text-xs text-muted-foreground">Crafting XP Pool</span>
-                <span className="text-foreground font-semibold tabular-nums text-sm">{xp.toLocaleString()} XP available</span>
-              </div>
-            );
-          })()}
-          <div className="space-y-2">
-            {allSkills
-              .filter(s => catById.get(s.category_id)?.name === 'crafting')
-              .map(s => {
-                const tier  = skillLevelByName.get(s.name) ?? 0;
-                const ap    = getAllocProps(s.name);
-                const isMax = tier >= GAME_CONFIG.skills.maxSkillLevel;
-                const cost  = ap?.cost ?? skillTierXpCost(tier);
-                const xpAvail = ap?.xpAvailable ?? 0;
-                const pct   = isMax ? 100 : Math.min(100, Math.round((xpAvail / cost) * 100));
-                return (
-                  <div key={s.name} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card">
-                    <span className="text-2xl shrink-0">{SKILL_ICONS[s.name] ?? '⚙️'}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold">{s.display_name}</p>
-                      <p className="text-xs text-muted-foreground">{s.description}</p>
-                      {!isMax && (
-                        <div className="mt-1.5">
-                          <Progress value={pct} className="h-1 mb-0.5" />
-                          <p className="text-[11px] text-muted-foreground/70">{Math.min(xpAvail, cost).toLocaleString()} / {cost.toLocaleString()} XP to Tier {tier + 1}</p>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-primary font-bold tabular-nums text-sm">T{tier}</span>
-                      {ap && !isMax && <AllocatePointButton {...ap} />}
-                      {isMax && <span className="text-[10px] text-primary/60">MAX</span>}
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        </TabsContent>
-
-        {/* ─── Usage ─── */}
-        <TabsContent value="usage" className="space-y-3">
-          {(() => {
-            const xp = getCatXp('usage');
-            return (
-              <div className="flex items-center justify-between px-4 py-2.5 rounded-lg border border-border bg-card">
-                <span className="text-xs text-muted-foreground">Usage XP Pool</span>
-                <span className="text-foreground font-semibold tabular-nums text-sm">{xp.toLocaleString()} XP available</span>
-              </div>
-            );
-          })()}
-          <div className="space-y-2">
-            {allSkills
-              .filter(s => catById.get(s.category_id)?.name === 'usage')
-              .map(s => {
-                const tier  = skillLevelByName.get(s.name) ?? 0;
-                const ap    = getAllocProps(s.name);
-                const isMax = tier >= GAME_CONFIG.skills.maxSkillLevel;
-                const cost  = ap?.cost ?? skillTierXpCost(tier);
-                const xpAvail = ap?.xpAvailable ?? 0;
-                const pct   = isMax ? 100 : Math.min(100, Math.round((xpAvail / cost) * 100));
-                return (
-                  <div key={s.name} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card">
-                    <span className="text-2xl shrink-0">{SKILL_ICONS[s.name] ?? '⚙️'}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold">{s.display_name}</p>
-                      <p className="text-xs text-muted-foreground">{s.description}</p>
-                      {!isMax && (
-                        <div className="mt-1.5">
-                          <Progress value={pct} className="h-1 mb-0.5" />
-                          <p className="text-[11px] text-muted-foreground/70">{Math.min(xpAvail, cost).toLocaleString()} / {cost.toLocaleString()} XP to Tier {tier + 1}</p>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-primary font-bold tabular-nums text-sm">T{tier}</span>
-                      {ap && !isMax && <AllocatePointButton {...ap} />}
-                      {isMax && <span className="text-[10px] text-primary/60">MAX</span>}
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
+          <CategorySection catName="refining" />
         </TabsContent>
       </PersistentTabs>
     </div>
