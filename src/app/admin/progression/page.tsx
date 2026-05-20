@@ -14,7 +14,7 @@ export default async function ProgressionPage() {
     db.from('skill_categories')
       .select('id, name, display_name, action_xp_per_unit, action_xp_scaling, tier_xp_base, tier_xp_scaling')
       .order('name'),
-    db.from('game_config').select('value').eq('key', 'max_skill_level').single(),
+    db.from('game_config').select('value').eq('key', 'max_tier').single(),
   ]);
 
   type RawCategory = {
