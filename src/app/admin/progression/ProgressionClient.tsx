@@ -253,13 +253,3 @@ export function ProgressionClient({ categories }: { categories: Category[] }) {
     </div>
   );
 }
-
-
-type Category = {
-  id: string;
-  name: string;
-  display_name: string;
-  action_xp_per_unit: number;
-  tier_xp_base: number;
-  tier_xp_scaling: number;
-};
