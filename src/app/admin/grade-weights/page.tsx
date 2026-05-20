@@ -4,21 +4,25 @@ import Link from 'next/link';
 import GradeWeightsClient from './GradeWeightsClient';
 import GradeMultipliersClient from './GradeMultipliersClient';
 import WeaponPreviewClient from './WeaponPreviewClient';
+import StatScalingClient from './StatScalingClient';
 
 export const metadata = { title: 'Grading System — Admin' };
 
 const GRADE_WEIGHT_KEYS = ['grade_weight_s', 'grade_weight_a', 'grade_weight_b', 'grade_weight_c', 'grade_weight_d', 'grade_weight_f'] as const;
 const GRADE_MULT_KEYS   = ['grade_mult_s',   'grade_mult_a',   'grade_mult_b',   'grade_mult_c',   'grade_mult_d',   'grade_mult_f'  ] as const;
+const STAT_SCALING_KEYS = ['stat_tier1_rate', 'stat_tier2_rate', 'stat_tier3_rate', 'stat_tier4_rate', 'stat_tier1_cap', 'stat_tier2_cap', 'stat_tier3_cap'] as const;
 const GRADE_WEIGHT_DEFAULTS: Record<string, number> = { grade_weight_s: 3, grade_weight_a: 7, grade_weight_b: 10, grade_weight_c: 15, grade_weight_d: 25, grade_weight_f: 40 };
 const GRADE_MULT_DEFAULTS:   Record<string, number> = { grade_mult_s: 1.5, grade_mult_a: 1.4, grade_mult_b: 1.3, grade_mult_c: 1.2, grade_mult_d: 1.1, grade_mult_f: 1.0 };
+const STAT_SCALING_DEFAULTS: Record<string, number> = { stat_tier1_rate: 5, stat_tier2_rate: 3, stat_tier3_rate: 2, stat_tier4_rate: 1, stat_tier1_cap: 30, stat_tier2_cap: 60, stat_tier3_cap: 100 };
 
 export default async function GradeWeightsPage() {
   await requireAdmin();
 
   const db = createAdminClient();
-  const [{ data }, { data: multData }, { data: weapons }, { data: scaling }, { data: maxTierRow }] = await Promise.all([
+  const [{ data }, { data: multData }, { data: statData }, { data: weapons }, { data: scaling }, { data: maxTierRow }] = await Promise.all([
     db.from('game_config').select('key, value, default_value, min_value, max_value').in('key', [...GRADE_WEIGHT_KEYS]),
     db.from('game_config').select('key, value, default_value').in('key', [...GRADE_MULT_KEYS]),
+    db.from('game_config').select('key, value, default_value').in('key', [...STAT_SCALING_KEYS]),
     db.from('item_definitions')
       .select('id, display_name, base_damage, attack_speed, primary_scaling_attr, is_tiered, tiered_stats')
       .eq('type', 'weapon')
@@ -51,6 +55,15 @@ export default async function GradeWeightsPage() {
   });
 
   const gradeMults = Object.fromEntries(multRows.map(r => [r.key.replace('grade_mult_', '').toUpperCase(), r.value])) as Record<string, number>;
+
+  const statRows = STAT_SCALING_KEYS.map(k => {
+    const row = (statData ?? []).find(r => r.key === k);
+    return {
+      key: k,
+      value: (row?.value as number) ?? STAT_SCALING_DEFAULTS[k],
+      default_value: (row?.default_value as number) ?? STAT_SCALING_DEFAULTS[k],
+    };
+  });
 
   const maxTier = Number((maxTierRow as { value: number } | null)?.value ?? 5);
 
@@ -96,9 +109,10 @@ export default async function GradeWeightsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <GradeWeightsClient rows={rows} />
         <GradeMultipliersClient rows={multRows} />
+        <StatScalingClient rows={statRows} />
       </div>
 
       <WeaponPreviewClient
