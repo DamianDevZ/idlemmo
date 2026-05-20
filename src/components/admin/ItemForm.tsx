@@ -353,10 +353,9 @@ export function ItemForm({
 
   const isNew = !initial.id;
 
-  // Linear interpolation: T1 = level 1, T_maxTier = level 70
+  // Skill level IS the tier number in the new XP system.
   function tierToLevel(tier: number): number {
-    if (maxTier <= 1) return 1;
-    return Math.max(1, Math.round(1 + (tier - 1) * 69 / (maxTier - 1)));
+    return tier;
   }
 
   const tierOptions = Array.from({ length: maxTier }, (_, i) => i + 1);
@@ -807,7 +806,7 @@ export function ItemForm({
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Mastery Requirement</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Usage skill needed to equip. Level auto-set by tier ({tierOptions.map(t => `T${t}=L${tierToLevel(t)}`).join(' · ')}).
+                    Usage skill needed to equip. Tier auto-set: a Tier N item requires skill Tier N.
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -819,8 +818,8 @@ export function ItemForm({
                       ))}
                     </Select>
                   </Field>
-                  <Field label="Min Level">
-                    <Input type="number" min={1} max={99}
+                  <Field label="Min Tier">
+                    <Input type="number" min={1} max={maxTier}
                       value={item.required_mastery_level}
                       onChange={e => set('required_mastery_level', Number(e.target.value))} />
                   </Field>
@@ -882,7 +881,7 @@ export function ItemForm({
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Mastery Requirement</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Usage skill needed to equip. Level auto-set by tier ({tierOptions.map(t => `T${t}=L${tierToLevel(t)}`).join(' · ')}).
+                    Usage skill needed to equip. Tier auto-set: a Tier N item requires skill Tier N.
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -894,8 +893,8 @@ export function ItemForm({
                       ))}
                     </Select>
                   </Field>
-                  <Field label="Min Level">
-                    <Input type="number" min={1} max={99}
+                  <Field label="Min Tier">
+                    <Input type="number" min={1} max={maxTier}
                       value={item.required_mastery_level}
                       onChange={e => set('required_mastery_level', Number(e.target.value))} />
                   </Field>
