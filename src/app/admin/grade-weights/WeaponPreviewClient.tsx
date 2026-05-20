@@ -94,6 +94,7 @@ export default function WeaponPreviewClient({ weapons, tierScaling, maxTier, gra
       tier:     t,
       tieredDmg,
       tieredSpeed,
+      baseDps:  tieredDmg * tieredSpeed,
       fDmg,     fDps:  fDmg * tieredSpeed,
       gDmg,     gDps:  gDmg * tieredSpeed,
       bonus:    gDmg - fDmg,
@@ -190,14 +191,14 @@ export default function WeaponPreviewClient({ weapons, tierScaling, maxTier, gra
           <thead>
             <tr className="border-b border-border">
               <th className="text-left px-4 py-2.5 text-muted-foreground font-medium w-12">Tier</th>
-              <th className="text-right px-3 py-2.5 text-muted-foreground font-medium">Base DMG</th>
               <th className="text-right px-3 py-2.5 text-muted-foreground font-medium">Speed</th>
-              <th className="text-right px-4 py-2.5 text-muted-foreground font-medium border-r border-border">
-                F-grade DPS
-              </th>
-              <th className={`text-right px-3 py-2.5 font-semibold border-r border-border ${GRADE_STYLE[grade].split(' ')[1]}`}>
+              <th className="text-right px-3 py-2.5 text-muted-foreground font-medium">Base DMG</th>
+              <th className="text-right px-4 py-2.5 text-muted-foreground font-medium border-r border-border">Base DPS</th>
+              <th className="text-right px-3 py-2.5 text-muted-foreground font-medium">F DMG</th>
+              <th className={`text-right px-3 py-2.5 font-semibold ${GRADE_STYLE[grade].split(' ')[1]}`}>
                 {grade} DMG
               </th>
+              <th className="text-right px-3 py-2.5 text-muted-foreground font-medium border-l border-border">F DPS</th>
               <th className={`text-right px-3 py-2.5 font-semibold border-r border-border ${GRADE_STYLE[grade].split(' ')[1]}`}>
                 {grade} DPS
               </th>
@@ -211,21 +212,22 @@ export default function WeaponPreviewClient({ weapons, tierScaling, maxTier, gra
               return (
                 <tr key={r.tier} className={i % 2 === 0 ? 'bg-card' : 'bg-background'}>
                   <td className="px-4 py-2 font-mono text-muted-foreground">T{r.tier}</td>
-                  {/* Base at tier (weapon raw, no attr) */}
-                  <td className="px-3 py-2 text-right text-body tabular-nums">{fmt(r.tieredDmg)}</td>
                   <td className="px-3 py-2 text-right text-body tabular-nums">{fmt(r.tieredSpeed, 2)}</td>
-                  {/* F-grade: weapon + stat bonus × 1.0 */}
-                  <td className="px-4 py-2 text-right text-body tabular-nums border-r border-border">
-                    {fmt(r.fDps)}
-                  </td>
-                  {/* Selected grade */}
-                  <td className={`px-3 py-2 text-right tabular-nums font-semibold border-r border-border ${GRADE_STYLE[grade].split(' ')[1]}`}>
+                  <td className="px-3 py-2 text-right text-body tabular-nums">{fmt(r.tieredDmg)}</td>
+                  <td className="px-4 py-2 text-right text-body tabular-nums border-r border-border">{fmt(r.baseDps)}</td>
+                  {/* F grade */}
+                  <td className="px-3 py-2 text-right text-muted-foreground tabular-nums">{fmt(r.fDmg)}</td>
+                  {/* Selected grade DMG */}
+                  <td className={`px-3 py-2 text-right tabular-nums font-semibold ${GRADE_STYLE[grade].split(' ')[1]}`}>
                     {fmt(r.gDmg)}
                   </td>
+                  {/* F DPS */}
+                  <td className="px-3 py-2 text-right text-muted-foreground tabular-nums border-l border-border">{fmt(r.fDps)}</td>
+                  {/* Selected grade DPS */}
                   <td className={`px-3 py-2 text-right tabular-nums font-semibold border-r border-border ${GRADE_STYLE[grade].split(' ')[1]}`}>
                     {fmt(r.gDps)}
                   </td>
-                  {/* Delta */}
+                  {/* Grade Bonus */}
                   <td className="px-4 py-2 text-right tabular-nums">
                     <span className="text-emerald-400">
                       +{fmt(r.bonus, 0)} dmg
