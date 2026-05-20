@@ -62,7 +62,7 @@ export default async function GradeWeightsPage() {
   type ScalingRow = { stat_key: string; tier: number; multiplier: number };
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div className="flex items-center gap-2 text-sm">
         <Link href="/admin" className="text-muted-foreground hover:text-body transition-colors">
           ← Admin
