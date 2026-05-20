@@ -7,6 +7,7 @@ import WeaponPreviewClient from './WeaponPreviewClient';
 import StatScalingClient from './StatScalingClient';
 
 export const metadata = { title: 'Grading System — Admin' };
+export const dynamic = 'force-dynamic';
 
 const GRADE_WEIGHT_KEYS = ['grade_weight_s', 'grade_weight_a', 'grade_weight_b', 'grade_weight_c', 'grade_weight_d', 'grade_weight_f'] as const;
 const GRADE_MULT_KEYS   = ['grade_mult_s',   'grade_mult_a',   'grade_mult_b',   'grade_mult_c',   'grade_mult_d',   'grade_mult_f'  ] as const;
