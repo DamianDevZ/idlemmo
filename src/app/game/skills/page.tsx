@@ -132,7 +132,7 @@ export default async function SkillsPage() {
   /** Renders an XP pool banner + skill list for one category. */
   function CategorySection({ catName }: { catName: string }) {
     const xp    = getCatXp(catName);
-    const cat   = catByName.get(catName);
+    const cat   = catByName.get(catName as never);
     const label = cat?.display_name ?? catName;
     const skills = allSkills.filter(s => catById.get(s.category_id)?.name === catName);
     return (
