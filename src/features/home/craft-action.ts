@@ -34,10 +34,10 @@ export async function craftItem(characterId: string, recipeId: string) {
     .single();
   if (!knownRecipe) throw new Error('Recipe not known');
 
-  // Fetch recipe with output item name
+  // Fetch recipe with output item name + type (type determines which crafting XP pool to award)
   const { data: recipe } = await supabase
     .from('recipes')
-    .select('id, tier, output_quantity, ingredients, item_definitions!output_item_id(name, display_name)')
+    .select('id, tier, output_quantity, ingredients, item_definitions!output_item_id(name, display_name, type)')
     .eq('id', recipeId)
     .single();
   if (!recipe) throw new Error('Recipe not found');
@@ -99,7 +99,8 @@ export async function craftItem(characterId: string, recipeId: string) {
   }
 
   // Add crafted item to inventory
-  const outputItemName = (recipe.item_definitions as unknown as { name: string } | null)?.name;
+  const outputItemName = (recipe.item_definitions as unknown as { name: string; type: string } | null)?.name;
+  const outputItemType = (recipe.item_definitions as unknown as { name: string; type: string } | null)?.type ?? 'misc';
   if (!outputItemName) throw new Error('Output item not found');
 
   await supabase.rpc('add_to_inventory', {
@@ -108,11 +109,17 @@ export async function craftItem(characterId: string, recipeId: string) {
     p_quantity:     recipe.output_quantity as number,
   });
 
-  // Award XP for crafting
+  // Award XP — crafting category depends on what was crafted.
+  // weapon_crafting / armor_crafting / tool_crafting each have their own XP pool.
+  const craftingCategory =
+    outputItemType === 'weapon' ? 'weapon_crafting' :
+    outputItemType === 'armor'  ? 'armor_crafting'  :
+    outputItemType === 'tool'   ? 'tool_crafting'   :
+    'weapon_crafting'; // fallback for misc/refined items crafted via crafting skill
   const tier = recipe.tier as number;
   await Promise.all([
     awardMainXp(supabase, characterId, tier * 10),
-    awardCategoryXp(supabase, characterId, 'crafting', tier * 20),
+    awardCategoryXp(supabase, characterId, craftingCategory, tier * 20),
   ]);
 
   revalidatePath('/game/home');

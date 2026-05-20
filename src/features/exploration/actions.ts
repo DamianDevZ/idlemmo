@@ -216,7 +216,7 @@ export async function actOnExploreEvent(
     const itemTier = Number(d.item_tier ?? 1);
     await Promise.all([
       awardMainXp(supabase, characterId, itemTier * XP.gatherMainXpPerTier),
-      awardCategoryXp(supabase, characterId, 'gathering', itemTier * XP.gatherCatXpPerTier),
+      awardCategoryXp(supabase, characterId, 'tool_mastery', itemTier * XP.gatherCatXpPerTier),
     ]);
     return { ok: true };
   }
@@ -439,9 +439,12 @@ export async function actOnExploreEvent(
 
   // Award XP for combat — main XP and usage category
   if (victory && xpGained > 0) {
+    // Combat XP splits 50/50 between weapon mastery and armor mastery pools.
+    const combatCatXp = level * XP.combatUsageCatXpPerLevel;
     await Promise.all([
       awardMainXp(supabase, characterId, xpGained),
-      awardCategoryXp(supabase, characterId, 'usage', level * XP.combatUsageCatXpPerLevel),
+      awardCategoryXp(supabase, characterId, 'weapon_mastery', Math.floor(combatCatXp / 2)),
+      awardCategoryXp(supabase, characterId, 'armor_mastery',  Math.ceil(combatCatXp  / 2)),
     ]);
   }
 

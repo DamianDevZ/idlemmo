@@ -404,11 +404,13 @@ export async function POST(req: NextRequest) {
     }
     if (totalXpGained > 0) {
       writes.push(awardMainXp(supabase, characterId, totalXpGained));
-      writes.push(awardCategoryXp(supabase, characterId, 'usage', totalXpGained));
+      // Combat XP splits 50/50 between weapon mastery and armor mastery pools.
+      writes.push(awardCategoryXp(supabase, characterId, 'weapon_mastery', Math.floor(totalXpGained / 2)));
+      writes.push(awardCategoryXp(supabase, characterId, 'armor_mastery',  Math.ceil(totalXpGained  / 2)));
     }
     const resourceQty = Object.values(resourceAccum).reduce((s, r) => s + r.quantity, 0);
     if (resourceQty > 0) {
-      writes.push(awardCategoryXp(supabase, characterId, 'gathering', resourceQty * 2));
+      writes.push(awardCategoryXp(supabase, characterId, 'tool_mastery', resourceQty * 2));
     }
     if (totalHpLost > 0) {
       writes.push(supabase.from('characters').update({ current_hp: currentHp }).eq('id', characterId));
