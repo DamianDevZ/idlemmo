@@ -2,6 +2,7 @@ import { requireAdmin } from '@/lib/admin-auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import Link from 'next/link';
 import GradeWeightsClient from './GradeWeightsClient';
+import WeaponPreviewClient from './WeaponPreviewClient';
 
 export const metadata = { title: 'Grade Weights — Admin' };
 
@@ -12,10 +13,18 @@ export default async function GradeWeightsPage() {
   await requireAdmin();
 
   const db = createAdminClient();
-  const { data } = await db
-    .from('game_config')
-    .select('key, value, default_value, min_value, max_value')
-    .in('key', [...GRADE_KEYS]);
+  const [{ data }, { data: weapons }, { data: scaling }, { data: maxTierRow }] = await Promise.all([
+    db.from('game_config').select('key, value, default_value, min_value, max_value').in('key', [...GRADE_KEYS]),
+    db.from('item_definitions')
+      .select('id, display_name, base_damage, attack_speed, primary_scaling_attr, is_tiered, tiered_stats')
+      .eq('type', 'weapon')
+      .order('display_name'),
+    db.from('tier_scaling_config')
+      .select('stat_key, tier, multiplier')
+      .eq('item_type', 'weapon')
+      .order('stat_key').order('tier'),
+    db.from('game_config').select('value').eq('key', 'max_tier').single(),
+  ]);
 
   const rows = GRADE_KEYS.map(k => {
     const row = (data ?? []).find(r => r.key === k);
@@ -28,8 +37,17 @@ export default async function GradeWeightsPage() {
     };
   });
 
+  const maxTier = Number((maxTierRow as { value: number } | null)?.value ?? 5);
+
+  type WeaponRow = {
+    id: string; display_name: string; base_damage: number | null;
+    attack_speed: number; primary_scaling_attr: string | null;
+    is_tiered: boolean; tiered_stats: string[];
+  };
+  type ScalingRow = { stat_key: string; tier: number; multiplier: number };
+
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-5xl">
       <div className="flex items-center gap-2 text-sm">
         <Link href="/admin" className="text-muted-foreground hover:text-body transition-colors">
           ← Admin
@@ -53,6 +71,12 @@ export default async function GradeWeightsPage() {
       </div>
 
       <GradeWeightsClient rows={rows} />
+
+      <WeaponPreviewClient
+        weapons={(weapons ?? []) as WeaponRow[]}
+        tierScaling={(scaling ?? []) as ScalingRow[]}
+        maxTier={maxTier}
+      />
     </div>
   );
 }
