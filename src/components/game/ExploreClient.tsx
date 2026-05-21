@@ -331,6 +331,9 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
       }
       actOnExploreEvent(character.id, session.id, ev.id, action)
         .then(result => {
+          if (!result.ok && result.error) {
+            console.error('[collect] failed:', result.error);
+          }
           if (ev.event_type === 'enemy_encountered' && result.combatResult) {
             const cr = result.combatResult;
             const d  = (ev.data ?? {}) as Record<string, unknown>;

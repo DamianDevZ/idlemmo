@@ -13,6 +13,7 @@ export type ExploreAction = 'collect' | 'leave' | 'fight' | 'flee' | 'campsite_c
 
 export interface ActOnEventResult {
   ok: boolean;
+  error?: string;
   autoRetreat?: boolean;
   died?: boolean;
   droppedItems?: Array<{ name: string; quantity: number }>;
@@ -208,11 +209,15 @@ export async function actOnExploreEvent(
 
   // ── Collect / Leave ────────────────────────────────────────────────────────
   if (action === 'collect') {
-    await supabase.rpc('add_to_inventory', {
+    const { error: invErr } = await supabase.rpc('add_to_inventory', {
       p_character_id: characterId,
       p_item_name:    String(d.item),
       p_quantity:     Number(d.quantity),
     });
+    if (invErr) {
+      console.error('[collect] add_to_inventory failed', { item: d.item, quantity: d.quantity, error: invErr });
+      return { ok: false, error: invErr.message };
+    }
     // Record discovery so gathered items appear on the Skills page
     await recordItemDiscovery(supabase, characterId, [String(d.item)]);
     // Award XP proportional to item tier — exponential curve: floor(base × scaling^(tier-1))
