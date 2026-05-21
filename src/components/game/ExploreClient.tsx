@@ -541,12 +541,10 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
 
   async function handleOpenInventory() {
     setInventoryOpen(true);
-    if (inventoryItems.length === 0) {
-      setInventoryLoading(true);
-      const items = await getExploreInventory(character.id).catch(() => []);
-      setInventoryItems(items);
-      setInventoryLoading(false);
-    }
+    setInventoryLoading(true);
+    const items = await getExploreInventory(character.id).catch(() => []);
+    setInventoryItems(items);
+    setInventoryLoading(false);
   }
 
   function handleReturn() {
