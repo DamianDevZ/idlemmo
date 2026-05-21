@@ -139,16 +139,17 @@ export async function POST(req: NextRequest) {
           .eq('tier', sessionAreaTier)
       : { data: null };
 
-    // Check whether enemies are actually configured for this area/tier.
-    // If none exist, enemy_encountered is excluded from the event pool entirely.
-    const { count: areaEnemyCount } = isAreaSession
+    // Fetch enemy weights for this area/tier so we can derive event probabilities
+    // from the admin-configured weights rather than hardcoded percentages.
+    const { data: areaEnemyRows } = isAreaSession
       ? await supabase
           .from('area_tier_enemies')
-          .select('*', { count: 'exact', head: true })
+          .select('weight')
           .eq('area_id', sessionAreaId!)
           .eq('tier', sessionAreaTier)
-      : { count: null };
-    const hasAreaEnemies = isAreaSession ? (areaEnemyCount ?? 0) > 0 : true;
+      : { data: null };
+    const areaEnemyWeight = ((areaEnemyRows ?? []) as { weight: number }[])
+      .reduce((s, r) => s + (r.weight ?? 0), 0);
 
     // ── Campsite check ───────────────────────────────────────────────────────
     // Track how many ticks have happened in this session via collect_preferences.
@@ -197,11 +198,23 @@ export async function POST(req: NextRequest) {
 
     // Ruins: combat-only biome — no resource gathering, heavier enemy spawns.
     const isRuins = biomeName === 'ruins';
-    const rChance = isRuins ? 0.00 : 0.65;
-    // Enemy encounters are only rolled when enemies are actually configured for the area/tier.
-    const eChance = (isRuins ? 0.70 : 0.20) * (hasAreaEnemies ? 1 : 0);
-    const tChance = isRuins ? 0.15 : 0.07;
-    const total   = rChance + eChance + tChance;
+    // For area sessions: event type probabilities come from the admin-configured
+    // weights (area_tier_loot and area_tier_enemies), so the ratio of resources to
+    // enemies to treasure reflects exactly what was set in the admin panel.
+    // For the legacy biome system, keep the original hardcoded ratios.
+    let rChance: number, eChance: number, tChance: number;
+    if (isAreaSession) {
+      const areaResourceWeight = ((areaLoot ?? []) as { weight: number }[])
+        .reduce((s, r) => s + (r.weight ?? 0), 0);
+      rChance = areaResourceWeight;
+      eChance = areaEnemyWeight; // 0 when no enemies configured
+      tChance = 5;               // small fixed treasure weight
+    } else {
+      rChance = isRuins ? 0.00 : 0.65;
+      eChance = isRuins ? 0.70 : 0.20;
+      tChance = isRuins ? 0.15 : 0.07;
+    }
+    const total = rChance + eChance + tChance;
 
     // Recipe drop: 5% chance per tick.
     // 2/3 → tool (type weighted by biome resources); 1/3 → weapon or armor.
