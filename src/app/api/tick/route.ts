@@ -139,6 +139,17 @@ export async function POST(req: NextRequest) {
           .eq('tier', sessionAreaTier)
       : { data: null };
 
+    // Check whether enemies are actually configured for this area/tier.
+    // If none exist, enemy_encountered is excluded from the event pool entirely.
+    const { count: areaEnemyCount } = isAreaSession
+      ? await supabase
+          .from('area_tier_enemies')
+          .select('*', { count: 'exact', head: true })
+          .eq('area_id', sessionAreaId!)
+          .eq('tier', sessionAreaTier)
+      : { count: null };
+    const hasAreaEnemies = isAreaSession ? (areaEnemyCount ?? 0) > 0 : true;
+
     // ── Campsite check ───────────────────────────────────────────────────────
     // Track how many ticks have happened in this session via collect_preferences.
     // Every campsiteEveryTicks ticks, fire a campsite_reached event instead of
@@ -187,7 +198,8 @@ export async function POST(req: NextRequest) {
     // Ruins: combat-only biome — no resource gathering, heavier enemy spawns.
     const isRuins = biomeName === 'ruins';
     const rChance = isRuins ? 0.00 : 0.65;
-    const eChance = isRuins ? 0.70 : 0.20;
+    // Enemy encounters are only rolled when enemies are actually configured for the area/tier.
+    const eChance = (isRuins ? 0.70 : 0.20) * (hasAreaEnemies ? 1 : 0);
     const tChance = isRuins ? 0.15 : 0.07;
     const total   = rChance + eChance + tChance;
 
@@ -246,7 +258,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const eventType = pickedRecipe
+    let eventType = pickedRecipe
       ? 'recipe_found'
       : (() => {
           const roll = Math.random() * total;
@@ -411,15 +423,12 @@ export async function POST(req: NextRequest) {
           loot_table:   pickedEnemy.loot_table ?? [],
         };
       } else {
-        // No enemies configured for this area/tier — fall back to generic
-        const level = isAreaSession
-          ? sessionAreaTier * 3
-          : (() => {
-              const minLv = biomeTier?.enemy_level_min ?? 1;
-              const maxLv = biomeTier?.enemy_level_max ?? 5;
-              return Math.floor(Math.random() * (maxLv - minLv + 1)) + minLv;
-            })();
-        eventData = { enemy: `Lv ${level} Creature`, level, xp_reward: 10 + level * 3, loot_table: [] };
+        // Should not happen: eChance is 0 when no enemies are configured, so
+        // enemy_encountered is excluded from the event pool. This is just a safety
+        // net for the rare race where the last enemy was deleted between the count
+        // check and this query.
+        eventType = 'resource_found';
+        eventData = { item: 'nothing', quantity: 0 };
       }
     } else if (eventType === 'recipe_found' && pickedRecipe) {
       // Upsert so a duplicate-key race condition never silently swallows the insert.
