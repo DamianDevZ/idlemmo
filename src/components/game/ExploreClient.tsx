@@ -92,13 +92,15 @@ function formatEvent(ev: DbExplorationEvent): EventDisplay {
   const d = (ev.data ?? {}) as Record<string, unknown>;
   switch (ev.event_type) {
     case 'resource_found': {
-      if ((d.quantity as number) <= 0) return { icon: '🌫️', title: 'Nothing found…', accent: 'muted' };
+      if ((d.quantity as number) <= 0) return { icon: '\uD83C\uDF2B\uFE0F', title: 'Nothing found\u2026', accent: 'muted' };
       const rawName = String(d.display_name ?? d.item ?? 'item');
       const itemKey = String(d.item ?? '');
+      // Prefer image_url stored in event data (from item_definitions), fall back to hardcoded map
+      const dbImageUrl = (d.image_url as string | null | undefined) ?? null;
       return {
         icon: getItemIcon(itemKey),
-        iconPath: getResourceIconPath(itemKey) ?? undefined,
-        title: `${d.quantity}× ${capitalise(rawName)}`,
+        iconPath: dbImageUrl ?? getResourceIconPath(itemKey) ?? undefined,
+        title: `${d.quantity}\u00D7 ${capitalise(rawName)}`,
         accent: 'green',
       };
     }
@@ -110,9 +112,9 @@ function formatEvent(ev: DbExplorationEvent): EventDisplay {
         accent: 'blue',
       };
     case 'combat_result': {
-      const loot = d.lootDrops as Array<{ item: string; quantity: number }> | undefined;
+      const loot = d.lootDrops as Array<{ item: string; displayName?: string; quantity: number }> | undefined;
       const lootStr = loot?.length
-        ? loot.map(l => `${l.quantity}× ${l.item.replace(/_/g, ' ')}`).join(', ')
+        ? loot.map(l => `${l.quantity}\u00D7 ${l.displayName ?? l.item.replace(/_/g, ' ')}`).join(', ')
         : null;
       const ult = d.ultimateFired as { name: string; bonusDamage: number } | undefined;
       return {

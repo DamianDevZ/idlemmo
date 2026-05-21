@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
     const { data: areaLoot } = isAreaSession
       ? await supabase
           .from('area_tier_loot')
-          .select('weight, quantity_min, quantity_max, required_skill_name, item_tier, item_definitions(name, display_name)')
+          .select('weight, quantity_min, quantity_max, required_skill_name, item_tier, item_definitions(name, display_name, image_url)')
           .eq('area_id', sessionAreaId!)
           .eq('tier', sessionAreaTier)
       : { data: null };
@@ -264,7 +264,7 @@ export async function POST(req: NextRequest) {
         type AreaLootRow = {
           weight: number; quantity_min: number; quantity_max: number;
           required_skill_name: string | null; item_tier: number | null;
-          item_definitions: { name: string; display_name: string } | null;
+          item_definitions: { name: string; display_name: string; image_url: string | null } | null;
         };
         const rows = areaLoot as unknown as AreaLootRow[];
         const totalWeight = rows.reduce((s, r) => s + r.weight, 0);
@@ -278,6 +278,7 @@ export async function POST(req: NextRequest) {
           item: itemName,
           quantity: qty,
           display_name: picked.item_definitions?.display_name ?? itemDisplayName(itemName),
+          image_url: picked.item_definitions?.image_url ?? null,
           item_tier: itemTier,
           required_tool_tier: Math.max(0, itemTier - 1),
           required_skill: picked.required_skill_name ?? null,

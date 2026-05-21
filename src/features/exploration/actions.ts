@@ -310,28 +310,31 @@ export async function actOnExploreEvent(
   // Loot drops only happen on victory
   type LootEntry = { item: string; min: number; max: number; weight: number };
   const lootTable = (d.loot_table as LootEntry[] | undefined) ?? [];
-  const lootDrops: Array<{ item: string; quantity: number; grade?: string | null }> = [];
+  const lootDrops: Array<{ item: string; displayName: string; imageUrl: string | null; quantity: number; grade?: string | null }> = [];
 
   if (victory && lootTable.length > 0) {
     // Fetch item types + per-item grade weight overrides for all potential loot
     const lootItemNames = lootTable.map(e => e.item);
     const { data: lootItemDefs } = await supabase
       .from('item_definitions')
-      .select('name, type, grade_weights')
+      .select('name, type, grade_weights, display_name, image_url')
       .in('name', lootItemNames);
     const lootItemMap = Object.fromEntries(
-      (lootItemDefs ?? []).map(d => [d.name, d as { name: string; type: string; grade_weights: Record<string, number> | null }])
+      (lootItemDefs ?? []).map(d => [d.name, d as { name: string; type: string; grade_weights: Record<string, number> | null; display_name: string; image_url: string | null }])
     );
 
     const { gradeWeights } = await getGameConfig();
 
     for (const entry of lootTable) {
+      // Skip items that don't exist in item_definitions — prevents phantom UI drops
+      const itemDef = lootItemMap[entry.item];
+      if (!itemDef) continue;
+
       if (Math.random() * 10 < entry.weight) {
         const qty = Math.floor(Math.random() * (entry.max - entry.min + 1)) + entry.min;
-        const itemDef = lootItemMap[entry.item];
-        const isEquipment = ['weapon', 'armor', 'tool'].includes(itemDef?.type ?? '');
+        const isEquipment = ['weapon', 'armor', 'tool'].includes(itemDef.type);
         const itemRating = isEquipment
-          ? pickGrade(gradeWeights, itemDef?.grade_weights)
+          ? pickGrade(gradeWeights, itemDef.grade_weights)
           : null;
         await supabase.rpc('add_to_inventory', {
           p_character_id: characterId,
@@ -339,7 +342,7 @@ export async function actOnExploreEvent(
           p_quantity:     qty,
           p_item_rating:  itemRating,
         });
-        lootDrops.push({ item: entry.item, quantity: qty, grade: itemRating });
+        lootDrops.push({ item: entry.item, displayName: itemDef.display_name, imageUrl: itemDef.image_url, quantity: qty, grade: itemRating });
       }
     }
 
