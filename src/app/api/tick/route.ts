@@ -198,9 +198,8 @@ export async function POST(req: NextRequest) {
 
     // Ruins: combat-only biome — no resource gathering, heavier enemy spawns.
     const isRuins = biomeName === 'ruins';
-    // For area sessions: event type probabilities come from the admin-configured
-    // weights (area_tier_loot and area_tier_enemies), so the ratio of resources to
-    // enemies to treasure reflects exactly what was set in the admin panel.
+    // For area sessions: only resources and enemies exist — both fully admin-driven.
+    // Coins and anything else the admin wants are just loot rows in area_tier_loot.
     // For the legacy biome system, keep the original hardcoded ratios.
     let rChance: number, eChance: number, tChance: number;
     if (isAreaSession) {
@@ -208,7 +207,7 @@ export async function POST(req: NextRequest) {
         .reduce((s, r) => s + (r.weight ?? 0), 0);
       rChance = areaResourceWeight;
       eChance = areaEnemyWeight; // 0 when no enemies configured
-      tChance = 5;               // small fixed treasure weight
+      tChance = 0;               // no hardcoded treasure — add coins via area_tier_loot instead
     } else {
       rChance = isRuins ? 0.00 : 0.65;
       eChance = isRuins ? 0.70 : 0.20;
@@ -274,6 +273,7 @@ export async function POST(req: NextRequest) {
     let eventType = pickedRecipe
       ? 'recipe_found'
       : (() => {
+          if (total === 0) return 'resource_found'; // nothing configured — handled as empty resource
           const roll = Math.random() * total;
           return roll < rChance ? 'resource_found'
                : roll < rChance + eChance ? 'enemy_encountered'
