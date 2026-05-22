@@ -140,6 +140,17 @@ export const getGameConfig = unstable_cache(
         D: v('grade_weight_d', 25),
         F: v('grade_weight_f', 40),
       },
+      // Damage multipliers applied to the tiered stat bonus per grade.
+      // final_damage = weapon_base + round(stat_bonus × gradeMult)
+      // Editable in admin → /admin/grade-weights.
+      gradeMultipliers: {
+        S: v('grade_mult_s', 1.5),
+        A: v('grade_mult_a', 1.4),
+        B: v('grade_mult_b', 1.3),
+        C: v('grade_mult_c', 1.2),
+        D: v('grade_mult_d', 1.1),
+        F: v('grade_mult_f', 1.0),
+      },
     };
   },
   ['game-config'],

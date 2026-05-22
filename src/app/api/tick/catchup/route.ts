@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const { characterId } = body;
     if (!characterId) return NextResponse.json({ error: 'Missing characterId' }, { status: 400 });
 
-    const { exploration: EXP, attributes: ATTR, gradeWeights } = await getGameConfig();
+    const { exploration: EXP, attributes: ATTR, gradeWeights, gradeMultipliers } = await getGameConfig();
     const MAX_OFFLINE_TICKS = Math.ceil((2 * 60 * 60 * 1000) / (EXP.tickIntervalSeconds * 1000));
 
     // Verify ownership and get character stats
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
 
       supabase
         .from('character_inventory')
-        .select('equipped_slot, tier, item_definitions(type, base_damage, base_defense, attack_speed, primary_damage_type)')
+        .select('equipped_slot, tier, item_rating, item_definitions(type, base_damage, base_defense, attack_speed, primary_damage_type)')
         .eq('character_id', characterId)
         .not('equipped_slot', 'is', null),
     ]);
@@ -132,6 +132,7 @@ export async function POST(req: NextRequest) {
     type EquippedItem = {
       equipped_slot: string | null;
       tier: number;
+      item_rating: string | null;
       item_definitions: {
         type: string;
         base_damage: number | null;
@@ -141,15 +142,18 @@ export async function POST(req: NextRequest) {
       } | null;
     };
     const equipped = (equippedResult.data ?? []) as unknown as EquippedItem[];
-    const weaponDef = equipped.find(e => e.item_definitions?.type === 'weapon')?.item_definitions;
+    const weaponEquipped = equipped.find(e => e.item_definitions?.type === 'weapon');
+    const weaponDef = weaponEquipped?.item_definitions;
     const armorDef  = equipped.find(e => e.item_definitions?.type === 'armor')?.item_definitions;
     let weaponDmgBase       = Number(weaponDef?.base_damage  ?? 5);
     let armorRating         = Number(armorDef?.base_defense  ?? 0);
     const weaponAttackSpeed = Number(weaponDef?.attack_speed ?? 1.0);
     const weaponDamageType  = weaponDef?.primary_damage_type ?? null;
+    const weaponGrade       = (weaponEquipped?.item_rating ?? 'F') as keyof typeof gradeMultipliers;
+    const weaponGradeMult   = gradeMultipliers[weaponGrade] ?? 1.0;
 
     // Apply tier-scaling multipliers for weapon/armor above T1
-    const weaponTier = equipped.find(e => e.item_definitions?.type === 'weapon')?.tier ?? 1;
+    const weaponTier = weaponEquipped?.tier ?? 1;
     const armorTier  = equipped.find(e => e.item_definitions?.type === 'armor')?.tier  ?? 1;
     if (weaponTier > 1 || armorTier > 1) {
       const tiersNeeded = [...new Set([weaponTier > 1 ? weaponTier : 0, armorTier > 1 ? armorTier : 0].filter(t => t > 0))];
@@ -284,7 +288,7 @@ export async function POST(req: NextRequest) {
             const enemyHp      = Number(enemy.base_hp      ?? (10 + level * 4));
             const enemyAtkBase = Number(enemy.base_attack  ?? (2  + level * 1.5));
 
-            const playerDmgBase = calcMeleeDamage(weaponDmgBase, strength, 0);
+            const playerDmgBase = calcMeleeDamage(weaponDmgBase, strength, 0, weaponGradeMult);
             let playerDmg = Math.max(1, playerDmgBase * effectiveAttackSpeed * (0.8 + Math.random() * 0.4));
 
             // Apply resistance
@@ -333,7 +337,7 @@ export async function POST(req: NextRequest) {
 
           // Simulate the same combat math used in actOnExploreEvent
           const enemyHp       = 10 + level * 4;
-          const playerDmgBase = calcMeleeDamage(weaponDmgBase, strength, 0);
+          const playerDmgBase = calcMeleeDamage(weaponDmgBase, strength, 0, weaponGradeMult);
           const playerDmg     = Math.max(1, playerDmgBase * (0.8 + Math.random() * 0.4));
           const enemyDmgRaw   = Math.max(1, 2 + level * 1.5 * Math.random());
           const enemyDmg      = applyDefense(enemyDmgRaw, armorRating);

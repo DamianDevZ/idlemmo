@@ -174,17 +174,18 @@ export function calcSkillCombatMult(skillLevel: number): number {
   return 1 + skillLevel * S.combatDamageFactor;
 }
 
-/** Melee damage for exploration combat (uses tiered STR bonus, grade-independent). */
-export function calcMeleeDamage(weaponBase: number, strength: number, skillLevel: number): number {
-  return (weaponBase + Math.round(calcTieredStatBonus(strength))) * calcSkillCombatMult(skillLevel);
+/** Melee damage for exploration combat.
+ * gradeMult: item_rating multiplier from game_config (grade_mult_s/a/b/c/d/f). Default 1.0 (grade F). */
+export function calcMeleeDamage(weaponBase: number, strength: number, skillLevel: number, gradeMult = 1.0): number {
+  return (weaponBase + Math.round(calcTieredStatBonus(strength) * gradeMult)) * calcSkillCombatMult(skillLevel);
 }
 
-export function calcRangedDamage(weaponBase: number, dexterity: number, skillLevel: number): number {
-  return (weaponBase + Math.round(calcTieredStatBonus(dexterity))) * calcSkillCombatMult(skillLevel);
+export function calcRangedDamage(weaponBase: number, dexterity: number, skillLevel: number, gradeMult = 1.0): number {
+  return (weaponBase + Math.round(calcTieredStatBonus(dexterity) * gradeMult)) * calcSkillCombatMult(skillLevel);
 }
 
-export function calcMagicDamage(spellBase: number, intelligence: number, skillLevel: number): number {
-  return (spellBase + Math.round(calcTieredStatBonus(intelligence))) * calcSkillCombatMult(skillLevel);
+export function calcMagicDamage(spellBase: number, intelligence: number, skillLevel: number, gradeMult = 1.0): number {
+  return (spellBase + Math.round(calcTieredStatBonus(intelligence) * gradeMult)) * calcSkillCombatMult(skillLevel);
 }
 
 export function calcAttackSpeed(weaponBaseSpeed: number, dexterity: number): number {
