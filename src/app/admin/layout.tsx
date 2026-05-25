@@ -1,22 +1,7 @@
 import { requireAdmin } from '@/lib/admin-auth';
 import Link from 'next/link';
 import { ReactNode } from 'react';
-
-const NAV = [
-  { href: '/admin',             label: '📊 Dashboard' },
-  { label: '── Game ──',        href: null },
-  { href: '/admin/items',         label: '⚔️  Items' },
-  { href: '/admin/weapon-types',  label: '🗡️  Weapon Types' },
-  { href: '/admin/tier-scaling',  label: '📈  Tier Scaling' },
-  { href: '/admin/world',         label: '🗺️  World' },
-  { href: '/admin/enemies',       label: '👹 Enemies' },
-  { href: '/admin/skills',        label: '🎯 Skills' },
-  { href: '/admin/progression',   label: '📈 Progression' },
-  { href: '/admin/formulas',      label: '⚙️  Formulas & Config' },
-  { href: '/admin/grade-weights', label: '🎖️  Grading System' },
-  { label: '── Players ──',     href: null },
-  { href: '/admin/players',     label: '👥 Ledger' },
-];
+import { AdminNav } from './AdminNav';
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   await requireAdmin();
@@ -29,23 +14,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           <span className="text-xs font-bold tracking-widest text-muted-foreground uppercase">Admin</span>
           <div className="text-heading font-bold text-base mt-0.5">IdleMMO Control</div>
         </div>
-        <nav className="flex flex-col gap-0.5 p-2.5 flex-1">
-          {NAV.map((item, i) =>
-            item.href === null ? (
-              <div key={i} className="px-2 pt-4 pb-1 text-[10px] font-semibold tracking-widest uppercase text-muted-foreground">
-                {item.label}
-              </div>
-            ) : (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-md text-sm text-body hover:bg-accent hover:text-foreground transition-colors"
-              >
-                {item.label}
-              </Link>
-            )
-          )}
-        </nav>
+        <AdminNav />
         <div className="p-3 border-t border-border">
           <Link href="/game" className="text-xs text-muted-foreground hover:text-body transition-colors">
             ← Back to game
