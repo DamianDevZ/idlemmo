@@ -218,7 +218,7 @@ export default async function HomeBasePage() {
           {inventoryResources.length === 0 ? (
             <EmptyState icon="🎒" message="Your inventory is empty. Head to the Wilds to gather resources." />
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <EquipmentModal
                   characterId={character.id}
@@ -227,46 +227,57 @@ export default async function HomeBasePage() {
                 />
                 <DepositAllButton characterId={character.id} />
               </div>
-              {inventoryResources.map(item => {
-                const def = item.item_definitions;
-                const resInfo = getResourceInfo(def?.name ?? '');
-                const displayLabel = resInfo
-                  ? `${resInfo.type} · Tier ${resInfo.tier}`
-                  : (def?.display_name ?? 'Unknown item');
-                const subLabel = resInfo ? (def?.name?.includes('_log') || def?.name?.includes('_plank') || def?.name === 'limestone' || def?.name === 'granite' || def?.name === 'slate' || def?.name === 'marble' || def?.name === 'obsidian_stone' || def?.name?.endsWith('_ore') || def?.name?.endsWith('_hide') || def?.name?.endsWith('_pelt') || def?.name?.endsWith('_fiber') || def?.name?.endsWith('_thread') || def?.name?.endsWith('_silk') ? 'Raw' : 'Refined') : def?.type;
-                return (
-                  <div
-                    key={item.item_id}
-                    className="flex items-center justify-between px-4 py-3 rounded-lg border border-border bg-card"
-                  >
-                    <div className="flex-1 min-w-0 flex items-center gap-2.5">
-                      {(() => {
-                        const path = getResourceIconPath(def?.name ?? '');
-                        if (path) return <Image src={path} alt="" width={28} height={28} className="w-7 h-7 object-contain shrink-0" />;
-                        if (def?.image_url) return <ItemSprite imageUrl={def.image_url} tier={item.tier} size={28} className="shrink-0" />;
-                        return null;
-                      })()}
-                      <div>
-                        <span className="font-semibold text-sm text-foreground">
-                          {displayLabel}
+              <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                {inventoryResources.map(item => {
+                  const def = item.item_definitions;
+                  const iconPath = getResourceIconPath(def?.name ?? '');
+                  const resInfo = getResourceInfo(def?.name ?? '');
+                  // Resources → tier text label; everything else → display name
+                  const label = resInfo
+                    ? `${resInfo.type} T${resInfo.tier}`
+                    : (def?.display_name ?? '?');
+                  const typeIcon = '📦';
+                  const qty = item.quantity ?? 1;
+                  const qtyLabel = qty >= 10_000
+                    ? `×${(qty / 1000).toFixed(0)}k`
+                    : qty > 1 ? `×${qty}` : null;
+                  return (
+                    <div
+                      key={item.item_id}
+                      title={def?.display_name ?? ''}
+                      className="relative aspect-square rounded-lg border bg-card overflow-hidden border-border"
+                    >
+                      {/* Icon fills the cell */}
+                      <div className="absolute inset-0 flex items-center justify-center p-2 pb-5">
+                        {iconPath ? (
+                          <Image src={iconPath} alt="" width={56} height={56} className="w-full h-full object-contain" />
+                        ) : def?.image_url ? (
+                          // Non-resource items (consumables etc): show icon without tier frame
+                          <ItemSprite imageUrl={def.image_url} size={48} />
+                        ) : (
+                          <span className="text-3xl">{typeIcon}</span>
+                        )}
+                      </div>
+                      {/* Quantity — top-right */}
+                      {qtyLabel && (
+                        <span
+                          className="absolute top-1 right-1 text-[11px] tabular-nums font-black text-white leading-none"
+                          style={{ textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}
+                        >
+                          {qtyLabel}
                         </span>
-                        <span className="text-muted-foreground text-xs ml-2 capitalize">{subLabel}</span>
+                      )}
+                      {/* Bottom strip: name + deposit button */}
+                      <div className="absolute bottom-0 inset-x-0 bg-black/50 px-1.5 py-0.5 flex items-center gap-0.5">
+                        <p className="text-[10px] text-white/80 leading-tight truncate flex-1">{label}</p>
+                        {!item.equipped_slot && (
+                          <DepositButton compact characterId={character.id} itemId={item.item_id} />
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      {item.quantity > 1 && (
-                        <span className="text-sm text-muted-foreground tabular-nums">×{item.quantity}</span>
-                      )}
-                      {item.equipped_slot && (
-                        <Badge variant="outline" className="text-xs">{formatSlot(item.equipped_slot!)}</Badge>
-                      )}
-                      {!item.equipped_slot && (
-                        <DepositButton characterId={character.id} itemId={item.item_id} />
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
         </TabsContent>

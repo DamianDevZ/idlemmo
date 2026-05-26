@@ -15,6 +15,7 @@ import type {
   DbCharacter, DbCharacterAttributes,
   DbExplorationSession, DbExplorationEvent,
 } from '@/types/game';
+import { ItemSprite } from '@/components/game/ItemSprite';
 import { ExploreSetupView } from './explore/ExploreSetupView';
 import { ExploreOfflineSummary } from './explore/ExploreOfflineSummary';
 import { ExploreCampsiteCard } from './explore/ExploreCampsiteCard';
@@ -784,8 +785,10 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
                 {inventoryItems.map(row => {
                   if (!row.item_definitions) return null;
                   const def = row.item_definitions;
+                  const isEquip = def.type === 'weapon' || def.type === 'armor' || def.type === 'tool';
                   const iconPath = getResourceIconPath(def.name);
                   const resInfo = getResourceInfo(def.name);
+                  // Resources → tier text; equipment → just the name (tier shown via frame)
                   const label = resInfo
                     ? `${resInfo.type} T${resInfo.tier}`
                     : (def.display_name ?? '?');
@@ -804,9 +807,11 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
                     >
                       <div className="absolute inset-0 flex items-center justify-center p-2">
                         {iconPath ? (
+                          // Resource: plain icon, no tier frame
                           <Image src={iconPath} alt="" width={56} height={56} className="w-full h-full object-contain" />
                         ) : def.image_url ? (
-                          <img src={def.image_url} alt="" className="w-full h-full object-contain p-[10%]" />
+                          // Equipment: tier frame; others: no frame
+                          <ItemSprite imageUrl={def.image_url} tier={isEquip ? row.tier : undefined} size={52} />
                         ) : (
                           <span className="text-3xl">{typeIcon}</span>
                         )}

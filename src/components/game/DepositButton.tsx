@@ -6,9 +6,11 @@ import { depositToStash, depositAllToStash } from '@/features/home/actions';
 interface Props {
   characterId: string;
   itemId: string;
+  /** Renders as a small ↓ icon button for use inside grid squares. */
+  compact?: boolean;
 }
 
-export function DepositButton({ characterId, itemId }: Props) {
+export function DepositButton({ characterId, itemId, compact }: Props) {
   const [pending, startTransition] = useTransition();
 
   return (
@@ -17,9 +19,13 @@ export function DepositButton({ characterId, itemId }: Props) {
       onClick={() =>
         startTransition(() => depositToStash(characterId, itemId))
       }
-      className="shrink-0 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-40"
+      title="Deposit to stash"
+      className={compact
+        ? 'shrink-0 rounded px-1 text-[10px] font-bold text-white/50 hover:text-white transition-colors disabled:opacity-40 leading-none'
+        : 'shrink-0 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:opacity-40'
+      }
     >
-      {pending ? '…' : 'Deposit'}
+      {pending ? '…' : compact ? '↓' : 'Deposit'}
     </button>
   );
 }
