@@ -70,7 +70,6 @@ export async function startExploration(input: StartExplorationInput) {
     .from('exploration_sessions')
     .insert({
       character_id: input.characterId,
-      biome_tier_id: null,
       area_id: input.areaId,
       area_tier: input.areaTier,
       focus_type: 'balanced',

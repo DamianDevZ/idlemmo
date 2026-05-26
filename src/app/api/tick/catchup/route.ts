@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
 
     const { data: session } = await supabase
       .from('exploration_sessions')
-      .select('*, biome_tiers(*, biomes(*))')
+      .select('*')
       .eq('character_id', characterId)
       .eq('status', 'active')
       .single();
@@ -66,60 +66,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ processed: 0, summary: null });
     }
 
-    // Detect area vs legacy session
-    const isAreaSession = !!(session as { area_id?: string | null }).area_id;
+    // All sessions now use the area system (biome system removed)
     const sessionAreaId: string | null = (session as { area_id?: string | null }).area_id ?? null;
     const sessionAreaTier: number = (session as { area_tier?: number | null }).area_tier ?? 1;
-
-    const biomeTier = isAreaSession ? null : (session.biome_tiers as {
-      tier: number;
-      enemy_level_min: number;
-      enemy_level_max: number;
-      biomes?: { id: string; name: string };
-    } | null);
-    const biomeTierNumber = isAreaSession ? sessionAreaTier : (biomeTier?.tier ?? 1);
-    const biomeName = isAreaSession ? '' : (biomeTier?.biomes?.name ?? '');
-    const biomeId   = isAreaSession ? null : (biomeTier?.biomes?.id ?? null);
-    const isRuins   = biomeName === 'ruins';
+    if (!sessionAreaId) return NextResponse.json({ error: 'Legacy session not supported' }, { status: 400 });
+    const isAreaSession = true;
+    const isRuins = false;
 
     // Fetch simulation inputs in parallel — one round-trip for everything
     const [
       areaLootResult,
       areaEnemiesResult,
-      biomeResourcesResult,
-      legacyEnemyTypesResult,
       equippedResult,
     ] = await Promise.all([
-      isAreaSession
-        ? supabase
-            .from('area_tier_loot')
-            .select('weight, quantity_min, quantity_max, item_definitions(name, display_name)')
-            .eq('area_id', sessionAreaId!)
-            .eq('tier', sessionAreaTier)
-        : Promise.resolve({ data: null }),
+      supabase
+          .from('area_tier_loot')
+          .select('weight, quantity_min, quantity_max, item_definitions(name, display_name)')
+          .eq('area_id', sessionAreaId)
+          .eq('tier', sessionAreaTier),
 
-      isAreaSession
-        ? supabase
-            .from('area_tier_enemies')
-            .select('weight, enemies(display_name, base_hp, base_attack, resistances, enemy_tier_loot(weight, item_definitions(name, type, grade_weights)))')
-            .eq('area_id', sessionAreaId!)
-            .eq('tier', sessionAreaTier)
-        : Promise.resolve({ data: null }),
-
-      !isAreaSession
-        ? supabase
-            .from('biome_tier_resources')
-            .select('item_name, base_yield_min, base_yield_max, spawn_weight')
-            .eq('biome_tier_id', session.biome_tier_id)
-        : Promise.resolve({ data: null }),
-
-      !isAreaSession && biomeId
-        ? supabase
-            .from('enemy_types')
-            .select('display_name, level, xp_reward, loot_table')
-            .eq('tier', biomeTierNumber)
-            .eq('biome_id', biomeId)
-        : Promise.resolve({ data: [] }),
+      supabase
+          .from('area_tier_enemies')
+          .select('weight, enemies(display_name, base_hp, base_attack, resistances, enemy_tier_loot(weight, item_definitions(name, type, grade_weights)))')
+          .eq('area_id', sessionAreaId)
+          .eq('tier', sessionAreaTier),
 
       supabase
         .from('character_inventory')
@@ -195,29 +165,8 @@ export async function POST(req: NextRequest) {
     };
     const areaEnemies = (areaEnemiesResult.data ?? []) as unknown as AreaEnemyRow[];
 
-    type LootEntry = { item: string; min: number; max: number; weight: number };
-    type EnemyType = { display_name: string; level: number; xp_reward: number; loot_table: LootEntry[] };
-    const legacyEnemies = ((legacyEnemyTypesResult as { data: unknown[] | null }).data ?? []) as EnemyType[];
-    type BiomeResource = { item_name: string; base_yield_min: number; base_yield_max: number; spawn_weight: number };
-    const biomeResources = ((biomeResourcesResult as { data: unknown[] | null }).data ?? []) as BiomeResource[];
-
     const collectPrefs = (session.collect_preferences ?? {}) as Record<string, string>;
     const retreatThreshold = session.retreat_hp_threshold ?? 20;
-
-    // Accumulators — aggregate by item name to minimise DB writes
-    // Collect item types for legacy loot items so we can assign grades for equipment
-    const legacyLootItemNames = new Set<string>();
-    legacyEnemies.forEach(e => e.loot_table?.forEach((l: { item: string }) => legacyLootItemNames.add(l.item)));
-    let legacyItemTypeMap: Record<string, { type: string; grade_weights: Record<string, number> | null }> = {};
-    if (legacyLootItemNames.size > 0) {
-      const { data: legacyItemDefs } = await supabase
-        .from('item_definitions')
-        .select('name, type, grade_weights')
-        .in('name', [...legacyLootItemNames]);
-      legacyItemTypeMap = Object.fromEntries(
-        (legacyItemDefs ?? []).map(d => [d.name, d as { type: string; grade_weights: Record<string,number> | null }])
-      );
-    }
 
     const resourceAccum: Record<string, { displayName: string; quantity: number }> = {};
     const lootAccum: Record<string, number> = {};
@@ -230,10 +179,10 @@ export async function POST(req: NextRequest) {
     let sessionEnded = false;
     let ticksProcessed = 0;
 
-    // Same event weights as /api/tick
-    const rChance = isRuins ? 0.00 : 0.65;
-    const eChance = isRuins ? 0.70 : 0.20;
-    const tChance = isRuins ? 0.15 : 0.07;
+    // Event weights — area-based sessions only
+    const rChance = 0.65;
+    const eChance = 0.20;
+    const tChance = 0.07;
     const total   = rChance + eChance + tChance;
 
     for (let tick = 0; tick < pendingTicks; tick++) {
@@ -246,7 +195,7 @@ export async function POST(req: NextRequest) {
         : 'treasure';
 
       if (eventType === 'resource') {
-        if (isAreaSession && areaLoot.length > 0) {
+        if (areaLoot.length > 0) {
           const totalW = areaLoot.reduce((s, r) => s + r.weight, 0);
           let w = Math.random() * totalW;
           const picked = areaLoot.find(r => { w -= r.weight; return w <= 0; }) ?? areaLoot[0];
@@ -262,22 +211,9 @@ export async function POST(req: NextRequest) {
               };
             }
           }
-        } else if (!isAreaSession && biomeResources.length > 0) {
-          const totalW = biomeResources.reduce((s, r) => s + (r.spawn_weight ?? 10), 0);
-          let w = Math.random() * totalW;
-          const picked = biomeResources.find(r => { w -= r.spawn_weight ?? 10; return w <= 0; }) ?? biomeResources[0];
-          const pref = collectPrefs[picked.item_name] ?? 'always';
-          if (pref !== 'never') {
-            const qty = Math.round(Math.random() * (picked.base_yield_max - picked.base_yield_min) + picked.base_yield_min);
-            const prev = resourceAccum[picked.item_name];
-            resourceAccum[picked.item_name] = {
-              displayName: prev?.displayName ?? picked.item_name.replace(/_/g, ' '),
-              quantity: (prev?.quantity ?? 0) + qty,
-            };
-          }
         }
       } else if (eventType === 'enemy') {
-        if (isAreaSession && areaEnemies.length > 0) {
+        if (areaEnemies.length > 0) {
           // ── Area enemy ──────────────────────────────────────────────────
           const totalW = areaEnemies.reduce((s, r) => s + r.weight, 0);
           let w = Math.random() * totalW;
@@ -324,47 +260,6 @@ export async function POST(req: NextRequest) {
               totalHpLost += hpLost;
               if ((currentHp / maxHp) * 100 <= retreatThreshold) { sessionEnded = true; break; }
             }
-          }
-        } else if (!isAreaSession) {
-          // ── Legacy biome enemy ───────────────────────────────────────────
-          const pickedEnemy = legacyEnemies.length > 0
-            ? legacyEnemies[Math.floor(Math.random() * legacyEnemies.length)]
-            : null;
-          const level = pickedEnemy?.level ?? (
-            Math.floor(Math.random() * ((biomeTier?.enemy_level_max ?? 5) - (biomeTier?.enemy_level_min ?? 1) + 1))
-            + (biomeTier?.enemy_level_min ?? 1)
-          );
-
-          // Simulate the same combat math used in actOnExploreEvent
-          const enemyHp       = 10 + level * 4;
-          const playerDmgBase = calcMeleeDamage(weaponDmgBase, strength, 0, weaponGradeMult);
-          const playerDmg     = Math.max(1, playerDmgBase * (0.8 + Math.random() * 0.4));
-          const enemyDmgRaw   = Math.max(1, 2 + level * 1.5 * Math.random());
-          const enemyDmg      = applyDefense(enemyDmgRaw, armorRating);
-          const rounds        = Math.ceil(enemyHp / playerDmg);
-          const victory       = playerDmg * rounds >= enemyHp;
-
-          if (victory) {
-            enemiesKilled++;
-            totalXpGained += Number(pickedEnemy?.xp_reward ?? (10 + level * 3));
-            for (const entry of (pickedEnemy?.loot_table ?? [])) {
-              if (Math.random() * 10 < entry.weight) {
-                const qty = Math.floor(Math.random() * (entry.max - entry.min + 1)) + entry.min;
-                const def = legacyItemTypeMap[entry.item];
-                if (def && ['weapon', 'armor', 'tool'].includes(def.type)) {
-                  for (let i = 0; i < qty; i++) {
-                    equipmentDrops.push({ itemName: entry.item, gradeWeights: def.grade_weights });
-                  }
-                } else {
-                  lootAccum[entry.item] = (lootAccum[entry.item] ?? 0) + qty;
-                }
-              }
-            }
-          } else {
-            const hpLost = Math.min(currentHp - 1, Math.floor(rounds * enemyDmg * 0.4));
-            currentHp   = Math.max(1, currentHp - hpLost);
-            totalHpLost += hpLost;
-            if ((currentHp / maxHp) * 100 <= retreatThreshold) { sessionEnded = true; break; }
           }
         }
       } else {
@@ -417,7 +312,7 @@ export async function POST(req: NextRequest) {
       }
       if (resourceQty > 0) {
         // Use session tier as proxy for item tier in catchup (no per-item tier available)
-        writes.push(awardCategoryXp(supabase, characterId, 'tool_mastery', resourceQty * actionXpForTier(catRates.base.get('tool_mastery') ?? 2, catRates.earnedScaling.get('tool_mastery') ?? 1.5, biomeTierNumber)));
+        writes.push(awardCategoryXp(supabase, characterId, 'tool_mastery', resourceQty * actionXpForTier(catRates.base.get('tool_mastery') ?? 2, catRates.earnedScaling.get('tool_mastery') ?? 1.5, sessionAreaTier)));
       }
     }
     if (totalHpLost > 0) {

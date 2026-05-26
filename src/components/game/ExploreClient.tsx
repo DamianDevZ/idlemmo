@@ -512,7 +512,7 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
         });
         // Clear events from previous sessions so the new session starts fresh
         setEvents([]);
-        setActiveSession({ id: sessionId, character_id: character.id, area_id: selectedArea, area_tier: selectedTier, biome_tier_id: null, focus_type: 'balanced', status: 'active', started_at: new Date().toISOString(), last_tick_at: new Date().toISOString(), ends_at: null, retreat_hp_threshold: retreatHp, collect_preferences: {}, current_rage: 0 });
+        setActiveSession({ id: sessionId, character_id: character.id, area_id: selectedArea, area_tier: selectedTier, focus_type: 'balanced', status: 'active', started_at: new Date().toISOString(), last_tick_at: new Date().toISOString(), ends_at: null, retreat_hp_threshold: retreatHp, collect_preferences: {}, current_rage: 0 });
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Failed to start');
       }
