@@ -3,11 +3,11 @@
 import { useState, useEffect, useRef, useTransition } from 'react';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
-import { getResourceIconPath } from '@/lib/item-icon';
+import { getResourceIconPath, getResourceInfo } from '@/lib/item-icon';
 import { startExploration, returnHome, actOnExploreEvent, useCampsiteItem, getExploreInventory } from '@/features/exploration/actions';
 import type { ExploreAction } from '@/features/exploration/actions';
 import { GAME_CONFIG } from '@/config/game.config';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -836,36 +836,70 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
           </div>
         )}
 
-        {/* ── Inventory sheet ── */}
-        <Sheet open={inventoryOpen} onOpenChange={setInventoryOpen}>
-          <SheetContent side="bottom" className="h-[70vh] rounded-t-xl flex flex-col">
-            <SheetHeader>
-              <SheetTitle>Inventory</SheetTitle>
-            </SheetHeader>
-            <div className="overflow-y-auto flex-1 px-4 pb-6 space-y-2 mt-2">
+        {/* ── Inventory popup ── */}
+        <Dialog open={inventoryOpen} onOpenChange={setInventoryOpen}>
+          <DialogContent className="max-w-sm sm:max-w-md flex flex-col max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle>Inventory</DialogTitle>
+            </DialogHeader>
+            <div className="overflow-y-auto flex-1 pb-2">
               {inventoryLoading && (
                 <p className="text-sm text-muted-foreground text-center py-8">Loading…</p>
               )}
               {!inventoryLoading && inventoryItems.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-8">Nothing in inventory.</p>
               )}
-              {inventoryItems.map(row => {
-                if (!row.item_definitions) return null;
-                const def = row.item_definitions;
-                return (
-                  <div key={row.instance_id} className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2">
-                    <span className="text-xl shrink-0">📦</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{def.display_name}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{def.type}</p>
-                    </div>
-                    <span className="text-sm font-bold tabular-nums text-primary shrink-0">×{row.quantity}</span>
-                  </div>
-                );
-              })}
+              {!inventoryLoading && inventoryItems.length > 0 && (
+                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                  {inventoryItems.map(row => {
+                    if (!row.item_definitions) return null;
+                    const def = row.item_definitions;
+                    const iconPath = getResourceIconPath(def.name);
+                    const resInfo = getResourceInfo(def.name);
+                    const label = resInfo
+                      ? `${resInfo.type} T${resInfo.tier}`
+                      : (def.display_name ?? '?');
+                    const typeIcon = def.type === 'weapon' ? '⚔️'
+                      : def.type === 'armor' ? '🛡️'
+                      : def.type === 'tool' ? '⛏️' : '📦';
+                    const qty = row.quantity;
+                    const qtyLabel = qty >= 10_000
+                      ? `×${(qty / 1000).toFixed(0)}k`
+                      : qty > 1 ? `×${qty}` : null;
+                    return (
+                      <div
+                        key={row.instance_id}
+                        title={def.display_name}
+                        className="relative aspect-square rounded-lg border bg-card overflow-hidden border-border"
+                      >
+                        <div className="absolute inset-0 flex items-center justify-center p-2">
+                          {iconPath ? (
+                            <Image src={iconPath} alt="" width={56} height={56} className="w-full h-full object-contain" />
+                          ) : def.image_url ? (
+                            <img src={def.image_url} alt="" className="w-full h-full object-contain p-[10%]" />
+                          ) : (
+                            <span className="text-3xl">{typeIcon}</span>
+                          )}
+                        </div>
+                        {qtyLabel && (
+                          <span
+                            className="absolute top-1 right-1 text-[11px] tabular-nums font-black text-white leading-none"
+                            style={{ textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}
+                          >
+                            {qtyLabel}
+                          </span>
+                        )}
+                        <div className="absolute bottom-0 inset-x-0 bg-black/50 px-1 py-0.5">
+                          <p className="text-[10px] text-white/80 text-center leading-tight truncate">{label}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </SheetContent>
-        </Sheet>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
