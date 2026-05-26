@@ -7,7 +7,7 @@ import { getResourceIconPath, getResourceInfo } from '@/lib/item-icon';
 import { startExploration, returnHome, actOnExploreEvent, useCampsiteItem, getExploreInventory } from '@/features/exploration/actions';
 import type { ExploreAction } from '@/features/exploration/actions';
 import { GAME_CONFIG } from '@/config/game.config';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -535,6 +535,7 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
     if (!pendingEvent || !activeSession) return;
     const eventId   = pendingEvent.id;
     const sessionId = activeSession.id;
+    setInventoryOpen(false);
     setPendingEvent(null);
     startTransition(async () => {
       await actOnExploreEvent(character.id, sessionId, eventId, 'campsite_continue').catch(() => {});
@@ -543,6 +544,10 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
   }
 
   async function handleOpenInventory() {
+    if (inventoryOpen) {
+      setInventoryOpen(false);
+      return;
+    }
     setInventoryOpen(true);
     setInventoryLoading(true);
     const items = await getExploreInventory(character.id).catch(() => []);
@@ -764,6 +769,67 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
           />
         )}
 
+        {/* ── Inline inventory panel (between campsite card and log) ── */}
+        {pendingEvent?.event_type === 'campsite_reached' && inventoryOpen && (
+          <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Inventory</p>
+            {inventoryLoading && (
+              <p className="text-sm text-muted-foreground text-center py-6">Loading…</p>
+            )}
+            {!inventoryLoading && inventoryItems.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-6">Nothing in inventory.</p>
+            )}
+            {!inventoryLoading && inventoryItems.length > 0 && (
+              <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                {inventoryItems.map(row => {
+                  if (!row.item_definitions) return null;
+                  const def = row.item_definitions;
+                  const iconPath = getResourceIconPath(def.name);
+                  const resInfo = getResourceInfo(def.name);
+                  const label = resInfo
+                    ? `${resInfo.type} T${resInfo.tier}`
+                    : (def.display_name ?? '?');
+                  const typeIcon = def.type === 'weapon' ? '⚔️'
+                    : def.type === 'armor' ? '🛡️'
+                    : def.type === 'tool' ? '⛏️' : '📦';
+                  const qty = row.quantity;
+                  const qtyLabel = qty >= 10_000
+                    ? `×${(qty / 1000).toFixed(0)}k`
+                    : qty > 1 ? `×${qty}` : null;
+                  return (
+                    <div
+                      key={row.instance_id}
+                      title={def.display_name}
+                      className="relative aspect-square rounded-lg border bg-muted/30 overflow-hidden border-border"
+                    >
+                      <div className="absolute inset-0 flex items-center justify-center p-2">
+                        {iconPath ? (
+                          <Image src={iconPath} alt="" width={56} height={56} className="w-full h-full object-contain" />
+                        ) : def.image_url ? (
+                          <img src={def.image_url} alt="" className="w-full h-full object-contain p-[10%]" />
+                        ) : (
+                          <span className="text-3xl">{typeIcon}</span>
+                        )}
+                      </div>
+                      {qtyLabel && (
+                        <span
+                          className="absolute top-1 right-1 text-[11px] tabular-nums font-black text-white leading-none"
+                          style={{ textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}
+                        >
+                          {qtyLabel}
+                        </span>
+                      )}
+                      <div className="absolute bottom-0 inset-x-0 bg-black/50 px-1 py-0.5">
+                        <p className="text-[10px] text-white/80 text-center leading-tight truncate">{label}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── Decision card (replaces progress bar while awaiting choice) ── */}
         {pendingEvent && pendingEvent.event_type !== 'campsite_reached' && (
           <ExploreDecisionCard
@@ -836,70 +902,7 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
           </div>
         )}
 
-        {/* ── Inventory popup ── */}
-        <Dialog open={inventoryOpen} onOpenChange={setInventoryOpen}>
-          <DialogContent className="max-w-sm sm:max-w-md flex flex-col max-h-[80vh]">
-            <DialogHeader>
-              <DialogTitle>Inventory</DialogTitle>
-            </DialogHeader>
-            <div className="overflow-y-auto flex-1 pb-2">
-              {inventoryLoading && (
-                <p className="text-sm text-muted-foreground text-center py-8">Loading…</p>
-              )}
-              {!inventoryLoading && inventoryItems.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-8">Nothing in inventory.</p>
-              )}
-              {!inventoryLoading && inventoryItems.length > 0 && (
-                <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                  {inventoryItems.map(row => {
-                    if (!row.item_definitions) return null;
-                    const def = row.item_definitions;
-                    const iconPath = getResourceIconPath(def.name);
-                    const resInfo = getResourceInfo(def.name);
-                    const label = resInfo
-                      ? `${resInfo.type} T${resInfo.tier}`
-                      : (def.display_name ?? '?');
-                    const typeIcon = def.type === 'weapon' ? '⚔️'
-                      : def.type === 'armor' ? '🛡️'
-                      : def.type === 'tool' ? '⛏️' : '📦';
-                    const qty = row.quantity;
-                    const qtyLabel = qty >= 10_000
-                      ? `×${(qty / 1000).toFixed(0)}k`
-                      : qty > 1 ? `×${qty}` : null;
-                    return (
-                      <div
-                        key={row.instance_id}
-                        title={def.display_name}
-                        className="relative aspect-square rounded-lg border bg-card overflow-hidden border-border"
-                      >
-                        <div className="absolute inset-0 flex items-center justify-center p-2">
-                          {iconPath ? (
-                            <Image src={iconPath} alt="" width={56} height={56} className="w-full h-full object-contain" />
-                          ) : def.image_url ? (
-                            <img src={def.image_url} alt="" className="w-full h-full object-contain p-[10%]" />
-                          ) : (
-                            <span className="text-3xl">{typeIcon}</span>
-                          )}
-                        </div>
-                        {qtyLabel && (
-                          <span
-                            className="absolute top-1 right-1 text-[11px] tabular-nums font-black text-white leading-none"
-                            style={{ textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}
-                          >
-                            {qtyLabel}
-                          </span>
-                        )}
-                        <div className="absolute bottom-0 inset-x-0 bg-black/50 px-1 py-0.5">
-                          <p className="text-[10px] text-white/80 text-center leading-tight truncate">{label}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
+
       </div>
     );
   }
