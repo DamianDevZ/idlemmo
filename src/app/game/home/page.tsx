@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation';
-import Image from 'next/image';
 import { createClient } from '@/lib/supabase/server';
 import { getResourceIconPath, getResourceInfo } from '@/lib/item-icon';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -250,10 +249,9 @@ export default async function HomeBasePage() {
                       {/* Icon fills the cell */}
                       <div className="absolute inset-0 flex items-center justify-center p-2 pb-5">
                         {iconPath ? (
-                          <Image src={iconPath} alt="" width={56} height={56} className="w-full h-full object-contain" />
+                          <img src={iconPath} alt="" className="w-full h-full object-contain" />
                         ) : def?.image_url ? (
-                          // Non-resource items (consumables etc): show icon without tier frame
-                          <ItemSprite imageUrl={def.image_url} size={48} />
+                          <img src={def.image_url} alt="" className="w-full h-full object-contain p-[10%]" />
                         ) : (
                           <span className="text-3xl">{typeIcon}</span>
                         )}
@@ -356,13 +354,25 @@ export default async function HomeBasePage() {
                           {/* Icon fills the cell */}
                           <div className="absolute inset-0 flex items-center justify-center p-2">
                             {iconPath ? (
-                              <Image src={iconPath} alt="" width={56} height={56} className="w-full h-full object-contain" />
+                              <img src={iconPath} alt="" className="w-full h-full object-contain" />
                             ) : def?.image_url ? (
-                              <ItemSprite imageUrl={def.image_url} tier={item.tier} size={56} />
+                              <img src={def.image_url} alt="" className="w-full h-full object-contain p-[10%]" />
                             ) : (
                               <span className="text-3xl">{typeIcon}</span>
                             )}
                           </div>
+                          {/* Tier frame: equipment types only */}
+                          {(() => {
+                            const isEquip = def?.type === 'weapon' || def?.type === 'armor' || def?.type === 'tool';
+                            const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+                            return isEquip && item.tier > 0 && supaUrl ? (
+                              <img
+                                src={`${supaUrl}/storage/v1/object/public/icons/tier-frames/t${item.tier}.png`}
+                                alt=""
+                                className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                              />
+                            ) : null;
+                          })()}
                           {/* Quantity — top-right */}
                           {qtyLabel && (
                             <span className="absolute top-1 right-1 text-[11px] tabular-nums font-black text-white leading-none"

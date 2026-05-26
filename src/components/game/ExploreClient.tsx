@@ -807,15 +807,21 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
                     >
                       <div className="absolute inset-0 flex items-center justify-center p-2">
                         {iconPath ? (
-                          // Resource: plain icon, no tier frame
                           <Image src={iconPath} alt="" width={56} height={56} className="w-full h-full object-contain" />
                         ) : def.image_url ? (
-                          // Equipment: tier frame; others: no frame
-                          <ItemSprite imageUrl={def.image_url} tier={isEquip ? row.tier : undefined} size={52} />
+                          <img src={def.image_url} alt="" className="w-full h-full object-contain p-[10%]" />
                         ) : (
                           <span className="text-3xl">{typeIcon}</span>
                         )}
                       </div>
+                      {/* Tier frame: equipment types only */}
+                      {isEquip && row.tier && process.env.NEXT_PUBLIC_SUPABASE_URL && (
+                        <img
+                          src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/icons/tier-frames/t${row.tier}.png`}
+                          alt=""
+                          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                        />
+                      )}
                       {qtyLabel && (
                         <span
                           className="absolute top-1 right-1 text-[11px] tabular-nums font-black text-white leading-none"

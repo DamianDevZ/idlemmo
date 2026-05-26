@@ -150,6 +150,20 @@ const RESOURCE_INFO_MAP: Record<string, { type: string; tier: number }> = {
   cotton_cloth: { type: 'Fiber', tier: 1 }, silk_cloth: { type: 'Fiber', tier: 2 },
   velvet_cloth: { type: 'Fiber', tier: 3 }, starweave_cloth: { type: 'Fiber', tier: 4 },
   void_cloth: { type: 'Fiber', tier: 5 }, tattered_cloth: { type: 'Fiber', tier: 1 },
+
+  // Generic aliases
+  stone:  { type: 'Stone', tier: 1 },
+  log:    { type: 'Wood',  tier: 1 },
+  plank:  { type: 'Wood',  tier: 1 },
+  ore:    { type: 'Metal', tier: 1 },
+  ingot:  { type: 'Metal', tier: 1 },
+  fiber:  { type: 'Fiber', tier: 1 },
+  cloth:  { type: 'Fiber', tier: 1 },
+  pelt:   { type: 'Hide',  tier: 1 },
+  thread: { type: 'Fiber', tier: 1 },
+  silk:   { type: 'Fiber', tier: 1 },
+  metal:  { type: 'Metal', tier: 1 },
+  wood:   { type: 'Wood',  tier: 1 },
 };
 
 export function getResourceInfo(itemName: string): { type: string; tier: number } | null {
