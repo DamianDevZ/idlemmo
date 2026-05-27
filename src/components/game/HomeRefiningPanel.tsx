@@ -173,27 +173,31 @@ export default function HomeRefiningPanel({ refineGroups, qtyMap, characterId, r
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 space-y-4">
-      {/* Skill selector pills */}
-      <div className="flex flex-wrap gap-2">
+      {/* Skill selector grid — same card style as Craft items */}
+      <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
         {refineGroups.map(group => {
           const active = selectedSkill === group.skillName;
+          const icon = SKILL_ICON[group.skillName];
           return (
             <button
               key={group.skillName}
               onClick={() => setSelectedSkill(active ? null : group.skillName)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold transition-colors ${
+              title={group.label}
+              className={`relative aspect-square rounded-lg border overflow-hidden transition-all ${
                 active
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border bg-card text-foreground hover:border-primary/40'
+                  ? 'border-primary bg-primary/10 ring-2 ring-primary/30'
+                  : 'border-border bg-card hover:border-primary/50'
               }`}
             >
-              {SKILL_ICON[group.skillName] && (
-                <Image src={SKILL_ICON[group.skillName]} alt="" width={18} height={18} className="object-contain" />
-              )}
-              {group.label}
-              <span className={`text-xs tabular-nums font-normal ${active ? 'text-primary/70' : 'text-muted-foreground'}`}>
-                {group.recipes.length} tier{group.recipes.length !== 1 ? 's' : ''}
-              </span>
+              <div className="absolute inset-0 flex items-center justify-center p-2 pb-5">
+                {icon
+                  ? <Image src={icon} alt="" fill className="object-contain p-[15%]" />
+                  : <span className="text-3xl">⚒️</span>
+                }
+              </div>
+              <div className={`absolute bottom-0 inset-x-0 px-1 py-0.5 ${active ? 'bg-primary/30' : 'bg-black/50'}`}>
+                <p className="text-[10px] text-white/90 text-center leading-tight truncate">{group.label}</p>
+              </div>
             </button>
           );
         })}
