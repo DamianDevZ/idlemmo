@@ -226,7 +226,7 @@ export default async function HomeBasePage() {
   })).filter(g => g.recipes.length > 0);
 
   return (
-    <div className="p-4 md:p-8 max-w-3xl mx-auto space-y-4">
+    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-4">
       <div>
         <h2 className="text-2xl font-black text-primary">🏠 Home Base</h2>
         <p className="text-muted-foreground text-sm">Your sanctuary. Rest, craft, and manage your belongings.</p>

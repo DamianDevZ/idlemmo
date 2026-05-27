@@ -147,6 +147,15 @@ function RefineRow({ recipe, qtyMap, characterId, refiningMasteryMap }: {
   );
 }
 
+// ─── Skill → icon map ────────────────────────────────────────────────────────
+const SKILL_ICON: Record<string, string> = {
+  hide_refining:   '/icons/resources/refined/leather.png',
+  fiber_refining:  '/icons/resources/refined/cloth.png',
+  stone_refining:  '/icons/resources/refined/stone_blocks.png',
+  ore_refining:    '/icons/resources/refined/metal_blocks.png',
+  lumber_refining: '/icons/resources/refined/planks.png',
+};
+
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
 export default function HomeRefiningPanel({ refineGroups, qtyMap, characterId, refiningMasteryMap }: Props) {
@@ -178,6 +187,9 @@ export default function HomeRefiningPanel({ refineGroups, qtyMap, characterId, r
                   : 'border-border bg-card text-foreground hover:border-primary/40'
               }`}
             >
+              {SKILL_ICON[group.skillName] && (
+                <Image src={SKILL_ICON[group.skillName]} alt="" width={18} height={18} className="object-contain" />
+              )}
               {group.label}
               <span className={`text-xs tabular-nums font-normal ${active ? 'text-primary/70' : 'text-muted-foreground'}`}>
                 {group.recipes.length} tier{group.recipes.length !== 1 ? 's' : ''}
