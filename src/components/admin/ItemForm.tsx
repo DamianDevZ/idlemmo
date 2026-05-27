@@ -1093,44 +1093,76 @@ export function ItemForm({
                       </div>
                     )}
 
-                    {recipe.ingredients.length === 0 && (
-                      <p className="text-xs text-muted-foreground italic">No ingredients yet.</p>
-                    )}
-                    {recipe.ingredients.map((ing, i) => {
-                      const mat = materialItems.find(m => m.id === ing.item_id);
-                      const matIsTiered = mat?.is_tiered ?? false;
-                      return (
-                        <div key={i} className="flex items-center gap-2">
-                          <Select
-                            value={ing.item_id}
-                            onChange={e => setIngredient(i, { item_id: e.target.value, tier: null })}
-                            className="flex-1"
-                          >
-                            <option value="">Select material…</option>
-                            {materialItems.map(m => (
-                              <option key={m.id} value={m.id}>{m.display_name}</option>
-                            ))}
-                          </Select>
-                          {matIsTiered && (
-                            <Select
-                              value={ing.tier ?? ''}
-                              onChange={e => setIngredient(i, { tier: e.target.value ? Number(e.target.value) : null })}
-                              className="w-20"
-                            >
-                              <option value="">Tier</option>
-                              {tierOptions.map(t => (
-                                <option key={t} value={t}>T{t}</option>
-                              ))}
-                            </Select>
-                          )}
-                          <input type="number" min={1} value={ing.quantity}
-                            onChange={e => setIngredient(i, { quantity: Number(e.target.value) })}
-                            className="w-16 px-2 py-2 text-sm bg-background border border-border rounded-md text-body focus:outline-none focus:ring-1 focus:ring-ring text-center" />
-                          <button type="button" onClick={() => removeIngredient(i)}
-                            className="p-1 text-muted-foreground hover:text-destructive transition-colors text-lg leading-none">×</button>
+                    {recipe.ingredients.length === 0
+                      ? <p className="text-xs text-muted-foreground italic">No ingredients yet.</p>
+                      : (
+                        <div className="overflow-x-auto rounded-md border border-border/60">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="border-b border-border/50 bg-accent/20">
+                                <th className="px-3 py-1.5 text-left font-semibold text-muted-foreground">Material</th>
+                                <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground w-20">Tier</th>
+                                <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground w-16">Qty</th>
+                                <th className="px-2 py-1.5 w-8" />
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {recipe.ingredients.map((ing, i) => {
+                                const mat = materialItems.find(m => m.id === ing.item_id);
+                                const matIsTiered = mat?.is_tiered ?? false;
+                                const tiny = 'w-full px-2 py-1 text-xs bg-background border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-ring';
+                                return (
+                                  <tr key={i} className="border-b border-border/30 last:border-0">
+                                    <td className="px-3 py-1.5">
+                                      <select
+                                        value={ing.item_id}
+                                        onChange={e => setIngredient(i, { item_id: e.target.value, tier: null })}
+                                        className={tiny}
+                                      >
+                                        <option value="">Select material…</option>
+                                        {materialItems.map(m => (
+                                          <option key={m.id} value={m.id}>{m.display_name}</option>
+                                        ))}
+                                      </select>
+                                    </td>
+                                    <td className="px-2 py-1.5">
+                                      {matIsTiered ? (
+                                        <select
+                                          value={ing.tier ?? ''}
+                                          onChange={e => setIngredient(i, { tier: e.target.value ? Number(e.target.value) : null })}
+                                          className={tiny}
+                                        >
+                                          <option value="">—</option>
+                                          {tierOptions.map(t => (
+                                            <option key={t} value={t}>T{t}</option>
+                                          ))}
+                                        </select>
+                                      ) : (
+                                        <span className="text-muted-foreground px-1">—</span>
+                                      )}
+                                    </td>
+                                    <td className="px-2 py-1.5">
+                                      <input
+                                        type="number" min={1} value={ing.quantity}
+                                        onChange={e => setIngredient(i, { quantity: Number(e.target.value) })}
+                                        className="w-14 px-2 py-1 text-xs bg-background border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-ring text-center"
+                                      />
+                                    </td>
+                                    <td className="px-2 py-1.5 text-center">
+                                      <button
+                                        type="button"
+                                        onClick={() => removeIngredient(i)}
+                                        className="text-muted-foreground hover:text-destructive transition-colors text-base leading-none"
+                                      >×</button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
                         </div>
-                      );
-                    })}
+                      )
+                    }
                   </div>
                 </div>
               )}
