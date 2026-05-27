@@ -164,7 +164,7 @@ export default function HomeRefiningPanel({ refineGroups, qtyMap, characterId, r
 
   if (refineGroups.length === 0) {
     return (
-      <div className="text-center py-12 space-y-2">
+      <div className="rounded-xl border border-border bg-card p-4 text-center py-12 space-y-2">
         <span className="text-4xl">⚒️</span>
         <p className="text-muted-foreground text-sm">No refining recipes found. Check back later!</p>
       </div>
@@ -172,7 +172,7 @@ export default function HomeRefiningPanel({ refineGroups, qtyMap, characterId, r
   }
 
   return (
-    <div className="space-y-4">
+    <div className="rounded-xl border border-border bg-card p-4 space-y-4">
       {/* Skill selector pills */}
       <div className="flex flex-wrap gap-2">
         {refineGroups.map(group => {
