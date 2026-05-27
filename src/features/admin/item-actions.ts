@@ -113,7 +113,6 @@ export async function upsertItem(
         output_quantity:      recipe.output_quantity,
         required_skill_id:    recipe.required_skill_id || null,
         ingredients:          recipe.ingredients,
-        base_success_chance:  95,
       };
 
       if (recipe.id) {

@@ -292,7 +292,7 @@ export interface DbRecipe {
   required_skill_level: number;
   /** JSON: [{ item_id, quantity }] */
   ingredients: RecipeIngredient[];
-  base_success_chance: number;
+
   craft_time_seconds: number;
 }
 
