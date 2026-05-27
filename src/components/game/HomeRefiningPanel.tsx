@@ -41,6 +41,15 @@ export default function HomeRefiningPanel({ refineGroups, qtyMap, characterId, r
 
   const selectedGroup = refineGroups.find(g => g.skillName === selectedSkill);
 
+  if (refineGroups.length === 0) {
+    return (
+      <div className="text-center py-12 space-y-2">
+        <span className="text-4xl">⚒️</span>
+        <p className="text-muted-foreground text-sm">No refining recipes found. Check back later!</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* ── Resource-type picker cards ──────────────────────────────────────── */}
