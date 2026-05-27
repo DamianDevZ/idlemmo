@@ -67,7 +67,7 @@ export default async function HomeBasePage() {
       .order('created_at', { ascending: false }),
     supabase
       .from('recipes')
-      .select('*, item_definitions!output_item_id(id, name, display_name), skills!required_skill_id(name)')
+      .select('*, item_definitions!output_item_id(id, name, display_name), skills!required_skill_id(name, display_name)')
       .eq('category', 'refining')
       .order('tier'),
   ]);
@@ -133,7 +133,7 @@ export default async function HomeBasePage() {
       ])
     : [{ data: [] as CraftableItemDef[] }, { data: [] as CraftingRecipeRow[] }];
 
-  const refineList = (refiningRows ?? []) as (CraftingRecipeRow & { item_definitions: { id: string; name: string; display_name: string } | null; skills: { name: string } | null })[];
+  const refineList = (refiningRows ?? []) as (CraftingRecipeRow & { item_definitions: { id: string; name: string; display_name: string } | null; skills: { name: string; display_name: string } | null })[];
 
   // Resolve all ingredient IDs → name + display_name + image_url
   type RawIngredient = { item_id: string; tier?: number | null; quantity: number };
@@ -212,22 +212,17 @@ export default async function HomeBasePage() {
     if (name) qtyMap[name] = (qtyMap[name] ?? 0) + (item.quantity ?? 0);
   }
 
-  // Group refining recipes by resource type (derived from skill name)
-  const SKILL_TO_RESOURCE: Record<string, { label: string; icon: string }> = {
-    woodcutting:  { label: 'Wood',   icon: '🪵' },
-    smelting:     { label: 'Metal',  icon: '⚙️' },
-    stonecutting: { label: 'Stone',  icon: '🪨' },
-    tanning:      { label: 'Hide',   icon: '🦌' },
-    weaving:      { label: 'Fiber',  icon: '🧵' },
-  };
-  const RESOURCE_ORDER = ['woodcutting', 'smelting', 'stonecutting', 'tanning', 'weaving'];
-  type RefineRecipe = typeof enrichedRefineList[number] & { skills: { name: string } | null };
-  const refineGroups = RESOURCE_ORDER.map(skillName => ({
+  // Group refining recipes by skill — data-driven, no hardcoded skill names.
+  // New refining skills appear automatically without code changes.
+  type RefineRecipe = typeof enrichedRefineList[number] & { skills: { name: string; display_name: string } | null };
+  const seenSkills = new Map<string, string>(); // skillName → display_name
+  for (const r of enrichedRefineList as unknown as RefineRecipe[]) {
+    if (r.skills && !seenSkills.has(r.skills.name)) seenSkills.set(r.skills.name, r.skills.display_name);
+  }
+  const refineGroups = [...seenSkills.entries()].map(([skillName, label]) => ({
     skillName,
-    ...( SKILL_TO_RESOURCE[skillName] ?? { label: skillName, icon: '📦' }),
-    recipes: (enrichedRefineList as unknown as RefineRecipe[]).filter(
-      r => (r.skills as { name: string } | null)?.name === skillName
-    ),
+    label,
+    recipes: (enrichedRefineList as unknown as RefineRecipe[]).filter(r => r.skills?.name === skillName),
   })).filter(g => g.recipes.length > 0);
 
   return (

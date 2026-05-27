@@ -4,15 +4,6 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { RefineButton } from '@/components/game/RefineButton';
 import { getResourceIconPath } from '@/lib/item-icon';
-
-const RESOURCE_TYPES = [
-  { skillName: 'woodcutting',  label: 'Planks',    refIcon: '/icons/resources/refined/planks.png' },
-  { skillName: 'stonecutting', label: 'Cut Stone',  refIcon: '/icons/resources/refined/stone_blocks.png' },
-  { skillName: 'smelting',     label: 'Ingots',     refIcon: '/icons/resources/refined/metal_blocks.png' },
-  { skillName: 'tanning',      label: 'Leather',    refIcon: '/icons/resources/refined/leather.png' },
-  { skillName: 'weaving',      label: 'Cloth',      refIcon: '/icons/resources/refined/cloth.png' },
-];
-
 type Ingredient = { item_id: string; name: string; display_name: string; quantity: number };
 type Recipe = {
   id: string;
@@ -23,7 +14,6 @@ type Recipe = {
 type RefineGroup = {
   skillName: string;
   label: string;
-  icon: string;
   recipes: Recipe[];
 };
 
@@ -52,27 +42,22 @@ export default function HomeRefiningPanel({ refineGroups, qtyMap, characterId, r
 
   return (
     <div className="space-y-4">
-      {/* ── Resource-type picker cards ──────────────────────────────────────── */}
-      <div className="grid grid-cols-5 gap-2">
-        {RESOURCE_TYPES.map(rt => {
-          const group = refineGroups.find(g => g.skillName === rt.skillName);
-          if (!group) return null;
-          const active = selectedSkill === rt.skillName;
+      {/* ── Resource-type picker — derived from whatever skills exist in the data ── */}
+      <div className="flex flex-wrap gap-2">
+        {refineGroups.map(group => {
+          const active = selectedSkill === group.skillName;
           return (
             <button
-              key={rt.skillName}
-              onClick={() => setSelectedSkill(active ? null : rt.skillName)}
-              className={`flex flex-col items-center gap-2 py-4 px-2 rounded-xl border text-center transition-colors ${
+              key={group.skillName}
+              onClick={() => setSelectedSkill(active ? null : group.skillName)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold transition-colors ${
                 active
-                  ? 'border-primary bg-primary/10'
-                  : 'border-border bg-card hover:border-primary/40'
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border bg-card text-foreground hover:border-primary/40'
               }`}
             >
-              <Image src={rt.refIcon} alt={rt.label} width={36} height={36} className="object-contain" />
-              <span className={`text-xs font-semibold leading-tight ${active ? 'text-primary' : 'text-foreground'}`}>
-                {rt.label}
-              </span>
-              <span className={`text-xs tabular-nums ${active ? 'text-primary' : 'text-muted-foreground'}`}>
+              {group.label}
+              <span className={`text-xs tabular-nums font-normal ${active ? 'text-primary/70' : 'text-muted-foreground'}`}>
                 {group.recipes.length} tier{group.recipes.length !== 1 ? 's' : ''}
               </span>
             </button>
