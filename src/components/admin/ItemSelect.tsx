@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 export type SelectableItem = {
   id: string;
@@ -60,6 +61,9 @@ export function ItemSelect({
 
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>(defaultExpanded);
+  const [panelStyle, setPanelStyle] = useState<React.CSSProperties>({});
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   // Reset expanded state when the dropdown opens (re-expand the selected group)
@@ -68,10 +72,32 @@ export function ItemSelect({
     setOpen(true);
   }
 
+  // Position the portal panel relative to the trigger button, flipping above if
+  // there isn't enough room below the viewport.
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const r = triggerRef.current.getBoundingClientRect();
+    const panelH = panelRef.current?.offsetHeight ?? 300;
+    const spaceBelow = window.innerHeight - r.bottom;
+    const showAbove = spaceBelow < panelH + 8 && r.top > panelH + 8;
+    setPanelStyle({
+      position: 'fixed',
+      left: r.left,
+      width: Math.max(r.width, 208),
+      zIndex: 9999,
+      ...(showAbove
+        ? { bottom: window.innerHeight - r.top + 4 }
+        : { top: r.bottom + 4 }),
+    });
+  }, [open]);
+
   // Close on outside click
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (
+        ref.current && !ref.current.contains(e.target as Node) &&
+        panelRef.current && !panelRef.current.contains(e.target as Node)
+      ) setOpen(false);
     }
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -90,6 +116,7 @@ export function ItemSelect({
     <div ref={ref} className={`relative ${className ?? ''}`}>
       {/* Trigger */}
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => (open ? setOpen(false) : handleOpen())}
         className="w-full text-left px-2 py-1 text-xs bg-background border border-border rounded text-body
@@ -101,10 +128,13 @@ export function ItemSelect({
         <span className="text-muted-foreground shrink-0 text-[10px]">{open ? '▴' : '▾'}</span>
       </button>
 
-      {/* Dropdown panel */}
-      {open && (
-        <div className="absolute z-50 top-full left-0 mt-1 min-w-[13rem] w-max max-w-xs
-          bg-card border border-border rounded-md shadow-lg overflow-hidden">
+      {/* Dropdown panel — rendered in a portal so no ancestor overflow clips it */}
+      {open && createPortal(
+        <div
+          ref={panelRef}
+          style={panelStyle}
+          className="bg-card border border-border rounded-md shadow-lg overflow-hidden"
+        >
           {/* Clear / placeholder row */}
           <button
             type="button"
@@ -153,7 +183,8 @@ export function ItemSelect({
               </div>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
