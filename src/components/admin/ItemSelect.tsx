@@ -48,7 +48,7 @@ export function ItemSelect({
     const key = getGroupKey(item);
     (buckets[key] ??= []).push(item);
   }
-  const groups = GROUPS.filter(g => buckets[g.key]?.length);
+  const groups = GROUPS; // always show all categories, even empty ones
 
   // Default: expand only the group containing the current value
   const defaultExpanded = () => {
@@ -165,7 +165,7 @@ export function ItemSelect({
                 {/* Items within the expanded category */}
                 {isExpanded && (
                   <div className="border-t border-border/20">
-                    {buckets[g.key].map(item => (
+                    {buckets[g.key]?.length ? buckets[g.key].map(item => (
                       <button
                         key={item.id}
                         type="button"
@@ -178,7 +178,9 @@ export function ItemSelect({
                       >
                         {item.display_name}
                       </button>
-                    ))}
+                    )) : (
+                      <p className="pl-6 pr-3 py-1 text-xs text-muted-foreground italic">No items yet</p>
+                    )}
                   </div>
                 )}
               </div>
