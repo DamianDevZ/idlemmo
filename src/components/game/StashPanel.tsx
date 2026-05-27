@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { getResourceIconPath, getResourceInfo } from '@/lib/item-icon';
 import { ItemSprite } from '@/components/game/ItemSprite';
-import { useRecipeScroll } from '@/features/home/use-scroll-action';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -72,38 +71,9 @@ function matchesCategory(def: ItemDef | null, category: Category): boolean {
   }
 }
 
-// ─── Use-scroll button ────────────────────────────────────────────────────────
-
-function UseScrollButton({ characterId, instanceId }: { characterId: string; instanceId: string }) {
-  const [pending, startTransition] = useTransition();
-  const [done, setDone] = useState(false);
-
-  function handleUse() {
-    startTransition(async () => {
-      try {
-        await useRecipeScroll(characterId, instanceId);
-        setDone(true);
-      } catch (e) {
-        alert(e instanceof Error ? e.message : 'Failed to use scroll');
-      }
-    });
-  }
-
-  if (done) return <span className="text-[10px] text-green-400 font-bold">Learned!</span>;
-  return (
-    <button
-      disabled={pending}
-      onClick={handleUse}
-      className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/20 text-primary hover:bg-primary/30 transition-colors disabled:opacity-50 leading-tight"
-    >
-      {pending ? '…' : 'Use'}
-    </button>
-  );
-}
-
 // ─── Stash grid item ──────────────────────────────────────────────────────────
 
-function StashGridItem({ item, characterId }: { item: StashItem; characterId: string }) {
+function StashGridItem({ item }: { item: StashItem; characterId: string }) {
   const def = item.item_definitions;
   const resInfo = getResourceInfo(def?.name ?? '');
   const label = resInfo ? `${resInfo.type} T${resInfo.tier}` : (def?.display_name ?? '?');
@@ -117,7 +87,6 @@ function StashGridItem({ item, characterId }: { item: StashItem; characterId: st
   const qtyLabel = qty >= 10_000 ? `×${(qty / 1000).toFixed(0)}k` : qty > 1 ? `×${qty}` : null;
   const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const isEquip = def?.type === 'weapon' || def?.type === 'armor' || def?.type === 'tool';
-  const isRecipeScroll = def?.type === 'recipe';
 
   return (
     <div
@@ -154,12 +123,9 @@ function StashGridItem({ item, characterId }: { item: StashItem; characterId: st
         </span>
       )}
 
-      {/* Bottom strip: name + optional Use button */}
+      {/* Bottom strip: name */}
       <div className="absolute bottom-0 inset-x-0 bg-black/50 px-1 py-0.5 flex items-center gap-1">
         <p className="text-[10px] text-white/80 leading-tight truncate flex-1">{label}</p>
-        {isRecipeScroll && (
-          <UseScrollButton characterId={characterId} instanceId={item.instance_id} />
-        )}
       </div>
     </div>
   );
@@ -283,8 +249,7 @@ export function StashPanel({ stash, inventoryEquip, characterId }: Props) {
               <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                 {filteredStash.map(item => (
                   <StashGridItem key={item.instance_id} item={item} characterId={characterId} />
-                ))}
-              </div>
+                ))}              </div>
             </div>
           )}
         </div>

@@ -53,7 +53,6 @@ export default async function HomeBasePage() {
   const [
     { data: inventoryRows },
     { data: stashRows },
-    { data: knownRecipeRows },
     { data: refiningRows },
   ] = await Promise.all([
     supabase
@@ -66,11 +65,6 @@ export default async function HomeBasePage() {
       .select('*, item_definitions(*)')
       .eq('character_id', character.id)
       .order('created_at', { ascending: false }),
-    supabase
-      .from('character_known_recipes')
-      .select('learned_at, recipes(*, item_definitions(id, display_name, type))')
-      .eq('character_id', character.id)
-      .order('learned_at', { ascending: false }),
     supabase
       .from('recipes')
       .select('*, item_definitions!output_item_id(id, name, display_name), skills!required_skill_id(name)')
@@ -116,80 +110,96 @@ export default async function HomeBasePage() {
   // Combined count for the Stash tab badge
   const stashAndEquipCount = stash.length + inventoryEquip.length;
 
-  type KnownRecipe = {
-    id: string;
-    display_name: string;
-    output_item_id: string;
-    output_quantity: number;
-    required_skill_level: number;
-    ingredients: unknown;
-    tier: number;
-    category: string;
-    item_definitions: { id: string; name?: string; display_name: string } | null;
-  };
-  const recipeList = ((knownRecipeRows ?? [])
-    .map((r: Record<string, unknown>) => r.recipes)
-    .filter(Boolean)) as KnownRecipe[];
-
-  const refineList = (refiningRows ?? []) as KnownRecipe[];
-
-  // Resolve ingredient item_ids → name/display_name for UI display
-  type RawIngredient = { item_id: string; tier?: number | null; quantity: number };
-  const allIngredientIds = [...new Set(
-    [...recipeList, ...refineList]
-      .flatMap(r => ((r.ingredients as RawIngredient[]) ?? []).map(i => i.item_id))
-      .filter(Boolean)
+  // ── Craft tab: recipe scrolls in stash = what you can craft ──────────────
+  // Having a scroll in your stash permanently unlocks crafting that item.
+  // The scroll stays in your stash and is never consumed.
+  type ScrollItemDef = { type: string; recipe_for_item_id: string | null };
+  const craftableItemIds = [...new Set(
+    stash
+      .filter(s => {
+        const def = s.item_definitions as unknown as ScrollItemDef;
+        return def?.type === 'recipe' && def?.recipe_for_item_id;
+      })
+      .map(s => (s.item_definitions as unknown as ScrollItemDef).recipe_for_item_id as string)
   )];
-  const { data: ingItemDefs } = allIngredientIds.length > 0
-    ? await supabase.from('item_definitions').select('id, name, display_name').in('id', allIngredientIds)
-    : { data: [] };
-  const ingItemMap = new Map((ingItemDefs ?? []).map(d => [d.id as string, { name: d.name as string, display_name: d.display_name as string }]));
 
-  // Enrich ingredients with name/display_name for component consumption
-  type EnrichedIngredient = { item_id: string; name: string; display_name: string; quantity: number };
+  type CraftableItemDef = { id: string; name: string; display_name: string; type: string; image_url: string | null };
+  type CraftingRecipeRow = { id: string; output_item_id: string; output_tier: number; tier: number; display_name: string; output_quantity: number; ingredients: unknown };
+
+  const [{ data: craftableItemDefs }, { data: craftingRecipeRows }] = craftableItemIds.length > 0
+    ? await Promise.all([
+        supabase.from('item_definitions').select('id, name, display_name, type, image_url').in('id', craftableItemIds),
+        supabase.from('recipes').select('id, output_item_id, output_tier, tier, display_name, output_quantity, ingredients').in('output_item_id', craftableItemIds).order('output_tier'),
+      ])
+    : [{ data: [] as CraftableItemDef[] }, { data: [] as CraftingRecipeRow[] }];
+
+  const refineList = (refiningRows ?? []) as (CraftingRecipeRow & { item_definitions: { id: string; name: string; display_name: string } | null; skills: { name: string } | null })[];
+
+  // Resolve all ingredient IDs → name + display_name + image_url
+  type RawIngredient = { item_id: string; tier?: number | null; quantity: number };
+  const allIngredientIds = [...new Set([
+    ...(craftingRecipeRows ?? []).flatMap(r => ((r.ingredients as RawIngredient[]) ?? []).map(i => i.item_id)),
+    ...refineList.flatMap(r => ((r.ingredients as RawIngredient[]) ?? []).map(i => i.item_id)),
+  ].filter(Boolean))];
+
+  const { data: ingItemDefs } = allIngredientIds.length > 0
+    ? await supabase.from('item_definitions').select('id, name, display_name, image_url').in('id', allIngredientIds)
+    : { data: [] };
+  type IngDef = { id: string; name: string; display_name: string; image_url: string | null };
+  const ingItemMap = new Map((ingItemDefs ?? []).map(d => [d.id as string, d as IngDef]));
+
+  type EnrichedIngredient = { item_id: string; name: string; display_name: string; image_url: string | null; quantity: number };
   function enrichIngredients(raw: unknown): EnrichedIngredient[] {
-    return ((raw as RawIngredient[]) ?? []).map(i => ({
-      item_id:      i.item_id,
-      name:         ingItemMap.get(i.item_id)?.name ?? i.item_id,
-      display_name: ingItemMap.get(i.item_id)?.display_name ?? i.item_id,
-      quantity:     i.quantity,
-    }));
+    return ((raw as RawIngredient[]) ?? []).map(i => {
+      const def = ingItemMap.get(i.item_id);
+      return {
+        item_id:      i.item_id,
+        name:         def?.name ?? i.item_id,
+        display_name: def?.display_name ?? i.item_id,
+        image_url:    def?.image_url ?? null,
+        quantity:     i.quantity,
+      };
+    });
   }
-  const enrichedRecipeList = recipeList.map(r => ({ ...r, ingredients: enrichIngredients(r.ingredients) }));
+
   const enrichedRefineList = refineList.map(r => ({ ...r, ingredients: enrichIngredients(r.ingredients) }));
 
-  // Fetch per-item mastery tiers so panels can show lock status for T2+ recipes.
-  // Crafting: keyed by output item_definition_id + category (weapon_crafting etc.)
-  // Refining: keyed by first ingredient item_id in 'refining' category
-  const craftOutputItemIds = [...new Set(
-    enrichedRecipeList
-      .filter(r => r.tier > 1 && ['weapon', 'armor', 'tool'].includes(r.category))
-      .map(r => (r.item_definitions as { id: string } | null)?.id)
-      .filter((id): id is string => Boolean(id))
-  )];
+  // Mastery lookup for crafting (per craftable item) + refining (per ingredient)
   const refiningIngredientIds = [...new Set(
-    enrichedRefineList
-      .filter(r => r.tier > 1)
-      .map(r => (r.ingredients as EnrichedIngredient[])?.[0]?.item_id)
-      .filter((id): id is string => Boolean(id))
+    enrichedRefineList.filter(r => r.tier > 1).map(r => (r.ingredients as EnrichedIngredient[])?.[0]?.item_id).filter((id): id is string => Boolean(id))
   )];
-  const masteryItemIds = [...new Set([...craftOutputItemIds, ...refiningIngredientIds])];
-  const { data: masteryRows } = masteryItemIds.length > 0
-    ? await supabase
-        .from('character_item_mastery')
-        .select('item_definition_id, category_name, tier')
-        .eq('character_id', character.id)
-        .in('item_definition_id', masteryItemIds)
+  const masteryLookupIds = [...new Set([...craftableItemIds, ...refiningIngredientIds])];
+  const { data: masteryRows } = masteryLookupIds.length > 0
+    ? await supabase.from('character_item_mastery').select('item_definition_id, category_name, tier').eq('character_id', character.id).in('item_definition_id', masteryLookupIds)
     : { data: [] };
-  const craftingMasteryMap: Record<string, number> = {};
+
+  const craftingMasteryByItemId: Record<string, number> = {};
   const refiningMasteryMap: Record<string, number> = {};
   for (const row of (masteryRows ?? []) as { item_definition_id: string; category_name: string; tier: number }[]) {
     if (row.category_name === 'refining') {
       refiningMasteryMap[row.item_definition_id] = row.tier;
     } else {
-      craftingMasteryMap[`${row.item_definition_id}:${row.category_name}`] = row.tier;
+      craftingMasteryByItemId[row.item_definition_id] = row.tier;
     }
   }
+
+  // Build structured craftable items for the Craft panel
+  const craftableItemMap = new Map((craftableItemDefs ?? []).map(d => [d.id, d as CraftableItemDef]));
+  const craftableItems = craftableItemIds.map(itemId => {
+    const def = craftableItemMap.get(itemId);
+    if (!def) return null;
+    return {
+      id:           def.id,
+      name:         def.name,
+      display_name: def.display_name,
+      type:         def.type,
+      image_url:    def.image_url,
+      masteryTier:  craftingMasteryByItemId[def.id] ?? -1,
+      recipes:      (craftingRecipeRows ?? [])
+                      .filter(r => r.output_item_id === itemId)
+                      .map(r => ({ ...r, ingredients: enrichIngredients(r.ingredients) })),
+    };
+  }).filter((x): x is NonNullable<typeof x> => x !== null);
 
   // Combined quantity map (inventory + stash) by item name
   const qtyMap: Record<string, number> = {};
@@ -211,7 +221,7 @@ export default async function HomeBasePage() {
     weaving:      { label: 'Fiber',  icon: '🧵' },
   };
   const RESOURCE_ORDER = ['woodcutting', 'smelting', 'stonecutting', 'tanning', 'weaving'];
-  type RefineRecipe = KnownRecipe & { skills: { name: string } | null };
+  type RefineRecipe = typeof enrichedRefineList[number] & { skills: { name: string } | null };
   const refineGroups = RESOURCE_ORDER.map(skillName => ({
     skillName,
     ...( SKILL_TO_RESOURCE[skillName] ?? { label: skillName, icon: '📦' }),
@@ -340,10 +350,9 @@ export default async function HomeBasePage() {
         {/* ── Crafting ── */}
         <TabsContent value="crafting" className="mt-4">
           <HomeCraftingPanel
-            recipeList={enrichedRecipeList}
+            craftableItems={craftableItems}
             qtyMap={qtyMap}
             characterId={character.id}
-            craftingMasteryMap={craftingMasteryMap}
           />
         </TabsContent>
       </PersistentTabs>
