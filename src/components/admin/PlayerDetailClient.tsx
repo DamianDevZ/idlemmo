@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { adminGiveItem, adminRemoveItem, adminUpdateCharacter, adminSetAttribute } from '@/features/admin/player-actions';
-import { groupedItemOptions } from '@/lib/admin/groupedItemOptions';
+import { ItemSelect } from '@/components/admin/ItemSelect';
 
 const ATTRS = ['vigor','endurance','strength','dexterity','intelligence','faith','arcane'] as const;
 const RATINGS = ['S','A','B','C','D','F'];
@@ -193,13 +193,13 @@ export function PlayerDetailClient({
         <div className="flex items-end gap-2 flex-wrap">
           <div className="flex flex-col gap-1">
             <span className="text-xs text-muted-foreground">Item</span>
-            <select
+            <ItemSelect
               value={giveItemId}
-              onChange={e => setGiveItemId(e.target.value)}
-              className="px-3 py-1.5 text-sm bg-background border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-ring max-w-xs"
-            >
-              {groupedItemOptions(allItems, 'Select item…')}
-            </select>
+              onChange={setGiveItemId}
+              items={allItems}
+              placeholder="Select item…"
+              className="max-w-xs"
+            />
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-xs text-muted-foreground">Qty</span>

@@ -13,7 +13,7 @@ import {
   fillDownAreaTierLoot,
 } from '@/features/admin/world-actions';
 import { LootFillDownButtons } from '@/components/admin/LootFillDownButtons';
-import { groupedItemOptions } from '@/lib/admin/groupedItemOptions';
+import { ItemSelect } from '@/components/admin/ItemSelect';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -108,13 +108,12 @@ function EditLootRow({
       {leadCell !== undefined && <td className="py-1.5 pr-2">{leadCell}</td>}
       <td className="py-1.5 pr-2">
         <div className="flex gap-1">
-          <select
+          <ItemSelect
             value={form.item_id}
-            onChange={e => setForm(p => ({ ...p, item_id: e.target.value }))}
-            className={`${tiny} flex-1 min-w-0`}
-          >
-            {groupedItemOptions(items)}
-          </select>
+            onChange={id => setForm(p => ({ ...p, item_id: id }))}
+            items={items}
+            className="flex-1 min-w-0"
+          />
           {selectedItem?.is_tiered && (
             <select
               value={form.item_tier}
@@ -266,9 +265,13 @@ function AddUnifiedRow({
       <td className="py-1.5 pr-2">
         {type === 'item' ? (
           <div className="flex gap-1">
-            <select value={itemId} onChange={e => setItemId(e.target.value)} className={`${tiny} flex-1 min-w-0`}>
-              {groupedItemOptions(items, 'Pick item…')}
-            </select>
+            <ItemSelect
+              value={itemId}
+              onChange={id => setItemId(id)}
+              items={items}
+              placeholder="Pick item…"
+              className="flex-1 min-w-0"
+            />
             {selectedItem?.is_tiered && (
               <select value={itemTier} onChange={e => setItemTier(Number(e.target.value))} className={`${tiny} w-14 shrink-0`}>
                 {Array.from({ length: maxTier }, (_, i) => i + 1).map(t => (

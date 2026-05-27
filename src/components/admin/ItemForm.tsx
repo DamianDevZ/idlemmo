@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { upsertItem, uploadItemIcon, deleteItem } from '@/features/admin/item-actions';
 import type { RecipeFormData, RecipeIngredient } from '@/features/admin/item-actions';
 import { groupedItemOptions } from '@/lib/admin/groupedItemOptions';
+import { ItemSelect } from '@/components/admin/ItemSelect';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -1100,11 +1101,12 @@ export function ItemForm({
                                       return (
                                         <tr key={i} className="border-b border-border/30 last:border-0">
                                           <td className="px-3 py-1.5">
-                                            <select value={ing.item_id}
-                                              onChange={e => setIng(i, { item_id: e.target.value, tier: null })}
-                                              className={tiny}>
-                                              {groupedItemOptions(materialItems, 'Select material…')}
-                                            </select>
+                                            <ItemSelect
+                                              value={ing.item_id}
+                                              onChange={id => setIng(i, { item_id: id, tier: null })}
+                                              items={materialItems}
+                                              placeholder="Select material…"
+                                            />
                                           </td>
                                           <td className="px-2 py-1.5">
                                             {matIsTiered ? (
