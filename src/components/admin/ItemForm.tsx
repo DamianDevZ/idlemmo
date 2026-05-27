@@ -328,6 +328,8 @@ export function ItemForm({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [item, setItem] = useState<Item>(initial);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingPreview, setPendingPreview] = useState<string | null>(null);
   const [resistances, setResistances] = useState<ResistancesMap>(() => initResistances(initial.resistances));
   const [effects, setEffects] = useState<ConsumableEffect[]>(initial.consumable_effects ?? []);
   const [toolConfig, setToolConfig] = useState<ToolConfig>(
@@ -556,6 +558,12 @@ export function ItemForm({
           recipeSuffix,
         );
         if (result?.error) { setError(result.error); return; }
+        // If a file was selected before saving (new item), upload it now using the returned ID
+        if (pendingFile && result.id) {
+          const fd = new FormData();
+          fd.append('icon', pendingFile);
+          await uploadItemIcon(result.id, fd);
+        }
         router.push(returnTo);
       } catch (e) {
         setError((e as Error).message);
@@ -578,9 +586,16 @@ export function ItemForm({
   }
 
   async function handleIconUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!initial.id || !e.target.files?.[0]) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!initial.id) {
+      // New item: stage the file and show a local preview
+      setPendingFile(file);
+      setPendingPreview(URL.createObjectURL(file));
+      return;
+    }
     const fd = new FormData();
-    fd.append('icon', e.target.files[0]);
+    fd.append('icon', file);
     try {
       const url = await uploadItemIcon(initial.id, fd);
       set('image_url', url);
@@ -617,19 +632,18 @@ export function ItemForm({
 
           {/* Icon + upload */}
           <div className="flex items-center gap-3">
-            {item.image_url
-              ? <img src={item.image_url} alt="" className="w-14 h-14 rounded-lg object-cover border border-border shrink-0" />
+            {(pendingPreview ?? item.image_url)
+              ? <img src={pendingPreview ?? item.image_url!} alt="" className="w-14 h-14 rounded-lg object-cover border border-border shrink-0" />
               : <div className="w-14 h-14 rounded-lg bg-background border border-border flex items-center justify-center text-2xl shrink-0">?</div>
             }
             <div className="min-w-0">
-              {!isNew ? (
-                <>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Upload Icon</p>
-                  <input type="file" accept="image/*" onChange={handleIconUpload}
-                    className="text-xs text-body file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-background file:text-body hover:file:bg-accent" />
-                </>
-              ) : (
-                <p className="text-xs text-muted-foreground">Save first, then upload an icon.</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                {isNew ? 'Icon (optional)' : 'Upload Icon'}
+              </p>
+              <input type="file" accept="image/*" onChange={handleIconUpload}
+                className="text-xs text-body file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-background file:text-body hover:file:bg-accent" />
+              {isNew && pendingFile && (
+                <p className="mt-1 text-[11px] text-muted-foreground">Will upload on save</p>
               )}
             </div>
           </div>

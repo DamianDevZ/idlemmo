@@ -56,7 +56,7 @@ export async function upsertItem(
   data: ItemFormData,
   recipes: RecipeFormData[],
   recipeSuffix: string = 'Scroll',
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; id?: string }> {
   await requireAdmin();
   const db = createAdminClient();
 
@@ -162,7 +162,7 @@ export async function upsertItem(
   }
 
   revalidatePath('/admin/items');
-  return {};
+  return { id: itemId ?? undefined };
 }
 
 export async function deleteItem(id: string): Promise<{ error?: string }> {
