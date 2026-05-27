@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { adminGiveItem, adminRemoveItem, adminUpdateCharacter, adminSetAttribute } from '@/features/admin/player-actions';
+import { groupedItemOptions } from '@/lib/admin/groupedItemOptions';
 
 const ATTRS = ['vigor','endurance','strength','dexterity','intelligence','faith','arcane'] as const;
 const RATINGS = ['S','A','B','C','D','F'];
@@ -58,7 +59,7 @@ export function PlayerDetailClient({
   inventory: InventoryRow[];
   stash: StashRow[];
   skills: SkillRow[];
-  allItems: { id: string; display_name: string; type: string }[];
+  allItems: { id: string; display_name: string; type: string; material_subtype?: string | null }[];
   maxTier?: number;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -197,10 +198,7 @@ export function PlayerDetailClient({
               onChange={e => setGiveItemId(e.target.value)}
               className="px-3 py-1.5 text-sm bg-background border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-ring max-w-xs"
             >
-              <option value="">Select item…</option>
-              {allItems.map(it => (
-                <option key={it.id} value={it.id}>{it.display_name} ({it.type})</option>
-              ))}
+              {groupedItemOptions(allItems, 'Select item…')}
             </select>
           </div>
           <div className="flex flex-col gap-1">

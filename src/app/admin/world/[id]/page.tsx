@@ -22,7 +22,7 @@ export default async function AreaEditPage({ params }: { params: Promise<{ id: s
 
   try {
     const [itemsResult, maxTierResult, enemiesResult] = await Promise.all([
-      db.from('item_definitions').select('id, display_name, type, name, is_tiered').order('display_name'),
+      db.from('item_definitions').select('id, display_name, type, name, is_tiered, material_subtype').order('display_name'),
       db.from('game_config').select('value').eq('key', 'max_tier').maybeSingle(),
       db.from('enemies').select('id, display_name, icon').order('display_name'),
     ]);
@@ -90,7 +90,7 @@ export default async function AreaEditPage({ params }: { params: Promise<{ id: s
         initial={{ name: area.name, display_name: area.display_name, description: area.description, icon: area.icon, sort_order: area.sort_order }}
         lootRows={lootRows}
         encounterRows={encounterRows}
-        allItems={(items ?? []) as { id: string; display_name: string; type: string; name: string; is_tiered: boolean }[]}
+        allItems={(items ?? []) as { id: string; display_name: string; type: string; name: string; is_tiered: boolean; material_subtype: string | null }[]}
         allEnemies={allEnemies}
         maxTier={maxTier}
         imageUrl={area.image_url}

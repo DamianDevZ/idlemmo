@@ -13,6 +13,7 @@ import {
   fillDownAreaTierLoot,
 } from '@/features/admin/world-actions';
 import { LootFillDownButtons } from '@/components/admin/LootFillDownButtons';
+import { groupedItemOptions } from '@/lib/admin/groupedItemOptions';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,7 +35,7 @@ type TierLootRow = {
 
 type EncounterRow = { id: string; tier: number; enemy_id: string; weight: number };
 
-type Item = { id: string; display_name: string; type: string; name: string; is_tiered: boolean };
+type Item = { id: string; display_name: string; type: string; name: string; is_tiered: boolean; material_subtype?: string | null };
 type SimpleEnemy = { id: string; display_name: string; icon: string };
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
@@ -112,11 +113,7 @@ function EditLootRow({
             onChange={e => setForm(p => ({ ...p, item_id: e.target.value }))}
             className={`${tiny} flex-1 min-w-0`}
           >
-            {items.map(it => (
-              <option key={it.id} value={it.id}>
-                {it.display_name} ({it.type})
-              </option>
-            ))}
+            {groupedItemOptions(items)}
           </select>
           {selectedItem?.is_tiered && (
             <select
@@ -270,10 +267,7 @@ function AddUnifiedRow({
         {type === 'item' ? (
           <div className="flex gap-1">
             <select value={itemId} onChange={e => setItemId(e.target.value)} className={`${tiny} flex-1 min-w-0`}>
-              <option value="">Pick item…</option>
-              {items.map(it => (
-                <option key={it.id} value={it.id}>{it.display_name} ({it.type})</option>
-              ))}
+              {groupedItemOptions(items, 'Pick item…')}
             </select>
             {selectedItem?.is_tiered && (
               <select value={itemTier} onChange={e => setItemTier(Number(e.target.value))} className={`${tiny} w-14 shrink-0`}>

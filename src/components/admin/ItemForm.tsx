@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { upsertItem, uploadItemIcon, deleteItem } from '@/features/admin/item-actions';
 import type { RecipeFormData, RecipeIngredient } from '@/features/admin/item-actions';
+import { groupedItemOptions } from '@/lib/admin/groupedItemOptions';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ type ToolConfig = {
 };
 
 export type SkillOption    = { id: string; name: string; display_name: string; category: string };
-export type MaterialItem   = { id: string; name: string; display_name: string; equipment_tier: number | null; is_tiered: boolean };
+export type MaterialItem   = { id: string; name: string; display_name: string; type: string; equipment_tier: number | null; is_tiered: boolean; material_subtype?: string | null };
 export type WeaponType     = { id: string; name: string; display_name: string };
 export type TierScalingRow = { id?: string; item_type: string; stat_key: string; stat_label: string; tier: number; multiplier: number };
 
@@ -1102,10 +1103,7 @@ export function ItemForm({
                                             <select value={ing.item_id}
                                               onChange={e => setIng(i, { item_id: e.target.value, tier: null })}
                                               className={tiny}>
-                                              <option value="">Select material…</option>
-                                              {materialItems.map(m => (
-                                                <option key={m.id} value={m.id}>{m.display_name}</option>
-                                              ))}
+                                              {groupedItemOptions(materialItems, 'Select material…')}
                                             </select>
                                           </td>
                                           <td className="px-2 py-1.5">

@@ -33,7 +33,7 @@ export default async function PlayerDetailPage({ params }: { params: Promise<{ i
       .eq('character_id', characterId)
       .order('level', { ascending: false }),
     db.auth.admin.listUsers(),
-    db.from('item_definitions').select('id, display_name, type').order('display_name'),
+    db.from('item_definitions').select('id, display_name, type, material_subtype').order('display_name'),
     db.from('game_config').select('value').eq('key', 'max_tier').single(),
   ]);
 
