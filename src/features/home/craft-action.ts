@@ -29,15 +29,6 @@ export async function craftItem(characterId: string, recipeId: string) {
     .single();
   if (!character) throw new Error('Character not found');
 
-  // Verify recipe is known
-  const { data: knownRecipe } = await supabase
-    .from('character_known_recipes')
-    .select('recipe_id')
-    .eq('character_id', characterId)
-    .eq('recipe_id', recipeId)
-    .single();
-  if (!knownRecipe) throw new Error('Recipe not known');
-
   // Fetch recipe with output item name + type (type determines which crafting XP pool to award)
   const { data: recipe } = await supabase
     .from('recipes')
@@ -45,6 +36,18 @@ export async function craftItem(characterId: string, recipeId: string) {
     .eq('id', recipeId)
     .single();
   if (!recipe) throw new Error('Recipe not found');
+
+  // Verify the character owns a recipe scroll for this output item in their stash.
+  // Scrolls are permanent (never consumed) — having one unlocks crafting indefinitely.
+  const { data: stashScrolls } = await supabase
+    .from('character_stash')
+    .select('item_id, item_definitions!item_id(type, recipe_for_item_id)')
+    .eq('character_id', characterId);
+  const hasScroll = (stashScrolls ?? []).some(row => {
+    const def = row.item_definitions as { type: string; recipe_for_item_id: string | null } | null;
+    return def?.type === 'recipe' && def?.recipe_for_item_id === (recipe.output_item_id as string);
+  });
+  if (!hasScroll) throw new Error('Recipe scroll not in stash');
 
   // Resolve output item type early — needed for both mastery gate and XP award
   const outputItemType = (recipe.item_definitions as unknown as { name: string; display_name: string; type: string } | null)?.type ?? 'misc';
