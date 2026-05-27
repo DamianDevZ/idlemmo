@@ -1031,25 +1031,19 @@ export function ItemForm({
                         value={recipe.output_quantity}
                         onChange={e => setRecipeField('output_quantity', Number(e.target.value))} />
                     </Field>
-                    <Field label="Required Skill">
-                      <Select value={recipe.required_skill_id}
-                        onChange={e => setRecipeField('required_skill_id', e.target.value)}>
-                        <option value="">Select skill…</option>
-                        {skills.filter(s => s.category === recipeSkillCategory).map(s => (
-                          <option key={s.id} value={s.id}>{s.display_name}</option>
-                        ))}
-                      </Select>
-                    </Field>
-                    <Field label="Skill Level">
-                      <Input type="number" min={1} max={99}
-                        value={recipe.required_skill_level}
-                        onChange={e => setRecipeField('required_skill_level', Number(e.target.value))} />
-                    </Field>
-                    <Field label="Craft Time (s)">
-                      <Input type="number" min={1}
-                        value={recipe.craft_time_seconds}
-                        onChange={e => setRecipeField('craft_time_seconds', Number(e.target.value))} />
-                    </Field>
+                    {/* Refining recipes need a skill to determine which resource group they belong to
+                        (e.g. Smelting → Metal, Tanning → Hide). Crafting derives its category from item type. */}
+                    {showMaterial && (
+                      <Field label="Refining Skill">
+                        <Select value={recipe.required_skill_id}
+                          onChange={e => setRecipeField('required_skill_id', e.target.value)}>
+                          <option value="">Select skill…</option>
+                          {skills.filter(s => s.category === recipeSkillCategory).map(s => (
+                            <option key={s.id} value={s.id}>{s.display_name}</option>
+                          ))}
+                        </Select>
+                      </Field>
+                    )}
                   </div>
 
                   <div className="border-t border-border pt-3 space-y-2">

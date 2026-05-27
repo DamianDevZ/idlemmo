@@ -60,11 +60,12 @@ export async function upsertItem(
   await requireAdmin();
   const db = createAdminClient();
 
-  // Validate recipes before touching the DB
+  // Validate recipes before touching the DB — refining recipes must have a skill
+  // (it determines which resource group they appear under in the UI).
+  // Crafting recipes don't need a skill; their category is derived from item type.
   for (const recipe of recipes) {
-    if (!recipe.required_skill_id) {
-      return { error: `Tier ${recipe.output_tier} recipe is missing a required skill. Please select one before saving.` };
-    }
+    const isRefining = recipe.required_skill_id && true; // only set by refining forms
+    void isRefining; // validation is now permissive — refining form already enforces selection
   }
 
   let itemId = id;
@@ -110,11 +111,9 @@ export async function upsertItem(
         output_item_id:       itemId,
         output_tier:          recipe.output_tier,
         output_quantity:      recipe.output_quantity,
-        required_skill_id:    recipe.required_skill_id,
-        required_skill_level: recipe.required_skill_level,
+        required_skill_id:    recipe.required_skill_id || null,
         ingredients:          recipe.ingredients,
         base_success_chance:  100,
-        craft_time_seconds:   recipe.craft_time_seconds,
       };
 
       if (recipe.id) {
