@@ -205,17 +205,5 @@ export default function HomeRefiningPanel({ refineGroups, qtyMap, characterId, r
   );
 }
 
-type Ingredient = { item_id: string; name: string; display_name: string; quantity: number };
-type Recipe = {
-  id: string;
-  tier: number;
-  ingredients: unknown;
-  item_definitions: { name?: string } | null;
-};
-type RefineGroup = {
-  skillName: string;
-  label: string;
-  recipes: Recipe[];
-};
 
 // ─── Main panel ───────────────────────────────────────────────────────────────
