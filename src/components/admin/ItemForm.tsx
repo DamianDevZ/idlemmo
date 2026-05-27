@@ -919,9 +919,14 @@ export function ItemForm({
             </div>
           )}
 
-          {/* ── Crafting Recipe ───────────────────────────────────────────── */}
+          {/* ── Crafting / Refining Recipe ─────────────────────────────── */}
           {showRecipe && (() => {
             const isCraftable = Object.values(tierRecipes).some(r => r !== null);
+            const tierList = item.is_tiered
+              ? Array.from({ length: maxTier }, (_, i) => i + 1)
+              : [0];
+            const tiny = 'w-full px-2 py-1 text-xs bg-background border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-ring';
+
             return (
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
               <div className="flex items-center justify-between">
@@ -929,66 +934,32 @@ export function ItemForm({
                   {showMaterial ? 'Refining Recipe' : 'Crafting Recipe'}
                 </p>
                 {isCraftable && (
-                  <button
-                    type="button"
-                    onClick={() => setTierRecipes({})}
-                    className="text-xs text-destructive hover:underline transition-colors"
-                  >
+                  <button type="button" onClick={() => setTierRecipes({})}
+                    className="text-xs text-destructive hover:underline transition-colors">
                     × Remove all
                   </button>
                 )}
               </div>
 
-              {/* Not yet craftable — show the big Make Craftable button */}
+              {/* Not yet craftable */}
               {!isCraftable && (
-                <button
-                  type="button"
-                  onClick={makeAllCraftable}
-                  className="w-full py-3 rounded-lg border-2 border-dashed border-primary/40 text-sm font-semibold text-primary hover:bg-primary/10 hover:border-primary transition-colors"
-                >
+                <button type="button" onClick={makeAllCraftable}
+                  className="w-full py-3 rounded-lg border-2 border-dashed border-primary/40 text-sm font-semibold text-primary hover:bg-primary/10 hover:border-primary transition-colors">
                   + Make Craftable
                   {item.is_tiered && (
-                    <span className="ml-2 text-xs font-normal text-muted-foreground">(opens recipes for all {maxTier} tiers)</span>
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">(creates recipes for all {maxTier} tiers)</span>
                   )}
                 </button>
               )}
 
-              {/* Tier tab strip — shown for tiered items */}
-              {isCraftable && item.is_tiered && (
-                <div className="flex flex-wrap gap-1">
-                  {Array.from({ length: maxTier }, (_, i) => i + 1).map(t => {
-                    const hasRecipe = !!tierRecipes[t];
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setActiveRecipeTier(t)}
-                        className={`px-3 py-1 text-xs rounded border transition-colors ${
-                          activeRecipeTier === t
-                            ? 'bg-primary text-primary-foreground border-primary'
-                            : hasRecipe
-                              ? 'bg-background text-body border-border hover:border-ring'
-                              : 'bg-background text-muted-foreground border-border border-dashed hover:border-ring'
-                        }`}
-                      >
-                        T{t}{hasRecipe ? '' : ' +'}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Recipe scroll info — shown when item is craftable */}
+              {/* Recipe scroll item banner */}
               {isCraftable && item.type !== 'recipe' && (
                 <div className="rounded-md bg-background border border-border px-4 py-3 space-y-1">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recipe Scroll Item</p>
                   {existingRecipeItem ? (
                     <p className="text-sm text-body">
                       <span className="text-muted-foreground">Auto-created: </span>
-                      <a
-                        href={`/admin/items/${existingRecipeItem.id}`}
-                        className="text-primary hover:underline"
-                      >
+                      <a href={`/admin/items/${existingRecipeItem.id}`} className="text-primary hover:underline">
                         {existingRecipeItem.display_name}
                       </a>
                       <span className="text-muted-foreground text-xs ml-2">(click to edit icon, rarity, etc.)</span>
@@ -1001,171 +972,209 @@ export function ItemForm({
                 </div>
               )}
 
-              {/* Per-tier remove button */}
-              {isCraftable && (
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">
-                    {item.is_tiered ? `Tier ${activeRecipeTier} recipe` : 'Recipe'}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setTierRecipes(prev =>
-                      prev[activeRecipeTier]
-                        ? { ...prev, [activeRecipeTier]: null }
-                        : { ...prev, [activeRecipeTier]: blankRecipe(activeRecipeTier) }
-                    )}
-                    className="text-xs px-3 py-1 rounded border border-border text-muted-foreground hover:text-body hover:border-ring transition-colors"
-                  >
-                    {recipe ? 'Remove this tier' : '+ Add Recipe'}
-                  </button>
-                </div>
-              )}
+              {/* All tier sections shown at once — like the loot table */}
+              {isCraftable && tierList.map(t => {
+                const tr = tierRecipes[t] ?? null;
 
-              {recipe && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Recipe name is auto-generated: "{item.display_name} {recipeSuffix}".
-                        Shown here for reference; stored on the recipe scroll item, not the recipe row. */}
-                    <Field label="Output Qty">
-                      <Input type="number" min={1}
-                        value={recipe.output_quantity}
-                        onChange={e => setRecipeField('output_quantity', Number(e.target.value))} />
-                    </Field>
-                    {/* Refining recipes need a skill to determine which resource group they belong to
-                        (e.g. Smelting → Metal, Tanning → Hide). Crafting derives its category from item type. */}
-                    {showMaterial && (
-                      <Field label="Refining Skill">
-                        <Select value={recipe.required_skill_id}
-                          onChange={e => setRecipeField('required_skill_id', e.target.value)}>
-                          <option value="">Select skill…</option>
-                          {skills.filter(s => s.category === recipeSkillCategory).map(s => (
-                            <option key={s.id} value={s.id}>{s.display_name}</option>
-                          ))}
-                        </Select>
-                      </Field>
-                    )}
-                  </div>
+                const setField = <K extends keyof RecipeFormData>(key: K, value: RecipeFormData[K]) =>
+                  setTierRecipes(prev => ({ ...prev, [t]: { ...(prev[t] ?? blankRecipe(t)), [key]: value } }));
 
-                  <div className="border-t border-border pt-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Ingredients</p>
-                      <button type="button" onClick={addIngredient}
-                        className="text-xs px-2 py-0.5 rounded border border-border text-muted-foreground hover:text-body hover:border-ring transition-colors">
-                        + Add
+                const addIng = () => setTierRecipes(prev => {
+                  const cur = prev[t]; if (!cur) return prev;
+                  return { ...prev, [t]: { ...cur, ingredients: [...cur.ingredients, { item_id: '', tier: null, quantity: 1 }] } };
+                });
+
+                const removeIng = (i: number) => setTierRecipes(prev => {
+                  const cur = prev[t]; if (!cur) return prev;
+                  return { ...prev, [t]: { ...cur, ingredients: cur.ingredients.filter((_, idx) => idx !== i) } };
+                });
+
+                const setIng = (i: number, patch: Partial<RecipeIngredient>) => setTierRecipes(prev => {
+                  const cur = prev[t]; if (!cur) return prev;
+                  const next = [...cur.ingredients]; next[i] = { ...next[i], ...patch };
+                  return { ...prev, [t]: { ...cur, ingredients: next } };
+                });
+
+                const fillDown = (mode: 'duplicate' | 'match' | 'increase') => {
+                  if (!tr) return;
+                  setTierRecipes(prev => {
+                    const next = { ...prev };
+                    for (let dt = t + 1; dt <= maxTier; dt++) {
+                      const delta = dt - t;
+                      next[dt] = {
+                        ...(prev[dt] ?? blankRecipe(dt)),
+                        id: prev[dt]?.id,
+                        output_tier: dt,
+                        ingredients: tr.ingredients.map(ing => ({
+                          ...ing,
+                          tier: ing.tier == null ? null
+                            : mode === 'duplicate' ? ing.tier
+                            : mode === 'match'     ? dt
+                            : Math.min(ing.tier + delta, maxTier),
+                        })),
+                      };
+                    }
+                    return next;
+                  });
+                };
+
+                return (
+                  <div key={t} className="rounded-lg border border-border overflow-hidden">
+                    {/* Tier header */}
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-accent/20 border-b border-border">
+                      <div className="flex items-center gap-2">
+                        {item.is_tiered && (
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">T{t}</span>
+                        )}
+                        <span className="text-sm font-semibold text-heading">
+                          {item.is_tiered ? `Tier ${t}` : 'Recipe'}
+                        </span>
+                        {tr && (
+                          <span className="text-xs text-muted-foreground">
+                            ({tr.ingredients.length} ingredient{tr.ingredients.length !== 1 ? 's' : ''})
+                          </span>
+                        )}
+                      </div>
+                      <button type="button"
+                        onClick={() => setTierRecipes(prev =>
+                          prev[t] ? { ...prev, [t]: null } : { ...prev, [t]: blankRecipe(t) }
+                        )}
+                        className={`text-xs transition-colors ${
+                          tr ? 'text-destructive hover:underline' : 'text-primary hover:underline'
+                        }`}>
+                        {tr ? 'Remove' : '+ Add'}
                       </button>
                     </div>
 
-                    {/* Fill-down buttons — only for tiered items with ingredients and tiers above */}
-                    {item.is_tiered && activeRecipeTier < maxTier && recipe.ingredients.length > 0 && (
-                      <div className="flex flex-col gap-1.5">
-                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                          Fill T{activeRecipeTier + 1}–T{maxTier} from this tier:
-                        </p>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          <button
-                            type="button"
-                            onClick={duplicateToFollowing}
-                            className="py-1.5 text-xs rounded border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
-                            title={`Copy T${activeRecipeTier} recipe exactly — all ingredient tiers stay the same`}
-                          >
-                            📋 Duplicate
-                            <span className="block text-[10px] leading-tight opacity-70">same ingredient tiers</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={matchToTier}
-                            className="py-1.5 text-xs rounded border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
-                            title={`Each following tier sets all ingredient tiers to match that tier number`}
-                          >
-                            🎯 Match to tier
-                            <span className="block text-[10px] leading-tight opacity-70">ingredients → T{'{n}'}</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={increasePerTier}
-                            className="py-1.5 text-xs rounded border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
-                            title={`Ingredient tiers go up +1 for each step above T${activeRecipeTier}`}
-                          >
-                            📈 Increase per tier
-                            <span className="block text-[10px] leading-tight opacity-70">+1 tier each step</span>
-                          </button>
+                    {tr ? (
+                      <div className="p-4 space-y-3">
+                        {/* Output qty + optional refining skill on one row */}
+                        <div className="flex flex-wrap items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Output Qty</span>
+                            <input type="number" min={1} value={tr.output_quantity}
+                              onChange={e => setField('output_quantity', Number(e.target.value))}
+                              className="w-16 px-2 py-1.5 text-sm bg-background border border-border rounded-md text-body text-center focus:outline-none focus:ring-1 focus:ring-ring" />
+                          </div>
+                          {showMaterial && (
+                            <div className="flex items-center gap-2 flex-1 min-w-40">
+                              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Refining Skill</span>
+                              <select value={tr.required_skill_id}
+                                onChange={e => setField('required_skill_id', e.target.value)}
+                                className="flex-1 px-2 py-1.5 text-sm bg-background border border-border rounded-md text-body focus:outline-none focus:ring-1 focus:ring-ring">
+                                <option value="">Select skill…</option>
+                                {skills.filter(s => s.category === recipeSkillCategory).map(s => (
+                                  <option key={s.id} value={s.id}>{s.display_name}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
                         </div>
+
+                        {/* Ingredients table */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Ingredients</p>
+                            <button type="button" onClick={addIng}
+                              className="text-xs px-2 py-0.5 rounded border border-border text-muted-foreground hover:text-body hover:border-ring transition-colors">+ Add</button>
+                          </div>
+
+                          {tr.ingredients.length === 0
+                            ? <p className="text-xs text-muted-foreground italic">No ingredients yet.</p>
+                            : (
+                              <div className="overflow-x-auto rounded-md border border-border/60">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="border-b border-border/50 bg-accent/20">
+                                      <th className="px-3 py-1.5 text-left font-semibold text-muted-foreground">Material</th>
+                                      <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground w-20">Tier</th>
+                                      <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground w-16">Qty</th>
+                                      <th className="px-2 py-1.5 w-8" />
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {tr.ingredients.map((ing, i) => {
+                                      const mat = materialItems.find(m => m.id === ing.item_id);
+                                      const matIsTiered = mat?.is_tiered ?? false;
+                                      return (
+                                        <tr key={i} className="border-b border-border/30 last:border-0">
+                                          <td className="px-3 py-1.5">
+                                            <select value={ing.item_id}
+                                              onChange={e => setIng(i, { item_id: e.target.value, tier: null })}
+                                              className={tiny}>
+                                              <option value="">Select material…</option>
+                                              {materialItems.map(m => (
+                                                <option key={m.id} value={m.id}>{m.display_name}</option>
+                                              ))}
+                                            </select>
+                                          </td>
+                                          <td className="px-2 py-1.5">
+                                            {matIsTiered ? (
+                                              <select value={ing.tier ?? ''}
+                                                onChange={e => setIng(i, { tier: e.target.value ? Number(e.target.value) : null })}
+                                                className={tiny}>
+                                                <option value="">—</option>
+                                                {tierOptions.map(tv => (
+                                                  <option key={tv} value={tv}>T{tv}</option>
+                                                ))}
+                                              </select>
+                                            ) : (
+                                              <span className="text-muted-foreground px-1">—</span>
+                                            )}
+                                          </td>
+                                          <td className="px-2 py-1.5">
+                                            <input type="number" min={1} value={ing.quantity}
+                                              onChange={e => setIng(i, { quantity: Number(e.target.value) })}
+                                              className="w-14 px-2 py-1 text-xs bg-background border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-ring text-center" />
+                                          </td>
+                                          <td className="px-2 py-1.5 text-center">
+                                            <button type="button" onClick={() => removeIng(i)}
+                                              className="text-muted-foreground hover:text-destructive transition-colors text-base leading-none">×</button>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )
+                          }
+                        </div>
+
+                        {/* Fill-down buttons */}
+                        {item.is_tiered && t < maxTier && tr.ingredients.length > 0 && (
+                          <div className="pt-1 space-y-1.5">
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                              Copy T{t} → T{t + 1}–T{maxTier}:
+                            </p>
+                            <div className="grid grid-cols-3 gap-1.5">
+                              <button type="button" onClick={() => fillDown('duplicate')}
+                                className="py-1.5 text-xs rounded border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors">
+                                📋 Duplicate
+                                <span className="block text-[10px] leading-tight opacity-70">same ingredient tiers</span>
+                              </button>
+                              <button type="button" onClick={() => fillDown('match')}
+                                className="py-1.5 text-xs rounded border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors">
+                                🎯 Match to tier
+                                <span className="block text-[10px] leading-tight opacity-70">ingredients → T{'{n}'}</span>
+                              </button>
+                              <button type="button" onClick={() => fillDown('increase')}
+                                className="py-1.5 text-xs rounded border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors">
+                                📈 Increase per tier
+                                <span className="block text-[10px] leading-tight opacity-70">+1 tier each step</span>
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="px-4 py-3">
+                        <p className="text-xs text-muted-foreground italic">No recipe configured for {item.is_tiered ? `T${t}` : 'this item'}.</p>
                       </div>
                     )}
-
-                    {recipe.ingredients.length === 0
-                      ? <p className="text-xs text-muted-foreground italic">No ingredients yet.</p>
-                      : (
-                        <div className="overflow-x-auto rounded-md border border-border/60">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="border-b border-border/50 bg-accent/20">
-                                <th className="px-3 py-1.5 text-left font-semibold text-muted-foreground">Material</th>
-                                <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground w-20">Tier</th>
-                                <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground w-16">Qty</th>
-                                <th className="px-2 py-1.5 w-8" />
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {recipe.ingredients.map((ing, i) => {
-                                const mat = materialItems.find(m => m.id === ing.item_id);
-                                const matIsTiered = mat?.is_tiered ?? false;
-                                const tiny = 'w-full px-2 py-1 text-xs bg-background border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-ring';
-                                return (
-                                  <tr key={i} className="border-b border-border/30 last:border-0">
-                                    <td className="px-3 py-1.5">
-                                      <select
-                                        value={ing.item_id}
-                                        onChange={e => setIngredient(i, { item_id: e.target.value, tier: null })}
-                                        className={tiny}
-                                      >
-                                        <option value="">Select material…</option>
-                                        {materialItems.map(m => (
-                                          <option key={m.id} value={m.id}>{m.display_name}</option>
-                                        ))}
-                                      </select>
-                                    </td>
-                                    <td className="px-2 py-1.5">
-                                      {matIsTiered ? (
-                                        <select
-                                          value={ing.tier ?? ''}
-                                          onChange={e => setIngredient(i, { tier: e.target.value ? Number(e.target.value) : null })}
-                                          className={tiny}
-                                        >
-                                          <option value="">—</option>
-                                          {tierOptions.map(t => (
-                                            <option key={t} value={t}>T{t}</option>
-                                          ))}
-                                        </select>
-                                      ) : (
-                                        <span className="text-muted-foreground px-1">—</span>
-                                      )}
-                                    </td>
-                                    <td className="px-2 py-1.5">
-                                      <input
-                                        type="number" min={1} value={ing.quantity}
-                                        onChange={e => setIngredient(i, { quantity: Number(e.target.value) })}
-                                        className="w-14 px-2 py-1 text-xs bg-background border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-ring text-center"
-                                      />
-                                    </td>
-                                    <td className="px-2 py-1.5 text-center">
-                                      <button
-                                        type="button"
-                                        onClick={() => removeIngredient(i)}
-                                        className="text-muted-foreground hover:text-destructive transition-colors text-base leading-none"
-                                      >×</button>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      )
-                    }
                   </div>
-                </div>
-              )}
+                );
+              })}
             </div>
             );
           })()}
