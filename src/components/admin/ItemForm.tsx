@@ -70,7 +70,7 @@ export type TierScalingRow = { id?: string; item_type: string; stat_key: string;
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const TYPES = ['material','tool','weapon','armor','consumable','misc','special_attack'];
+const TYPES = ['material','tool','weapon','armor','consumable','recipe','misc','special_attack'];
 const DAMAGE_TYPES = ['slash','pierce','blunt','bleed','fire','ice','poison','lightning','true'];
 // Resistance grid excludes 'true' — true damage bypasses all armor
 const RESIST_TYPES: { key: string; label: string; emoji: string }[] = [

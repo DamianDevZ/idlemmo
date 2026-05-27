@@ -17,12 +17,13 @@ const GROUPS = [
   { key: 'armor',      label: '🛡️ Armor'             },
   { key: 'tool',       label: '🔧 Tools'             },
   { key: 'consumable', label: '🧪 Consumables'       },
+  { key: 'recipe',     label: '📜 Recipes'           },
   { key: 'other',      label: '📦 Other'             },
 ];
 
 function getGroupKey(item: SelectableItem): string {
   if (item.type === 'material') return item.material_subtype === 'refined' ? 'refined' : 'raw';
-  if (['weapon', 'armor', 'tool', 'consumable'].includes(item.type)) return item.type;
+  if (['weapon', 'armor', 'tool', 'consumable', 'recipe'].includes(item.type)) return item.type;
   return 'other';
 }
 
