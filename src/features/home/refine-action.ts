@@ -29,7 +29,7 @@ export async function refineItem(characterId: string, recipeId: string, times: n
   // Fetch the refining recipe (must be category = 'refining')
   const { data: recipe } = await supabase
     .from('recipes')
-    .select('id, tier, output_quantity, ingredients, item_definitions!output_item_id(name, display_name)')
+    .select('id, tier, output_item_id, output_quantity, ingredients, item_definitions!output_item_id(name, display_name)')
     .eq('id', recipeId)
     .eq('category', 'refining')
     .single();
@@ -109,15 +109,23 @@ export async function refineItem(characterId: string, recipeId: string, times: n
     }
   }
 
-  // Add refined output to inventory
-  const outputItemName = (recipe.item_definitions as unknown as { name: string } | null)?.name;
-  if (!outputItemName) throw new Error('Output item not found');
+  // Add refined output to stash (refined materials belong in stash, not inventory)
+  const outputItemId = recipe.output_item_id as string;
+  if (!outputItemId) throw new Error('Output item not found');
 
-  await supabase.rpc('add_to_inventory', {
-    p_character_id: characterId,
-    p_item_name:    outputItemName,
-    p_quantity:     (recipe.output_quantity as number) * times,
-  });
+  const { data: existingStash } = await supabase
+    .from('character_stash')
+    .select('quantity')
+    .eq('character_id', characterId)
+    .eq('item_id', outputItemId)
+    .maybeSingle();
+
+  await supabase
+    .from('character_stash')
+    .upsert(
+      { character_id: characterId, item_id: outputItemId, quantity: ((existingStash?.quantity as number) ?? 0) + (recipe.output_quantity as number) * times },
+      { onConflict: 'character_id,item_id' }
+    );
 
   // Award XP for refining — exponential curve: floor(base × scaling^(tier-1)), multiplied by times
   const catRates = await getCategoryXpRates(supabase);
