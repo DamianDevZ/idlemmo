@@ -5,6 +5,8 @@ import { revalidatePath } from 'next/cache';
 import { awardMainXp, awardCategoryXp, getCategoryXpRates } from '@/lib/game/xp';
 import { recordItemDiscovery } from '@/lib/game/discovery';
 import { actionXpForTier } from '@/lib/game/formulas';
+import { pickGrade } from '@/lib/game/pickGrade';
+import { getGameConfig } from '@/lib/game/getGameConfig';
 
 type Ingredient = { item_id: string; quantity: number };
 
@@ -125,14 +127,29 @@ export async function craftItem(characterId: string, recipeId: string) {
     }
   }
 
-  // Add crafted item to inventory
+  // Add crafted item to inventory — equipment always gets a grade drawn from the
+  // global grade weight table (same system as loot drops).
   const outputItemName = (recipe.item_definitions as unknown as { name: string; type: string } | null)?.name;
   if (!outputItemName) throw new Error('Output item not found');
+
+  const isEquipment = ['weapon', 'armor', 'tool'].includes(outputItemType);
+  let craftedGrade: string | null = null;
+  if (isEquipment) {
+    const { gradeWeights } = await getGameConfig();
+    // Fetch per-item grade weight overrides if configured
+    const { data: itemDef } = await supabase
+      .from('item_definitions')
+      .select('grade_weights')
+      .eq('id', recipe.output_item_id as string)
+      .single();
+    craftedGrade = pickGrade(gradeWeights, (itemDef as { grade_weights: Record<string, number> | null } | null)?.grade_weights);
+  }
 
   await supabase.rpc('add_to_inventory', {
     p_character_id: characterId,
     p_item_name:    outputItemName,
     p_quantity:     recipe.output_quantity as number,
+    p_item_rating:  craftedGrade,
   });
 
   // Record discovery so the item appears on the Skills page
