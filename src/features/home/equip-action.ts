@@ -50,7 +50,7 @@ export async function equipItem(
   // Resolve item definition regardless of source
   const { data: itemDef } = await supabase
     .from('item_definitions')
-    .select('name, type, tool_slot, is_tiered, required_mastery_skill_id, required_mastery_level')
+    .select('name, type, tool_slot, is_tiered')
     .eq('id', itemId)
     .single();
   if (!itemDef) throw new Error('Item definition not found');
@@ -58,23 +58,27 @@ export async function equipItem(
   const slot = inferSlot(itemDef.name as string, itemDef.type as string, itemDef.tool_slot as string | null);
   if (!slot) throw new Error('This item cannot be equipped');
 
-  // Enforce mastery requirement if the item has one.
-  // For tiered items the required tier equals the item's own tier (T2 sword → skill T2).
-  // For non-tiered items use the explicit required_mastery_level field.
-  const masterySkillId = itemDef.required_mastery_skill_id as string | null;
-  if (masterySkillId) {
-    const requiredLevel = (itemDef.is_tiered as boolean)
-      ? tier
-      : Number(itemDef.required_mastery_level ?? 1);
-    const { data: skillRow } = await supabase
-      .from('character_skills')
-      .select('level')
+  // Mastery gate: weapon/armor/tool items require the character to have allocated
+  // enough mastery XP to that specific item before equipping a higher tier.
+  // Category is derived from item type — no per-item config needed.
+  // T1 is always free; T2 needs mastery tier 1; T3 needs mastery tier 2; etc.
+  const itemType = itemDef.type as string;
+  const masteryCategory =
+    itemType === 'weapon' ? 'weapon_mastery' :
+    itemType === 'armor'  ? 'armor_mastery'  :
+    itemType === 'tool'   ? 'tool_mastery'   :
+    null;
+  if (masteryCategory && tier > 1) {
+    const { data: mastery } = await supabase
+      .from('character_item_mastery')
+      .select('tier')
       .eq('character_id', characterId)
-      .eq('skill_id', masterySkillId)
+      .eq('item_definition_id', itemId)
+      .eq('category_name', masteryCategory)
       .maybeSingle();
-    const currentLevel = (skillRow as { level?: number } | null)?.level ?? 0;
-    if (currentLevel < requiredLevel) {
-      throw new Error(`Requires skill Tier ${requiredLevel} (you have Tier ${currentLevel})`);
+    const masteryTier = (mastery as { tier: number } | null)?.tier ?? 0;
+    if (masteryTier < tier - 1) {
+      throw new Error(`Requires ${masteryCategory.replace('_', ' ')} tier ${tier - 1} to equip tier ${tier}`);
     }
   }
 

@@ -805,34 +805,6 @@ export function ItemForm({
                   Secondary scaling is configured per Ultimate, not on the weapon.
                 </p>
               </div>
-
-              <div className="border-t border-border pt-4 space-y-3">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Mastery Requirement</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {item.is_tiered
-                      ? 'Usage skill needed to equip. For tiered items the required tier equals the item\'s own tier automatically.'
-                      : 'Usage skill needed to equip. Set the minimum tier the player must have unlocked.'}
-                  </p>
-                </div>
-                <div className={item.is_tiered ? '' : 'grid grid-cols-2 gap-4'}>
-                  <Field label="Usage Skill">
-                    <Select value={item.required_mastery_skill_id ?? ''} onChange={e => set('required_mastery_skill_id', e.target.value || null)}>
-                      <option value="">None required</option>
-                      {skills.filter(s => s.category === 'usage').map(s => (
-                        <option key={s.id} value={s.id}>{s.display_name}</option>
-                      ))}
-                    </Select>
-                  </Field>
-                  {!item.is_tiered && (
-                    <Field label="Min Tier">
-                      <Input type="number" min={1} max={maxTier}
-                        value={item.required_mastery_level}
-                        onChange={e => set('required_mastery_level', Number(e.target.value))} />
-                    </Field>
-                  )}
-                </div>
-              </div>
             </div>
           )}
 
@@ -882,34 +854,6 @@ export function ItemForm({
                       </div>
                     );
                   })}
-                </div>
-              </div>
-
-              <div className="border-t border-border pt-4 space-y-3">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Mastery Requirement</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {item.is_tiered
-                      ? 'Usage skill needed to equip. For tiered items the required tier equals the item\'s own tier automatically.'
-                      : 'Usage skill needed to equip. Set the minimum tier the player must have unlocked.'}
-                  </p>
-                </div>
-                <div className={item.is_tiered ? '' : 'grid grid-cols-2 gap-4'}>
-                  <Field label="Usage Skill">
-                    <Select value={item.required_mastery_skill_id ?? ''} onChange={e => set('required_mastery_skill_id', e.target.value || null)}>
-                      <option value="">None required</option>
-                      {skills.filter(s => s.category === 'usage').map(s => (
-                        <option key={s.id} value={s.id}>{s.display_name}</option>
-                      ))}
-                    </Select>
-                  </Field>
-                  {!item.is_tiered && (
-                    <Field label="Min Tier">
-                      <Input type="number" min={1} max={maxTier}
-                        value={item.required_mastery_level}
-                        onChange={e => set('required_mastery_level', Number(e.target.value))} />
-                    </Field>
-                  )}
                 </div>
               </div>
             </div>
