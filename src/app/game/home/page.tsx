@@ -68,7 +68,7 @@ export default async function HomeBasePage() {
       .order('created_at', { ascending: false }),
     supabase
       .from('character_known_recipes')
-      .select('learned_at, recipes(*, item_definitions(id, display_name))') 
+      .select('learned_at, recipes(*, item_definitions(id, display_name, type))')
       .eq('character_id', character.id)
       .order('learned_at', { ascending: false }),
     supabase

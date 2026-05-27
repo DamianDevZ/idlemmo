@@ -17,11 +17,27 @@ function stripMaterialPrefix(displayName: string): string {
   return words.slice(i).join(' ');
 }
 
-const CAT_META: Record<string, { label: string; icon: string }> = {
-  weapon: { label: 'Weapons', icon: '⚔️' },
-  armor:  { label: 'Armor',   icon: '🛡️' },
-  tool:   { label: 'Tools',   icon: '⛏️' },
+/**
+ * Single source of truth for item-type display metadata.
+ * New item types automatically get a generic fallback — no manual additions needed.
+ */
+const ITEM_TYPE_META: Record<string, { label: string; icon: string }> = {
+  weapon:     { label: 'Weapons',     icon: '⚔️' },
+  armor:      { label: 'Armor',       icon: '🛡️' },
+  tool:       { label: 'Tools',       icon: '⛏️' },
+  consumable: { label: 'Consumables', icon: '🧪' },
+  material:   { label: 'Materials',   icon: '🪨' },
+  misc:       { label: 'Misc',        icon: '📦' },
 };
+
+function itemTypeMeta(type: string | null | undefined) {
+  return ITEM_TYPE_META[type ?? ''] ?? { label: type ?? 'Other', icon: '📦' };
+}
+
+/** Category key derived from the output item's type (authoritative) */
+function recipeCategory(recipe: Recipe): string {
+  return recipe.item_definitions?.type ?? recipe.category ?? 'misc';
+}
 
 type Ingredient = { item_id: string; name: string; display_name: string; quantity: number };
 type Recipe = {
@@ -32,7 +48,7 @@ type Recipe = {
   ingredients: unknown;
   tier: number;
   category: string;
-  item_definitions: { id: string; display_name: string } | null;
+  item_definitions: { id: string; display_name: string; type?: string | null } | null;
 };
 
 interface Props {
@@ -47,11 +63,12 @@ interface Props {
 export default function HomeCraftingPanel({ recipeList, qtyMap, characterId, craftingMasteryMap }: Props) {
   const craftRecipes = recipeList.filter(r => r.category !== 'refining');
 
-  // Stable order: weapon → armor → tool → anything else
-  const CAT_ORDER = ['weapon', 'armor', 'tool'];
+  // Categories emerge from the data — ordered by item type priority, then alphabetically.
+  // Adding a new item type automatically produces a new category card without code changes.
+  const TYPE_ORDER = ['weapon', 'armor', 'tool'];
   const categories = [
-    ...CAT_ORDER.filter(c => craftRecipes.some(r => r.category === c)),
-    ...[...new Set(craftRecipes.map(r => r.category))].filter(c => !CAT_ORDER.includes(c)),
+    ...TYPE_ORDER.filter(t => craftRecipes.some(r => recipeCategory(r) === t)),
+    ...[...new Set(craftRecipes.map(r => recipeCategory(r)))].filter(t => !TYPE_ORDER.includes(t)),
   ];
 
   const [selectedCat, setSelectedCat] = useState<string | null>(
@@ -70,7 +87,7 @@ export default function HomeCraftingPanel({ recipeList, qtyMap, characterId, cra
   }
 
   const filteredRecipes = selectedCat
-    ? craftRecipes.filter(r => r.category === selectedCat)
+    ? craftRecipes.filter(r => recipeCategory(r) === selectedCat)
     : [];
 
   return (
@@ -78,8 +95,8 @@ export default function HomeCraftingPanel({ recipeList, qtyMap, characterId, cra
       {/* ── Category cards ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-3 gap-3">
         {categories.map(cat => {
-          const meta  = CAT_META[cat] ?? { label: cat, icon: '📦' };
-          const count = craftRecipes.filter(r => r.category === cat).length;
+          const meta  = itemTypeMeta(cat);
+          const count = craftRecipes.filter(r => recipeCategory(r) === cat).length;
           const active = selectedCat === cat;
           return (
             <button
@@ -108,7 +125,7 @@ export default function HomeCraftingPanel({ recipeList, qtyMap, characterId, cra
             const outputDef   = recipe.item_definitions;
             const ingredients = (recipe.ingredients as Ingredient[]) ?? [];
             // T2+ recipes are locked until the player's per-item crafting mastery is high enough
-            const masteryKey          = `${outputDef?.id}:${recipe.category}_crafting`;
+              const masteryKey          = `${outputDef?.id}:${recipeCategory(recipe)}_crafting`;
             const currentMasteryTier  = craftingMasteryMap[masteryKey] ?? -1;
             const isLockedByMastery   = recipe.tier > 1 && currentMasteryTier < recipe.tier - 1;
             const canCraft            = !isLockedByMastery && ingredients.every(ing => (qtyMap[ing.name] ?? 0) >= ing.quantity);

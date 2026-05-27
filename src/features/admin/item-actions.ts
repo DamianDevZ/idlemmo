@@ -113,6 +113,11 @@ export async function upsertItem(
         output_quantity:      recipe.output_quantity,
         required_skill_id:    recipe.required_skill_id || null,
         ingredients:          recipe.ingredients,
+        // Category is derived from item type so the craft panel groups automatically.
+        // New item types appear as their own category card without code changes.
+        category:             (['weapon', 'armor', 'tool'].includes(data.type) ? data.type : 'misc') as string,
+        // tier mirrors output_tier so mastery gating works (T2 recipe needs T1 mastery).
+        tier:                 recipe.output_tier > 0 ? recipe.output_tier : 1,
       };
 
       if (recipe.id) {
@@ -151,7 +156,7 @@ export async function upsertItem(
           type:               'recipe',
           stackable:          true,
           description:        `Recipe scroll for crafting ${data.display_name}.`,
-          image_url:          data.image_url ?? null,
+          // image_url intentionally omitted — admin sets a custom scroll image separately
           is_tiered:          false,
           recipe_for_item_id: itemId,
         });
