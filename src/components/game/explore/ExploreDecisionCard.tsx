@@ -28,7 +28,7 @@ export function ExploreDecisionCard({
   const isResource = event.event_type === 'resource_found';
   const displayName = isResource
     ? String(pd.display_name ?? capitalise(String(pd.item ?? 'item')))
-    : String(pd.enemy ?? 'Enemy');
+    : String(pd.enemy ?? 'enemy').toLowerCase().replace(/\s+/g, '_');
 
   const itemTier      = Number(pd.item_tier ?? 1);
   const reqToolTier   = Number(pd.required_tool_tier ?? Math.max(0, itemTier - 1));
