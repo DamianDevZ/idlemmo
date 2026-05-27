@@ -135,26 +135,27 @@ export async function upsertItem(
         .select('id')
         .eq('recipe_for_item_id', itemId)
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (existing) {
         // Keep display name and image in sync with the parent item
-        await db
+        const { error: updErr } = await db
           .from('item_definitions')
           .update({ display_name: recipeItemName, image_url: data.image_url ?? null })
           .eq('id', existing.id);
+        if (updErr) return { error: `Recipe scroll update failed: ${updErr.message}` };
       } else {
-        await db.from('item_definitions').insert({
+        const { error: insErr } = await db.from('item_definitions').insert({
           name:               `${data.name}_${recipeSuffix.toLowerCase().replace(/\s+/g, '_')}`,
           display_name:       recipeItemName,
           type:               'recipe',
-          rarity:             'common',
           stackable:          true,
           description:        `Recipe scroll for crafting ${data.display_name}.`,
           image_url:          data.image_url ?? null,
-          is_tiered:          data.is_tiered ?? false,
+          is_tiered:          false,
           recipe_for_item_id: itemId,
         });
+        if (insErr) return { error: `Recipe scroll creation failed: ${insErr.message}` };
       }
     }
   }
