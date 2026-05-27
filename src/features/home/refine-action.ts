@@ -37,6 +37,23 @@ export async function refineItem(characterId: string, recipeId: string) {
   const ingredients = (recipe.ingredients as Ingredient[]) ?? [];
   if (ingredients.length === 0) throw new Error('Recipe has no ingredients');
 
+  // Mastery tier gate — T2+ requires per-material refining mastery to unlock higher tiers.
+  // T1 is always accessible. The mastery row is keyed to the raw input material's item_definition_id.
+  const recipeTier = recipe.tier as number;
+  if (recipeTier > 1) {
+    const { data: mastery } = await supabase
+      .from('character_item_mastery')
+      .select('tier')
+      .eq('character_id', characterId)
+      .eq('item_definition_id', ingredients[0].item_id)
+      .eq('category_name', 'refining')
+      .maybeSingle();
+    const masteryTier = (mastery as { tier: number } | null)?.tier ?? -1;
+    if (masteryTier < recipeTier - 1) {
+      throw new Error(`Requires refining tier ${recipeTier - 1} to refine tier ${recipeTier}`);
+    }
+  }
+
   // Use item_id directly — no name resolution needed
   const itemIds = ingredients.map(i => i.item_id);
   const { data: invRows } = await supabase
@@ -101,11 +118,10 @@ export async function refineItem(characterId: string, recipeId: string) {
   });
 
   // Award XP for refining — exponential curve: floor(base × scaling^(tier-1))
-  const tier     = recipe.tier as number;
   const catRates = await getCategoryXpRates(supabase);
   await Promise.all([
-    awardMainXp(supabase, characterId, tier * 6),
-    awardCategoryXp(supabase, characterId, 'refining', actionXpForTier(catRates.base.get('refining') ?? 15, catRates.earnedScaling.get('refining') ?? 1.5, tier)),
+    awardMainXp(supabase, characterId, recipeTier * 6),
+    awardCategoryXp(supabase, characterId, 'refining', actionXpForTier(catRates.base.get('refining') ?? 15, catRates.earnedScaling.get('refining') ?? 1.5, recipeTier)),
   ]);
 
   revalidatePath('/game/home');

@@ -32,9 +32,11 @@ interface Props {
   /** Combined inventory + stash quantity per item name. */
   qtyMap: Record<string, number>;
   characterId: string;
+  /** ingredientItemId → current mastery tier in 'refining' category */
+  refiningMasteryMap: Record<string, number>;
 }
 
-export default function HomeRefiningPanel({ refineGroups, qtyMap, characterId }: Props) {
+export default function HomeRefiningPanel({ refineGroups, qtyMap, characterId, refiningMasteryMap }: Props) {
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
 
   const selectedGroup = refineGroups.find(g => g.skillName === selectedSkill);
@@ -78,12 +80,18 @@ export default function HomeRefiningPanel({ refineGroups, qtyMap, characterId }:
             const outputDef   = recipe.item_definitions;
             const outputIcon  = getResourceIconPath(outputDef?.name ?? '');
             const inputIcon   = getResourceIconPath(ingredients[0]?.name ?? '');
-            const canRefine   = ingredients.every(ing => (qtyMap[ing.name] ?? 0) >= ing.quantity);
+            // T2+ recipes are locked until the player's refining mastery for the input material is high enough
+            const firstIngId        = ingredients[0]?.item_id ?? '';
+            const currentMasteryTier = refiningMasteryMap[firstIngId] ?? -1;
+            const isLockedByMastery  = recipe.tier > 1 && currentMasteryTier < recipe.tier - 1;
+            const canRefine          = !isLockedByMastery && ingredients.every(ing => (qtyMap[ing.name] ?? 0) >= ing.quantity);
             return (
               <div
                 key={recipe.id}
                 className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 ${
-                  canRefine ? 'border-amber-500/20 bg-amber-500/5' : 'border-border/40'
+                  isLockedByMastery
+                    ? 'border-border/40 opacity-60'
+                    : canRefine ? 'border-amber-500/20 bg-amber-500/5' : 'border-border/40'
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -92,6 +100,9 @@ export default function HomeRefiningPanel({ refineGroups, qtyMap, characterId }:
                   <span className="text-muted-foreground text-xs">→</span>
                   {outputIcon && <Image src={outputIcon} alt="" width={20} height={20} className="object-contain" />}
                   <span className="text-sm font-medium">Tier {recipe.tier}</span>
+                  {isLockedByMastery && (
+                    <span className="text-xs text-muted-foreground">🔒 Refining T{recipe.tier - 1} needed</span>
+                  )}
                 </div>
                 <RefineButton characterId={characterId} recipeId={recipe.id} canRefine={canRefine} />
               </div>

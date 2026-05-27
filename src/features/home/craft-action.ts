@@ -39,10 +39,35 @@ export async function craftItem(characterId: string, recipeId: string) {
   // Fetch recipe with output item name + type (type determines which crafting XP pool to award)
   const { data: recipe } = await supabase
     .from('recipes')
-    .select('id, tier, output_quantity, ingredients, item_definitions!output_item_id(name, display_name, type)')
+    .select('id, tier, output_item_id, output_quantity, ingredients, item_definitions!output_item_id(name, display_name, type)')
     .eq('id', recipeId)
     .single();
   if (!recipe) throw new Error('Recipe not found');
+
+  // Resolve output item type early — needed for both mastery gate and XP award
+  const outputItemType = (recipe.item_definitions as unknown as { name: string; display_name: string; type: string } | null)?.type ?? 'misc';
+  const craftingCategory =
+    outputItemType === 'weapon' ? 'weapon_crafting' :
+    outputItemType === 'armor'  ? 'armor_crafting'  :
+    outputItemType === 'tool'   ? 'tool_crafting'   :
+    null;
+
+  // Mastery tier gate — T2+ requires per-item crafting mastery to unlock higher tiers.
+  // T1 is always accessible once the recipe is known.
+  const recipeTier = recipe.tier as number;
+  if (recipeTier > 1 && craftingCategory) {
+    const { data: mastery } = await supabase
+      .from('character_item_mastery')
+      .select('tier')
+      .eq('character_id', characterId)
+      .eq('item_definition_id', recipe.output_item_id as string)
+      .eq('category_name', craftingCategory)
+      .maybeSingle();
+    const masteryTier = (mastery as { tier: number } | null)?.tier ?? -1;
+    if (masteryTier < recipeTier - 1) {
+      throw new Error(`Requires ${craftingCategory.replace('_', ' ')} tier ${recipeTier - 1} to craft at tier ${recipeTier}`);
+    }
+  }
 
   const ingredients = (recipe.ingredients as Ingredient[]) ?? [];
   if (ingredients.length === 0) throw new Error('Recipe has no ingredients');
@@ -102,7 +127,6 @@ export async function craftItem(characterId: string, recipeId: string) {
 
   // Add crafted item to inventory
   const outputItemName = (recipe.item_definitions as unknown as { name: string; type: string } | null)?.name;
-  const outputItemType = (recipe.item_definitions as unknown as { name: string; type: string } | null)?.type ?? 'misc';
   if (!outputItemName) throw new Error('Output item not found');
 
   await supabase.rpc('add_to_inventory', {
@@ -114,18 +138,13 @@ export async function craftItem(characterId: string, recipeId: string) {
   // Record discovery so the item appears on the Skills page
   await recordItemDiscovery(supabase, characterId, [outputItemName]);
 
-  // Award XP — crafting category depends on what was crafted.
-  // weapon_crafting / armor_crafting / tool_crafting each have their own XP pool.
-  const craftingCategory =
-    outputItemType === 'weapon' ? 'weapon_crafting' :
-    outputItemType === 'armor'  ? 'armor_crafting'  :
-    outputItemType === 'tool'   ? 'tool_crafting'   :
-    'weapon_crafting'; // fallback for misc/refined items crafted via crafting skill
-  const tier     = recipe.tier as number;
+  // Award XP — craftingCategory was resolved above from output item type
+  const tier = recipeTier;
+  const xpCategory = craftingCategory ?? 'weapon_crafting';
   const catRates = await getCategoryXpRates(supabase);
   await Promise.all([
     awardMainXp(supabase, characterId, tier * 10),
-    awardCategoryXp(supabase, characterId, craftingCategory, actionXpForTier(catRates.base.get(craftingCategory) ?? 20, catRates.earnedScaling.get(craftingCategory) ?? 1.5, tier)),
+    awardCategoryXp(supabase, characterId, xpCategory, actionXpForTier(catRates.base.get(xpCategory) ?? 20, catRates.earnedScaling.get(xpCategory) ?? 1.5, tier)),
   ]);
 
   revalidatePath('/game/home');

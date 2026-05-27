@@ -157,6 +157,39 @@ export default async function HomeBasePage() {
   const enrichedRecipeList = recipeList.map(r => ({ ...r, ingredients: enrichIngredients(r.ingredients) }));
   const enrichedRefineList = refineList.map(r => ({ ...r, ingredients: enrichIngredients(r.ingredients) }));
 
+  // Fetch per-item mastery tiers so panels can show lock status for T2+ recipes.
+  // Crafting: keyed by output item_definition_id + category (weapon_crafting etc.)
+  // Refining: keyed by first ingredient item_id in 'refining' category
+  const craftOutputItemIds = [...new Set(
+    enrichedRecipeList
+      .filter(r => r.tier > 1 && ['weapon', 'armor', 'tool'].includes(r.category))
+      .map(r => (r.item_definitions as { id: string } | null)?.id)
+      .filter((id): id is string => Boolean(id))
+  )];
+  const refiningIngredientIds = [...new Set(
+    enrichedRefineList
+      .filter(r => r.tier > 1)
+      .map(r => (r.ingredients as EnrichedIngredient[])?.[0]?.item_id)
+      .filter((id): id is string => Boolean(id))
+  )];
+  const masteryItemIds = [...new Set([...craftOutputItemIds, ...refiningIngredientIds])];
+  const { data: masteryRows } = masteryItemIds.length > 0
+    ? await supabase
+        .from('character_item_mastery')
+        .select('item_definition_id, category_name, tier')
+        .eq('character_id', character.id)
+        .in('item_definition_id', masteryItemIds)
+    : { data: [] };
+  const craftingMasteryMap: Record<string, number> = {};
+  const refiningMasteryMap: Record<string, number> = {};
+  for (const row of (masteryRows ?? []) as { item_definition_id: string; category_name: string; tier: number }[]) {
+    if (row.category_name === 'refining') {
+      refiningMasteryMap[row.item_definition_id] = row.tier;
+    } else {
+      craftingMasteryMap[`${row.item_definition_id}:${row.category_name}`] = row.tier;
+    }
+  }
+
   // Combined quantity map (inventory + stash) by item name
   const qtyMap: Record<string, number> = {};
   for (const item of inventory) {
@@ -400,6 +433,7 @@ export default async function HomeBasePage() {
             refineGroups={refineGroups}
             qtyMap={qtyMap}
             characterId={character.id}
+            refiningMasteryMap={refiningMasteryMap}
           />
         </TabsContent>
 
@@ -409,6 +443,7 @@ export default async function HomeBasePage() {
             recipeList={enrichedRecipeList}
             qtyMap={qtyMap}
             characterId={character.id}
+            craftingMasteryMap={craftingMasteryMap}
           />
         </TabsContent>
       </PersistentTabs>

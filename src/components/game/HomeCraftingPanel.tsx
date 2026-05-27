@@ -40,9 +40,11 @@ interface Props {
   /** Combined inventory + stash quantity per item name. */
   qtyMap: Record<string, number>;
   characterId: string;
+  /** `${itemDefId}:${category}_crafting` → current mastery tier for that item */
+  craftingMasteryMap: Record<string, number>;
 }
 
-export default function HomeCraftingPanel({ recipeList, qtyMap, characterId }: Props) {
+export default function HomeCraftingPanel({ recipeList, qtyMap, characterId, craftingMasteryMap }: Props) {
   const craftRecipes = recipeList.filter(r => r.category !== 'refining');
 
   // Stable order: weapon → armor → tool → anything else
@@ -105,12 +107,19 @@ export default function HomeCraftingPanel({ recipeList, qtyMap, characterId }: P
           {filteredRecipes.map(recipe => {
             const outputDef   = recipe.item_definitions;
             const ingredients = (recipe.ingredients as Ingredient[]) ?? [];
-            const canCraft    = ingredients.every(ing => (qtyMap[ing.name] ?? 0) >= ing.quantity);
+            // T2+ recipes are locked until the player's per-item crafting mastery is high enough
+            const masteryKey          = `${outputDef?.id}:${recipe.category}_crafting`;
+            const currentMasteryTier  = craftingMasteryMap[masteryKey] ?? -1;
+            const isLockedByMastery   = recipe.tier > 1 && currentMasteryTier < recipe.tier - 1;
+            const canCraft            = !isLockedByMastery && ingredients.every(ing => (qtyMap[ing.name] ?? 0) >= ing.quantity);
+            const neededMasteryTier   = recipe.tier - 1;
             return (
               <div
                 key={recipe.id}
                 className={`rounded-lg border px-4 py-3 space-y-2 ${
-                  canCraft ? 'border-amber-500/20 bg-amber-500/5' : 'border-border/60 bg-card'
+                  isLockedByMastery
+                    ? 'border-border/40 bg-card opacity-70'
+                    : canCraft ? 'border-amber-500/20 bg-amber-500/5' : 'border-border/60 bg-card'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -118,9 +127,11 @@ export default function HomeCraftingPanel({ recipeList, qtyMap, characterId }: P
                     <span className="font-semibold text-sm">
                       {stripMaterialPrefix(recipe.display_name)} · Tier {recipe.tier}
                     </span>
-                    <span className="text-muted-foreground text-xs ml-2">
-                      Skill lv {recipe.required_skill_level}+
-                    </span>
+                    {isLockedByMastery ? (
+                      <span className="text-muted-foreground text-xs ml-2">
+                        🔒 {recipe.category} crafting T{neededMasteryTier} needed
+                      </span>
+                    ) : null}
                   </div>
                   <CraftButton characterId={characterId} recipeId={recipe.id} canCraft={canCraft} />
                 </div>
