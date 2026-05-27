@@ -7,9 +7,10 @@ interface Props {
   characterId: string;
   recipeId: string;
   canRefine: boolean;
+  times?: number;
 }
 
-export function RefineButton({ characterId, recipeId, canRefine }: Props) {
+export function RefineButton({ characterId, recipeId, canRefine, times = 1 }: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -17,7 +18,7 @@ export function RefineButton({ characterId, recipeId, canRefine }: Props) {
     setError(null);
     startTransition(async () => {
       try {
-        await refineItem(characterId, recipeId);
+        await refineItem(characterId, recipeId, times);
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Refine failed');
       }

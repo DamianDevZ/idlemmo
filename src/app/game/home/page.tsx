@@ -67,7 +67,7 @@ export default async function HomeBasePage() {
       .order('created_at', { ascending: false }),
     supabase
       .from('recipes')
-      .select('*, item_definitions!output_item_id(id, name, display_name), skills!required_skill_id(name, display_name)')
+      .select('*, item_definitions!output_item_id(id, name, display_name, image_url), skills!required_skill_id(name, display_name)')
       .eq('category', 'refining')
       .order('tier'),
   ]);
@@ -133,7 +133,7 @@ export default async function HomeBasePage() {
       ])
     : [{ data: [] as CraftableItemDef[] }, { data: [] as CraftingRecipeRow[] }];
 
-  const refineList = (refiningRows ?? []) as (CraftingRecipeRow & { item_definitions: { id: string; name: string; display_name: string } | null; skills: { name: string; display_name: string } | null })[];
+  const refineList = (refiningRows ?? []) as (CraftingRecipeRow & { item_definitions: { id: string; name: string; display_name: string; image_url: string | null } | null; skills: { name: string; display_name: string } | null })[];
 
   // Resolve all ingredient IDs → name + display_name + image_url
   type RawIngredient = { item_id: string; tier?: number | null; quantity: number };

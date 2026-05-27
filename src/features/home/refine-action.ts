@@ -11,7 +11,8 @@ type Ingredient = { item_id: string; quantity: number };
  * Refine raw materials into processed goods.
  * Unlike crafting, refining recipes are always available — no discovery required.
  */
-export async function refineItem(characterId: string, recipeId: string) {
+export async function refineItem(characterId: string, recipeId: string, times: number = 1) {
+  if (!Number.isInteger(times) || times < 1 || times > 10000) throw new Error('Invalid quantity');
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Unauthenticated');
@@ -71,11 +72,12 @@ export async function refineItem(characterId: string, recipeId: string) {
   const qtyByItemId      = new Map((invRows   ?? []).map(r => [r.item_id as string, r.quantity as number]));
   const stashQtyByItemId = new Map((stashRows ?? []).map(r => [r.item_id as string, r.quantity as number]));
 
-  // Validate total (inventory + stash) quantities
+  // Validate total (inventory + stash) quantities (scaled by times)
   for (const ing of ingredients) {
-    const total = (qtyByItemId.get(ing.item_id) ?? 0) + (stashQtyByItemId.get(ing.item_id) ?? 0);
-    if (total < ing.quantity) {
-      throw new Error(`Not enough of ingredient (need ${ing.quantity}, have ${total})`);
+    const total   = (qtyByItemId.get(ing.item_id) ?? 0) + (stashQtyByItemId.get(ing.item_id) ?? 0);
+    const needed  = ing.quantity * times;
+    if (total < needed) {
+      throw new Error(`Not enough of ingredient (need ${needed}, have ${total})`);
     }
   }
 
@@ -83,7 +85,7 @@ export async function refineItem(characterId: string, recipeId: string) {
   for (const ing of ingredients) {
     const itemId     = ing.item_id;
     const inInv      = qtyByItemId.get(itemId) ?? 0;
-    let   remaining  = ing.quantity;
+    let   remaining  = ing.quantity * times;
 
     if (inInv > 0) {
       const fromInv = Math.min(inInv, remaining);
@@ -114,14 +116,14 @@ export async function refineItem(characterId: string, recipeId: string) {
   await supabase.rpc('add_to_inventory', {
     p_character_id: characterId,
     p_item_name:    outputItemName,
-    p_quantity:     recipe.output_quantity as number,
+    p_quantity:     (recipe.output_quantity as number) * times,
   });
 
-  // Award XP for refining — exponential curve: floor(base × scaling^(tier-1))
+  // Award XP for refining — exponential curve: floor(base × scaling^(tier-1)), multiplied by times
   const catRates = await getCategoryXpRates(supabase);
   await Promise.all([
-    awardMainXp(supabase, characterId, recipeTier * 6),
-    awardCategoryXp(supabase, characterId, 'refining', actionXpForTier(catRates.base.get('refining') ?? 15, catRates.earnedScaling.get('refining') ?? 1.5, recipeTier)),
+    awardMainXp(supabase, characterId, recipeTier * 6 * times),
+    awardCategoryXp(supabase, characterId, 'refining', actionXpForTier(catRates.base.get('refining') ?? 15, catRates.earnedScaling.get('refining') ?? 1.5, recipeTier) * times),
   ]);
 
   revalidatePath('/game/home');
