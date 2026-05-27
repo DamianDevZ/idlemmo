@@ -103,7 +103,7 @@ const ITEM_ICON_MAP: Record<string, string> = {
 };
 
 export function getResourceIconPath(itemName: string): string | null {
-  return ITEM_ICON_MAP[itemName] ?? null;
+  return ITEM_ICON_MAP[itemName.toLowerCase()] ?? null;
 }
 
 /** Resource type + tier for material items. Returns null for equipment/misc. */

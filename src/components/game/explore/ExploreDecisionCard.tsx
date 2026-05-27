@@ -10,21 +10,6 @@ function capitalise(s: string) {
   return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
-function getItemIcon(item: string): string {
-  const map: Record<string, string> = {
-    logs: '🪵', wood: '🪵', planks: '🪵',
-    stone: '🪨', cut_stone: '🪨',
-    ore: '⛏️', metal: '⛏️', ingots: '🔩',
-    hide: '🐾', leather: '🐾',
-    herbs: '🌿', fiber: '🌿', cloth: '🧵',
-    fish: '🐟', berries: '🍓',
-  };
-  for (const [k, v] of Object.entries(map)) {
-    if (item.toLowerCase().includes(k)) return v;
-  }
-  return '📦';
-}
-
 const SKILL_LEVEL_REQ = [0, 15, 30, 50, 70];
 
 interface Props {
@@ -44,7 +29,6 @@ export function ExploreDecisionCard({
   const displayName = isResource
     ? String(pd.display_name ?? capitalise(String(pd.item ?? 'item')))
     : String(pd.enemy ?? 'Enemy');
-  const icon = isResource ? getItemIcon(String(pd.item ?? '')) : '⚔️';
 
   const itemTier      = Number(pd.item_tier ?? 1);
   const reqToolTier   = Number(pd.required_tool_tier ?? Math.max(0, itemTier - 1));
@@ -65,14 +49,19 @@ export function ExploreDecisionCard({
     }
   }
 
-  const iconPath = isResource ? getResourceIconPath(String(pd.item ?? '')) : null;
+  const iconPath = isResource ? getResourceIconPath(String(pd.item ?? '').toLowerCase()) : null;
+  const imageUrl  = isResource ? (pd.image_url as string | null | undefined) : null;
 
   return (
     <div className="rounded-xl border border-primary/40 bg-primary/5 px-5 py-5 space-y-4">
       <div className="flex items-center gap-3">
-        {iconPath
-          ? <Image src={iconPath} alt={displayName} width={52} height={52} className="w-13 h-13 object-contain shrink-0" />
-          : <span className="text-4xl">{icon}</span>}
+        {iconPath ? (
+          <Image src={iconPath} alt={displayName} width={52} height={52} className="w-13 h-13 object-contain shrink-0" />
+        ) : imageUrl ? (
+          <img src={imageUrl} alt={displayName} className="w-13 h-13 object-contain shrink-0" />
+        ) : (
+          <span className="text-4xl">{'⚔️'}</span>
+        )}
         <div>
           <p className="text-lg font-bold text-foreground">
             {isResource ? `Found ${pd.quantity}× ${displayName}!` : `${displayName} appears!`}
