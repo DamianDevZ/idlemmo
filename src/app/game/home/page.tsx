@@ -12,6 +12,7 @@ import { EquipmentModal } from '@/components/game/EquipmentModal';
 import { ItemSprite } from '@/components/game/ItemSprite';
 import type { EquippedData, EquipItemData } from '@/components/game/EquipmentPanel';
 import type { DbInventoryItem, DbStashItem, DbItemDefinition } from '@/types/game';
+import { StashPanel } from '@/components/game/StashPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,7 +65,7 @@ export default async function HomeBasePage() {
       .from('character_stash')
       .select('*, item_definitions(*)')
       .eq('character_id', character.id)
-      .order('quantity', { ascending: false }),
+      .order('created_at', { ascending: false }),
     supabase
       .from('character_known_recipes')
       .select('learned_at, recipes(*, item_definitions(id, display_name))') 
@@ -318,112 +319,11 @@ export default async function HomeBasePage() {
           {stashAndEquipCount === 0 ? (
             <EmptyState icon="📦" message="Your stash is empty. Deposit items from your inventory to store them safely." />
           ) : (
-            <div className="space-y-4">
-
-              {/* Equipment from inventory (equipped or held) — 2-col cards */}
-              {inventoryEquip.length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold px-0.5">Equipment</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {inventoryEquip.map(item => {
-                      const def = item.item_definitions;
-                      return (
-                        <div
-                          key={item.item_id}
-                          className={`flex items-center gap-3 px-3 py-3 rounded-lg border bg-card border-border`}
-                        >
-                        <ItemSprite
-                            imageUrl={def?.image_url}
-                            tier={item.tier}
-                            size={40}
-                            className="shrink-0"
-                            fallback={<span className="text-xl">{def?.type === 'tool' ? '⛏️' : def?.type === 'weapon' ? '⚔️' : '🛡️'}</span>}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold truncate text-foreground">
-                              {def?.display_name ?? 'Unknown'}
-                            </p>
-                            <p className="text-xs text-muted-foreground capitalize">{def?.type}</p>
-                          </div>
-                          <span className={`text-xs font-bold shrink-0 ${
-                            item.equipped_slot ? 'text-primary' : 'text-muted-foreground'
-                          }`}>
-                            {item.equipped_slot ? '✓' : 'bag'}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Stored resources — true 1:1 square grid */}
-              {stash.length > 0 && (
-                <div className="space-y-1.5">
-                  {inventoryEquip.length > 0 && (
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold px-0.5">Stored</p>
-                  )}
-                  <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                    {stash.map(item => {
-                      const def = item.item_definitions;
-                      const resInfo = getResourceInfo(def?.name ?? '');
-                      const label = resInfo
-                        ? `${resInfo.type} T${resInfo.tier}`
-                        : (def?.display_name ?? '?');
-                      const iconPath = getResourceIconPath(def?.name ?? '');
-                      const typeIcon = def?.type === 'weapon' ? '⚔️'
-                        : def?.type === 'armor' ? '🛡️'
-                        : def?.type === 'tool'  ? '⛏️' : '📦';
-                      const qty = item.quantity;
-                      const qtyLabel = qty >= 10_000
-                        ? `×${(qty / 1000).toFixed(0)}k`
-                        : qty > 1 ? `×${qty}` : null;
-                      return (
-                        <div
-                          key={item.item_id}
-                          title={def?.display_name ?? ''}
-                          className={`relative aspect-square rounded-lg border bg-card overflow-hidden border-border`}
-                        >
-                          {/* Icon fills the cell */}
-                          <div className="absolute inset-0 flex items-center justify-center p-2">
-                            {iconPath ? (
-                              <img src={iconPath} alt="" className="w-full h-full object-contain" />
-                            ) : def?.image_url ? (
-                              <img src={def.image_url} alt="" className="w-full h-full object-contain p-[10%]" />
-                            ) : (
-                              <span className="text-3xl">{typeIcon}</span>
-                            )}
-                          </div>
-                          {/* Tier frame: equipment types only */}
-                          {(() => {
-                            const isEquip = def?.type === 'weapon' || def?.type === 'armor' || def?.type === 'tool';
-                            const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-                            return isEquip && item.tier > 0 && supaUrl ? (
-                              <img
-                                src={`${supaUrl}/storage/v1/object/public/icons/tier-frames/t${item.tier}.png`}
-                                alt=""
-                                className="absolute inset-0 w-full h-full object-contain pointer-events-none"
-                              />
-                            ) : null;
-                          })()}
-                          {/* Quantity — top-right */}
-                          {qtyLabel && (
-                            <span className="absolute top-1 right-1 text-[11px] tabular-nums font-black text-white leading-none"
-                              style={{ textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}>
-                              {qtyLabel}
-                            </span>
-                          )}
-                          {/* Name — bottom strip */}
-                          <div className="absolute bottom-0 inset-x-0 bg-black/50 px-1 py-0.5">
-                            <p className="text-[10px] text-white/80 text-center leading-tight truncate">{label}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
+            <StashPanel
+              stash={stash as unknown as Parameters<typeof StashPanel>[0]['stash']}
+              inventoryEquip={inventoryEquip as unknown as Parameters<typeof StashPanel>[0]['inventoryEquip']}
+              characterId={character.id}
+            />
           )}
         </TabsContent>
 

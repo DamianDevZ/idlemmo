@@ -138,10 +138,10 @@ export async function upsertItem(
         .maybeSingle();
 
       if (existing) {
-        // Keep display name and image in sync with the parent item
+        // Only sync display_name — preserve any custom image the scroll may have
         const { error: updErr } = await db
           .from('item_definitions')
-          .update({ display_name: recipeItemName, image_url: data.image_url ?? null })
+          .update({ display_name: recipeItemName })
           .eq('id', existing.id);
         if (updErr) return { error: `Recipe scroll update failed: ${updErr.message}` };
       } else {

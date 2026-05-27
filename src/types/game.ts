@@ -22,7 +22,7 @@ export type BiomeName =
 
 export type FocusType = 'resources' | 'enemies' | 'balanced' | 'treasure';
 
-export type ItemType = 'material' | 'tool' | 'weapon' | 'armor' | 'consumable' | 'misc' | 'special_attack';
+export type ItemType = 'material' | 'tool' | 'weapon' | 'armor' | 'consumable' | 'recipe' | 'misc' | 'special_attack';
 
 export type DamageType = 'slash' | 'blunt' | 'bleed' | 'pierce' | 'fire' | 'ice' | 'lightning' | 'poison' | 'true';
 
