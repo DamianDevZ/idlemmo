@@ -114,8 +114,9 @@ export async function upsertItem(
         required_skill_id:    recipe.required_skill_id || null,
         ingredients:          recipe.ingredients,
         // Category is derived from item type so the craft panel groups automatically.
+        // material items use 'refining' (processed by refining skills, no scroll needed).
         // New item types appear as their own category card without code changes.
-        category:             (['weapon', 'armor', 'tool'].includes(data.type) ? data.type : 'misc') as string,
+        category:             (data.type === 'material' ? 'refining' : ['weapon', 'armor', 'tool'].includes(data.type) ? data.type : 'misc') as string,
         // tier mirrors output_tier so mastery gating works (T2 recipe needs T1 mastery).
         tier:                 recipe.output_tier > 0 ? recipe.output_tier : 1,
       };
@@ -133,7 +134,8 @@ export async function upsertItem(
     // Auto-create or update the recipe scroll item when this item is craftable.
     // The scroll item (type='recipe') is what players hold in their inventory to
     // unlock the crafting recipe. Its display name is "{item} {suffix}" (e.g. "Cloth Scroll").
-    if (recipes.length > 0 && data.type !== 'recipe') {
+    // Refining recipes (material items) are always available — no scroll needed.
+    if (recipes.length > 0 && data.type !== 'recipe' && data.type !== 'material') {
       const recipeItemName = `${data.display_name} ${recipeSuffix}`;
       const { data: existing } = await db
         .from('item_definitions')
