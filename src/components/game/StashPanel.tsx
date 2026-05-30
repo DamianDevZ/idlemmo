@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { getResourceIconPath, getResourceInfo } from '@/lib/item-icon';
-import { ItemSprite } from '@/components/game/ItemSprite';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -93,9 +92,11 @@ function StashGridItem({ item }: { item: StashItem; characterId: string }) {
       title={def?.display_name ?? ''}
       className="relative aspect-square rounded-lg border bg-card overflow-hidden border-border"
     >
-      {/* Icon */}
+      {/* Icon — recipe scrolls always use the scroll emoji, never the linked item's image */}
       <div className="absolute inset-0 flex items-center justify-center p-2">
-        {iconPath ? (
+        {def?.type === 'recipe' ? (
+          <span className="text-3xl">{typeIcon}</span>
+        ) : iconPath ? (
           <img src={iconPath} alt="" className="w-full h-full object-contain" />
         ) : def?.image_url ? (
           <img src={def.image_url} alt="" className="w-full h-full object-contain p-[10%]" />
@@ -206,52 +207,41 @@ export function StashPanel({ stash, inventoryEquip, characterId }: Props) {
           <p className="text-muted-foreground text-sm">No {CATEGORIES.find(c => c.value === activeCategory)?.label.toLowerCase()} items in stash</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {/* Equipment from inventory (only in "All" / weapon / armor / tool) */}
-          {filteredEquip.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold px-0.5">Equipment</p>
-              <div className="grid grid-cols-2 gap-2">
-                {filteredEquip.map(item => {
-                  const def = item.item_definitions;
-                  return (
-                    <div
-                      key={item.instance_id}
-                      className="flex items-center gap-3 px-3 py-3 rounded-lg border bg-card border-border"
-                    >
-                      <ItemSprite
-                        imageUrl={def?.image_url ?? null}
-                        tier={item.tier}
-                        size={40}
-                        className="shrink-0"
-                        fallback={<span className="text-xl">{def?.type === 'tool' ? '⛏️' : def?.type === 'weapon' ? '⚔️' : '🛡️'}</span>}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate text-foreground">{def?.display_name ?? 'Unknown'}</p>
-                        <p className="text-xs text-muted-foreground capitalize">{def?.type}</p>
-                      </div>
-                      <span className={`text-xs font-bold shrink-0 ${item.equipped_slot ? 'text-primary' : 'text-muted-foreground'}`}>
-                        {item.equipped_slot ? '✓' : 'bag'}
-                      </span>
-                    </div>
-                  );
-                })}
+        <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+          {/* Equipment from inventory rendered as grid squares alongside stash items */}
+          {filteredEquip.map(item => {
+            const def = item.item_definitions;
+            const typeIcon = def?.type === 'weapon' ? '⚔️' : def?.type === 'armor' ? '🛡️' : '⛏️';
+            const qtyLabel = (item.quantity ?? 1) > 1 ? `×${item.quantity}` : null;
+            const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+            return (
+              <div key={item.instance_id} title={def?.display_name ?? ''}
+                className="relative aspect-square rounded-lg border bg-card overflow-hidden border-border">
+                <div className="absolute inset-0 flex items-center justify-center p-2 pb-5">
+                  {def?.image_url
+                    ? <img src={def.image_url} alt="" className="w-full h-full object-contain p-[10%]" />
+                    : <span className="text-3xl">{typeIcon}</span>}
+                </div>
+                {item.tier > 0 && supaUrl && (
+                  <img src={`${supaUrl}/storage/v1/object/public/icons/tier-frames/t${item.tier}.png`}
+                    alt="" className="absolute inset-0 w-full h-full object-contain pointer-events-none" />
+                )}
+                {qtyLabel && (
+                  <span className="absolute top-1 right-1 text-[11px] tabular-nums font-black text-white leading-none"
+                    style={{ textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}>{qtyLabel}</span>
+                )}
+                {item.equipped_slot && (
+                  <span className="absolute top-1 left-1 text-[10px] font-black text-primary leading-none">✓</span>
+                )}
+                <div className="absolute bottom-0 inset-x-0 bg-black/50 px-1 py-0.5">
+                  <p className="text-[10px] text-white/80 leading-tight truncate text-center">{def?.display_name ?? '?'}</p>
+                </div>
               </div>
-            </div>
-          )}
-
-          {/* Stash grid */}
-          {filteredStash.length > 0 && (
-            <div className="space-y-1.5">
-              {filteredEquip.length > 0 && (
-                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold px-0.5">Stored</p>
-              )}
-              <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                {filteredStash.map(item => (
-                  <StashGridItem key={item.instance_id} item={item} characterId={characterId} />
-                ))}              </div>
-            </div>
-          )}
+            );
+          })}
+          {filteredStash.map(item => (
+            <StashGridItem key={item.instance_id} item={item} characterId={characterId} />
+          ))}
         </div>
       )}
     </div>
