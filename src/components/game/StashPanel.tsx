@@ -111,6 +111,15 @@ function StashGridItem({ item }: { item: StashItem; characterId: string }) {
         />
       )}
 
+      {/* Scroll overlay for recipe items */}
+      {def?.type === 'recipe' && supaUrl && (
+        <img
+          src={`${supaUrl}/storage/v1/object/public/icons/recipe-scroll.png`}
+          alt=""
+          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+        />
+      )}
+
       {/* Quantity — top-right */}
       {qtyLabel && (
         <span
