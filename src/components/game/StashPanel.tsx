@@ -92,11 +92,8 @@ function StashGridItem({ item }: { item: StashItem; characterId: string }) {
       title={def?.display_name ?? ''}
       className="relative aspect-square rounded-lg border bg-card overflow-hidden border-border"
     >
-      {/* Icon — recipe scrolls always use the scroll emoji, never the linked item's image */}
       <div className="absolute inset-0 flex items-center justify-center p-2">
-        {def?.type === 'recipe' ? (
-          <span className="text-3xl">{typeIcon}</span>
-        ) : iconPath ? (
+        {iconPath ? (
           <img src={iconPath} alt="" className="w-full h-full object-contain" />
         ) : def?.image_url ? (
           <img src={def.image_url} alt="" className="w-full h-full object-contain p-[10%]" />
