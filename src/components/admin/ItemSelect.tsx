@@ -10,21 +10,25 @@ export type SelectableItem = {
   material_subtype?: string | null;
 };
 
-const GROUPS = [
-  { key: 'raw',        label: '🪨 Raw Materials'    },
-  { key: 'refined',    label: '⚙️ Refined Materials' },
-  { key: 'weapon',     label: '⚔️ Weapons'           },
-  { key: 'armor',      label: '🛡️ Armor'             },
-  { key: 'tool',       label: '🔧 Tools'             },
-  { key: 'consumable', label: '🧪 Consumables'       },
-  { key: 'recipe',     label: '📜 Recipes'           },
-  { key: 'other',      label: '📦 Other'             },
+// Preferred display order + labels for known group keys.
+// Any type not listed here is auto-appended at the end, capitalised.
+const KNOWN_GROUPS: { key: string; label: string }[] = [
+  { key: 'raw',          label: '🪨 Raw Materials'    },
+  { key: 'refined',      label: '⚙️ Refined Materials' },
+  { key: 'weapon',       label: '⚔️ Weapons'           },
+  { key: 'armor',        label: '🛡️ Armor'             },
+  { key: 'tool',         label: '🔧 Tools'             },
+  { key: 'consumable',   label: '🧪 Consumables'       },
+  { key: 'unique',       label: '💎 Unique'            },
+  { key: 'recipe',       label: '📜 Recipes'           },
+  { key: 'special_attack', label: '✨ Ultimates'       },
+  { key: 'misc',         label: '📦 Misc'              },
 ];
+const KNOWN_GROUP_MAP = Object.fromEntries(KNOWN_GROUPS.map(g => [g.key, g.label]));
 
 function getGroupKey(item: SelectableItem): string {
   if (item.type === 'material') return item.material_subtype === 'refined' ? 'refined' : 'raw';
-  if (['weapon', 'armor', 'tool', 'consumable', 'recipe'].includes(item.type)) return item.type;
-  return 'other';
+  return item.type;
 }
 
 export function ItemSelect({
@@ -48,7 +52,14 @@ export function ItemSelect({
     const key = getGroupKey(item);
     (buckets[key] ??= []).push(item);
   }
-  const groups = GROUPS; // always show all categories, even empty ones
+  // Build ordered group list: known types first (in preferred order), then any
+  // unknown types found in the data, so new types appear automatically.
+  const knownKeys = new Set(KNOWN_GROUPS.map(g => g.key));
+  const extraKeys = Object.keys(buckets).filter(k => !knownKeys.has(k)).sort();
+  const groups = [
+    ...KNOWN_GROUPS.filter(g => buckets[g.key]?.length),
+    ...extraKeys.map(k => ({ key: k, label: KNOWN_GROUP_MAP[k] ?? (k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, ' ')) })),
+  ];
 
   // Default: expand only the group containing the current value
   const defaultExpanded = () => {
