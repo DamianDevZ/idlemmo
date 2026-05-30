@@ -45,7 +45,7 @@ export async function craftItem(characterId: string, recipeId: string) {
     .eq('character_id', characterId);
   if (scrollErr) throw new Error(`Stash check failed: ${scrollErr.message}`);
   const hasScroll = (stashScrolls ?? []).some(row => {
-    const def = row.item_definitions as { type: string; recipe_for_item_id: string | null } | null;
+    const def = row.item_definitions as unknown as { type: string; recipe_for_item_id: string | null } | null;
     return def?.type === 'recipe' && def?.recipe_for_item_id === (recipe.output_item_id as string);
   });
   if (!hasScroll) throw new Error('Recipe scroll not in stash');
