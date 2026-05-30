@@ -347,7 +347,7 @@ export default async function HomeBasePage() {
                       )}
                       {/* Bottom strip: name + deposit button */}
                       <div className="absolute bottom-0 inset-x-0 bg-black/50 px-1.5 py-0.5 flex items-center gap-0.5">
-                        <p className="text-[10px] text-white/80 leading-tight truncate flex-1">{label}</p>
+                        <p className="text-[10px] text-white/80 leading-tight truncate text-center flex-1">{label}</p>
                         {!item.equipped_slot && (
                           <DepositButton compact characterId={character.id} itemId={item.item_id} />
                         )}

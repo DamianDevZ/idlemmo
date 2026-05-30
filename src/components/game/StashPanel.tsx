@@ -136,7 +136,7 @@ function StashGridItem({ item }: { item: StashItem; characterId: string }) {
 
       {/* Bottom strip: name */}
       <div className="absolute bottom-0 inset-x-0 bg-black/50 px-1 py-0.5 flex items-center gap-1">
-        <p className="text-[10px] text-white/80 leading-tight truncate flex-1">{label}</p>
+        <p className="text-[10px] text-white/80 leading-tight truncate text-center flex-1">{label}</p>
       </div>
     </div>
   );
@@ -244,7 +244,7 @@ export function StashPanel({ stash, inventoryEquip, characterId }: Props) {
                   <span className="absolute top-1 left-1 text-[10px] font-black text-primary leading-none">✓</span>
                 )}
                 <div className="absolute bottom-0 inset-x-0 bg-black/50 px-1 py-0.5">
-                  <p className="text-[10px] text-white/80 leading-tight truncate">{def?.display_name ?? '?'}</p>
+                  <p className="text-[10px] text-white/80 leading-tight truncate text-center">{def?.display_name ?? '?'}</p>
                 </div>
               </div>
             );
