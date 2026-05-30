@@ -91,7 +91,7 @@ export default async function ItemEditorPage({
     id: m.id,
     name: m.name,
     display_name: m.display_name,
-    type: 'material' as const,
+    type: (m as unknown as { type: string }).type,
     equipment_tier: m.equipment_tier as number | null,
     is_tiered: (m as unknown as { is_tiered: boolean }).is_tiered,
     material_subtype: (m as unknown as { material_subtype: string | null }).material_subtype ?? null,
