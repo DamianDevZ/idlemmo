@@ -280,6 +280,20 @@ export default async function AdminItemsPage({
   const { data: rawItems } = await query;
   const items = rawItems ?? [];
 
+  // ── Craftable lookup (weapon / armor / tool only) ─────────────────
+  const showCraftable = typeKey === 'weapon' || typeKey === 'armor' || typeKey === 'tool';
+  const craftableIds = new Set<string>();
+  if (showCraftable && items.length > 0) {
+    const { data: scrolls } = await db
+      .from('item_definitions')
+      .select('recipe_for_item_id')
+      .eq('type', 'recipe')
+      .in('recipe_for_item_id', items.map(i => i.id));
+    for (const s of scrolls ?? []) {
+      if (s.recipe_for_item_id) craftableIds.add(s.recipe_for_item_id);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -330,6 +344,7 @@ export default async function AdminItemsPage({
               {typeKey === 'armor'  && <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Material</th>}
               {typeKey === 'material' && <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Subtype</th>}
               {typeKey !== 'weapon' && typeKey !== 'armor' && typeKey !== 'material' && <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stats</th>}
+              {showCraftable && <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Craftable</th>}
               <th className="px-4 py-2 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wide">Edit</th>
             </tr>
           </thead>
@@ -391,6 +406,13 @@ export default async function AdminItemsPage({
                   <td className="px-4 py-2 text-xs text-muted-foreground">
                     {item.base_damage != null && `${item.base_damage} dmg`}
                     {item.base_defense != null && `${item.base_defense} def`}
+                  </td>
+                )}
+                {showCraftable && (
+                  <td className="px-4 py-2">
+                    {craftableIds.has(item.id)
+                      ? <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-500/10 text-green-400">Yes</span>
+                      : <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-accent text-muted-foreground">No</span>}
                   </td>
                 )}
                 <td className="px-4 py-2 text-right">
