@@ -45,7 +45,7 @@ interface Props {
 
 // ─── Category config ─────────────────────────────────────────────────────────
 
-type Category = 'all' | 'raw' | 'refined' | 'weapon' | 'armor' | 'tool' | 'recipe' | 'other';
+type Category = 'all' | 'raw' | 'refined' | 'weapon' | 'armor' | 'tool' | 'recipe' | 'unique' | 'other';
 
 const CATEGORIES: { value: Category; label: string; icon: string }[] = [
   { value: 'all',     label: 'All',      icon: '📦' },
@@ -55,6 +55,7 @@ const CATEGORIES: { value: Category; label: string; icon: string }[] = [
   { value: 'armor',   label: 'Armor',    icon: '🛡️' },
   { value: 'tool',    label: 'Tools',    icon: '⛏️' },
   { value: 'recipe',  label: 'Recipes',  icon: '📜' },
+  { value: 'unique',  label: 'Unique',   icon: '💎' },
   { value: 'other',   label: 'Other',    icon: '✨' },
 ];
 
@@ -68,7 +69,8 @@ function matchesCategory(def: ItemDef | null, category: Category): boolean {
     case 'armor':   return def.type === 'armor';
     case 'tool':    return def.type === 'tool';
     case 'recipe':  return def.type === 'recipe';
-    case 'other':   return !['material', 'weapon', 'armor', 'tool', 'recipe'].includes(def.type);
+    case 'unique':  return def.type === 'unique';
+    case 'other':   return !['material', 'weapon', 'armor', 'tool', 'recipe', 'unique'].includes(def.type);
   }
 }
 
@@ -180,6 +182,7 @@ export function StashPanel({ stash, inventoryEquip, characterId, scrollVersion }
     armor:   stash.filter(i => matchesCategory(i.item_definitions, 'armor')).length + inventoryEquip.filter(i => i.item_definitions?.type === 'armor').length,
     tool:    stash.filter(i => matchesCategory(i.item_definitions, 'tool')).length + inventoryEquip.filter(i => i.item_definitions?.type === 'tool').length,
     recipe:  stash.filter(i => matchesCategory(i.item_definitions, 'recipe')).length,
+    unique:  stash.filter(i => matchesCategory(i.item_definitions, 'unique')).length,
     other:   stash.filter(i => matchesCategory(i.item_definitions, 'other')).length,
   };
 

@@ -10,6 +10,7 @@ const ITEM_TYPES = [
   { key: 'material',       label: 'Materials',   emoji: '🪨' },
   { key: 'consumable',     label: 'Consumables', emoji: '🧪' },
   { key: 'special_attack', label: 'Ultimates',   emoji: '✨' },
+  { key: 'unique',         label: 'Unique',      emoji: '💎' },
   { key: 'misc',           label: 'Misc',        emoji: '📦' },
 ] as const;
 
@@ -19,7 +20,7 @@ const SCALING_HEX: Record<string,string> = {
 };
 const TYPE_TEXT: Record<string,string> = {
   weapon:'text-red-400', armor:'text-blue-400', tool:'text-amber-400',
-  material:'text-green-400', consumable:'text-purple-400', misc:'text-muted-foreground', special_attack:'text-orange-400',
+  material:'text-green-400', consumable:'text-purple-400', misc:'text-muted-foreground', special_attack:'text-orange-400', unique:'text-cyan-400',
 };
 const DMG_COLORS: Record<string, string> = {
   slash: '#ef4444', pierce: '#f97316', blunt: '#f59e0b', bleed: '#ec4899',
