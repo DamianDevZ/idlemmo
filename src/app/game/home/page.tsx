@@ -62,7 +62,7 @@ export default async function HomeBasePage() {
       .order('quantity', { ascending: false }),
     supabase
       .from('character_stash')
-      .select('*, item_definitions(*, linked_item:item_definitions!recipe_for_item_id(id, image_url, name))')
+      .select('*, item_definitions(*)')
       .eq('character_id', character.id)
       .order('created_at', { ascending: false }),
     supabase
@@ -73,7 +73,34 @@ export default async function HomeBasePage() {
   ]);
 
   const inventory = (inventoryRows ?? []) as (DbInventoryItem & { item_definitions: DbItemDefinition })[];
-  const stash = (stashRows ?? []) as (DbStashItem & { item_definitions: DbItemDefinition })[];
+  const rawStash = (stashRows ?? []) as (DbStashItem & { item_definitions: DbItemDefinition })[];
+
+  // ── Augment recipe scrolls with their linked item's image_url ─────────────
+  // recipe_for_item_id points to the craftable item; fetch its image so the
+  // scroll square can display that item's art inside the scroll frame.
+  const linkedIds = [...new Set(
+    rawStash
+      .filter(s => (s.item_definitions as unknown as { type: string; recipe_for_item_id: string | null })?.type === 'recipe'
+               && (s.item_definitions as unknown as { recipe_for_item_id: string | null })?.recipe_for_item_id)
+      .map(s => (s.item_definitions as unknown as { recipe_for_item_id: string }).recipe_for_item_id)
+  )];
+  const linkedItemMap: Record<string, { id: string; image_url: string | null; name: string }> = {};
+  if (linkedIds.length > 0) {
+    const { data: linkedItems } = await supabase
+      .from('item_definitions')
+      .select('id, image_url, name')
+      .in('id', linkedIds);
+    for (const item of linkedItems ?? []) {
+      linkedItemMap[(item as { id: string }).id] = item as { id: string; image_url: string | null; name: string };
+    }
+  }
+  const stash = rawStash.map(s => {
+    const def = s.item_definitions as unknown as { type: string; recipe_for_item_id: string | null };
+    if (def?.type === 'recipe' && def?.recipe_for_item_id) {
+      return { ...s, item_definitions: { ...s.item_definitions, linked_item: linkedItemMap[def.recipe_for_item_id] ?? null } };
+    }
+    return s;
+  }) as (DbStashItem & { item_definitions: DbItemDefinition })[];
 
   // ── Equipment data for modal ──────────────────────────────────────────────
   const EQUIP_TYPES = new Set(['weapon', 'armor', 'tool']);
