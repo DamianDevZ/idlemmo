@@ -39,10 +39,11 @@ export async function craftItem(characterId: string, recipeId: string) {
 
   // Verify the character owns a recipe scroll for this output item in their stash.
   // Scrolls are permanent (never consumed) — having one unlocks crafting indefinitely.
-  const { data: stashScrolls } = await supabase
+  const { data: stashScrolls, error: scrollErr } = await supabase
     .from('character_stash')
-    .select('item_id, item_definitions!item_id(type, recipe_for_item_id)')
+    .select('item_id, item_definitions(type, recipe_for_item_id)')
     .eq('character_id', characterId);
+  if (scrollErr) throw new Error(`Stash check failed: ${scrollErr.message}`);
   const hasScroll = (stashScrolls ?? []).some(row => {
     const def = row.item_definitions as { type: string; recipe_for_item_id: string | null } | null;
     return def?.type === 'recipe' && def?.recipe_for_item_id === (recipe.output_item_id as string);
