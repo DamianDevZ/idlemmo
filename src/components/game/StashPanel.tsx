@@ -92,11 +92,20 @@ function StashGridItem({ item }: { item: StashItem; characterId: string }) {
       title={def?.display_name ?? ''}
       className="relative aspect-square rounded-lg border bg-card overflow-hidden border-border"
     >
+      {/* Scroll underlay for recipe items — renders before item image so item appears on top */}
+      {def?.type === 'recipe' && supaUrl && (
+        <img
+          src={`${supaUrl}/storage/v1/object/public/icons/recipe-scroll.png`}
+          alt=""
+          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+        />
+      )}
+
       <div className="absolute inset-0 flex items-center justify-center p-2">
         {iconPath ? (
           <img src={iconPath} alt="" className="w-full h-full object-contain" />
         ) : def?.image_url ? (
-          <img src={def.image_url} alt="" className="w-full h-full object-contain p-[10%]" />
+          <img src={def.image_url} alt="" className={`w-full h-full object-contain ${def?.type === 'recipe' ? 'p-[25%]' : 'p-[10%]'}`} />
         ) : (
           <span className="text-3xl">{typeIcon}</span>
         )}
@@ -106,15 +115,6 @@ function StashGridItem({ item }: { item: StashItem; characterId: string }) {
       {isEquip && item.tier > 0 && supaUrl && (
         <img
           src={`${supaUrl}/storage/v1/object/public/icons/tier-frames/t${item.tier}.png`}
-          alt=""
-          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
-        />
-      )}
-
-      {/* Scroll overlay for recipe items */}
-      {def?.type === 'recipe' && supaUrl && (
-        <img
-          src={`${supaUrl}/storage/v1/object/public/icons/recipe-scroll.png`}
           alt=""
           className="absolute inset-0 w-full h-full object-contain pointer-events-none"
         />
