@@ -1105,7 +1105,7 @@ export function ItemForm({
                                               value={ing.item_id}
                                               onChange={id => setIng(i, { item_id: id, tier: null })}
                                               items={materialItems}
-                                              placeholder="Select material…"
+                                              placeholder="Select ingredient…"
                                             />
                                           </td>
                                           <td className="px-2 py-1.5">
