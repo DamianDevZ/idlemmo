@@ -33,6 +33,10 @@ export async function depositToStash(characterId: string, itemId: string) {
   const totalQty = (invRows ?? []).reduce((sum, r) => sum + (r.quantity as number), 0);
   if (totalQty <= 0) return;
 
+  // Check if item is a recipe scroll — recipe scrolls are capped at 1 in the stash
+  const { data: itemDef } = await supabase.from('item_definitions').select('type').eq('id', itemId).maybeSingle();
+  const isRecipe = (itemDef as { type?: string } | null)?.type === 'recipe';
+
   // Fetch existing stash row to merge quantities
   const { data: stashRow } = await supabase
     .from('character_stash')
@@ -41,7 +45,8 @@ export async function depositToStash(characterId: string, itemId: string) {
     .eq('item_id', itemId)
     .maybeSingle();
 
-  const newStashQty = (stashRow?.quantity ?? 0) + totalQty;
+  // Recipe scrolls: once you have it, quantity stays at 1
+  const newStashQty = isRecipe ? 1 : (stashRow?.quantity ?? 0) + totalQty;
 
   // Upsert stash — unique constraint on (character_id, item_id) handles the merge
   const { error: stashErr } = await supabase
@@ -105,10 +110,16 @@ export async function depositAllToStash(characterId: string) {
 
   const stashMap = new Map((stashRows ?? []).map(r => [r.item_id as string, r.quantity as number]));
 
+  // Fetch item types to cap recipe scrolls at 1
+  const allItemIds = Array.from(itemTotals.keys());
+  const { data: typeDefs } = await supabase.from('item_definitions').select('id, type').in('id', allItemIds);
+  const recipeItemIds = new Set((typeDefs ?? []).filter(d => (d as { type?: string }).type === 'recipe').map(d => (d as { id: string }).id));
+
   const upsertPayload = Array.from(itemTotals.entries()).map(([item_id, qty]) => ({
     character_id: characterId,
     item_id,
-    quantity: (stashMap.get(item_id) ?? 0) + qty,
+    // Recipe scrolls: capped at 1 — you either have it or you don't
+    quantity: recipeItemIds.has(item_id) ? 1 : (stashMap.get(item_id) ?? 0) + qty,
   }));
 
   const { error: stashErr } = await supabase

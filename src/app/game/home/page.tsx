@@ -78,12 +78,14 @@ export default async function HomeBasePage() {
   // ── Augment recipe scrolls with their linked item's image_url ─────────────
   // recipe_for_item_id points to the craftable item; fetch its image so the
   // scroll square can display that item's art inside the scroll frame.
-  const linkedIds = [...new Set(
-    rawStash
-      .filter(s => (s.item_definitions as unknown as { type: string; recipe_for_item_id: string | null })?.type === 'recipe'
-               && (s.item_definitions as unknown as { recipe_for_item_id: string | null })?.recipe_for_item_id)
-      .map(s => (s.item_definitions as unknown as { recipe_for_item_id: string }).recipe_for_item_id)
-  )];
+  const getRecipeLinkedId = (def: unknown): string | null => {
+    const d = def as { type?: string; recipe_for_item_id?: string | null } | null;
+    return d?.type === 'recipe' && d?.recipe_for_item_id ? d.recipe_for_item_id : null;
+  };
+  const linkedIds = [...new Set([
+    ...rawStash.map(s => getRecipeLinkedId(s.item_definitions)).filter(Boolean) as string[],
+    ...inventory.map(i => getRecipeLinkedId(i.item_definitions)).filter(Boolean) as string[],
+  ])];
   const linkedItemMap: Record<string, { id: string; image_url: string | null; name: string }> = {};
   if (linkedIds.length > 0) {
     const { data: linkedItems } = await supabase
@@ -312,15 +314,27 @@ export default async function HomeBasePage() {
                       title={def?.display_name ?? ''}
                       className="relative aspect-square rounded-lg border bg-card overflow-hidden border-border"
                     >
+                      {/* Scroll underlay for recipe items */}
+                      {def?.type === 'recipe' && (
+                        <img
+                          src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/icons/recipe-scroll.png`}
+                          alt=""
+                          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                        />
+                      )}
                       {/* Icon fills the cell */}
                       <div className="absolute inset-0 flex items-center justify-center p-2 pb-5">
                         {iconPath ? (
                           <img src={iconPath} alt="" className="w-full h-full object-contain" />
-                        ) : def?.image_url ? (
-                          <img src={def.image_url} alt="" className="w-full h-full object-contain p-[10%]" />
-                        ) : (
-                          <span className="text-3xl">{typeIcon}</span>
-                        )}
+                        ) : (() => {
+                          const recipeId = getRecipeLinkedId(def);
+                          const displayUrl = def?.image_url ?? (recipeId ? (linkedItemMap[recipeId]?.image_url ?? null) : null);
+                          return displayUrl ? (
+                            <img src={displayUrl} alt="" className={`w-full h-full object-contain ${def?.type === 'recipe' ? 'p-[12%]' : 'p-[10%]'}`} />
+                          ) : (
+                            <span className="text-3xl">{typeIcon}</span>
+                          );
+                        })()}
                       </div>
                       {/* Quantity — top-right */}
                       {qtyLabel && (
