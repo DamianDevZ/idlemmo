@@ -62,7 +62,7 @@ export default async function HomeBasePage() {
       .order('quantity', { ascending: false }),
     supabase
       .from('character_stash')
-      .select('*, item_definitions(*)')
+      .select('*, item_definitions(*, linked_item:item_definitions!recipe_for_item_id(id, image_url, name))')
       .eq('character_id', character.id)
       .order('created_at', { ascending: false }),
     supabase

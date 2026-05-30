@@ -13,6 +13,7 @@ interface ItemDef {
   image_url: string | null;
   material_subtype?: string | null;
   recipe_for_item_id?: string | null;
+  linked_item?: { id: string; image_url: string | null; name: string } | null;
 }
 
 interface StashItem {
@@ -104,11 +105,14 @@ function StashGridItem({ item }: { item: StashItem; characterId: string }) {
       <div className="absolute inset-0 flex items-center justify-center p-2">
         {iconPath ? (
           <img src={iconPath} alt="" className="w-full h-full object-contain" />
-        ) : def?.image_url ? (
-          <img src={def.image_url} alt="" className={`w-full h-full object-contain ${def?.type === 'recipe' ? 'p-[12%]' : 'p-[10%]'}`} />
-        ) : (
-          <span className="text-3xl">{typeIcon}</span>
-        )}
+        ) : (() => {
+          const displayUrl = def?.image_url ?? (def?.type === 'recipe' ? (def?.linked_item as { image_url: string | null } | null)?.image_url ?? null : null);
+          return displayUrl ? (
+            <img src={displayUrl} alt="" className={`w-full h-full object-contain ${def?.type === 'recipe' ? 'p-[12%]' : 'p-[10%]'}`} />
+          ) : (
+            <span className="text-3xl">{typeIcon}</span>
+          );
+        })()}
       </div>
 
       {/* Tier frame for equipment */}
