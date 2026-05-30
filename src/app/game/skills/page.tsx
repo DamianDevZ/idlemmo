@@ -25,7 +25,7 @@ const ATTRIBUTE_META: {
   description: string;
 }[] = [
   { name: 'vigor',        label: 'Vigor',        icon: 'heart',  description: `+${GAME_CONFIG.attributes.hpPerVigor} max HP per point` },
-  { name: 'endurance',    label: 'Endurance',     icon: 'shield', description: `+${GAME_CONFIG.attributes.slotsPerEndurance} carry slots per point` },
+  { name: 'endurance',    label: 'Endurance',     icon: 'shield', description: `+${GAME_CONFIG.attributes.slotsPerEndurance} carry slots per point, +1 offline tick per 2 pts` },
   { name: 'strength',     label: 'Strength',      icon: 'fist',  description: 'Melee damage and gather yield' },
   { name: 'dexterity',    label: 'Dexterity',     icon: 'run',  description: 'Attack speed, gather speed and crit chance' },
   { name: 'intelligence', label: 'Intelligence',  icon: 'brain',  description: 'Magic damage and refining efficiency' },

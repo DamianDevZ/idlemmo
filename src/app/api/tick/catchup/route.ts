@@ -37,7 +37,6 @@ export async function POST(req: NextRequest) {
     if (!characterId) return NextResponse.json({ error: 'Missing characterId' }, { status: 400 });
 
     const { exploration: EXP, attributes: ATTR, gradeWeights, gradeMultipliers } = await getGameConfig();
-    const MAX_OFFLINE_TICKS = Math.ceil((2 * 60 * 60 * 1000) / (EXP.tickIntervalSeconds * 1000));
 
     // Verify ownership and get character stats
     const { data: character } = await supabase
@@ -47,6 +46,10 @@ export async function POST(req: NextRequest) {
       .eq('user_id', user.id)
       .single();
     if (!character) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+    // Cap offline ticks to the character's endurance-derived limit (base 10 + 1 per 2 endurance)
+    const endurance = (character.character_attributes as unknown as { endurance: number } | null)?.endurance ?? 0;
+    const MAX_OFFLINE_TICKS = 10 + Math.floor(endurance / 2);
 
     const { data: session } = await supabase
       .from('exploration_sessions')
