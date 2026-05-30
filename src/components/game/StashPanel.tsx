@@ -105,7 +105,7 @@ function StashGridItem({ item }: { item: StashItem; characterId: string }) {
         {iconPath ? (
           <img src={iconPath} alt="" className="w-full h-full object-contain" />
         ) : def?.image_url ? (
-          <img src={def.image_url} alt="" className={`w-full h-full object-contain ${def?.type === 'recipe' ? 'p-[25%]' : 'p-[10%]'}`} />
+          <img src={def.image_url} alt="" className={`w-full h-full object-contain ${def?.type === 'recipe' ? 'p-[12%]' : 'p-[10%]'}`} />
         ) : (
           <span className="text-3xl">{typeIcon}</span>
         )}
