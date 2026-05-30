@@ -72,9 +72,9 @@ export default async function TierScalingPage() {
   }
 
   const recipeSuffix = (recipeSettingsResult.data as { value: string } | null)?.value ?? 'Scroll';
-  const hasScrollBg = (recipeScrollResult.data ?? []).some(f => f.name.startsWith('recipe-scroll'));
-  const scrollBgUrl = hasScrollBg
-    ? `${supabaseUrl}/storage/v1/object/public/icons/recipe-scroll.png`
+  const scrollBgFile = (recipeScrollResult.data ?? []).find(f => f.name.startsWith('recipe-scroll'));
+  const scrollBgUrl = scrollBgFile
+    ? `${supabaseUrl}/storage/v1/object/public/icons/recipe-scroll.png?t=${encodeURIComponent(scrollBgFile.updated_at ?? scrollBgFile.created_at ?? Date.now())}`
     : null;
 
   return (

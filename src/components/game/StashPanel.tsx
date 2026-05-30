@@ -40,6 +40,7 @@ interface Props {
   stash: StashItem[];
   inventoryEquip: InventoryItem[];
   characterId: string;
+  scrollVersion?: string;
 }
 
 // ─── Category config ─────────────────────────────────────────────────────────
@@ -73,7 +74,7 @@ function matchesCategory(def: ItemDef | null, category: Category): boolean {
 
 // ─── Stash grid item ──────────────────────────────────────────────────────────
 
-function StashGridItem({ item }: { item: StashItem; characterId: string }) {
+function StashGridItem({ item, scrollVersion }: { item: StashItem; characterId: string; scrollVersion?: string }) {
   const def = item.item_definitions;
   const resInfo = getResourceInfo(def?.name ?? '');
   const label = resInfo ? `${resInfo.type} T${resInfo.tier}` : (def?.display_name ?? '?');
@@ -96,7 +97,7 @@ function StashGridItem({ item }: { item: StashItem; characterId: string }) {
       {/* Scroll underlay for recipe items — renders before item image so item appears on top */}
       {def?.type === 'recipe' && supaUrl && (
         <img
-          src={`${supaUrl}/storage/v1/object/public/icons/recipe-scroll.png`}
+          src={`${supaUrl}/storage/v1/object/public/icons/recipe-scroll.png${scrollVersion ? `?v=${scrollVersion}` : ''}`}
           alt=""
           className="absolute inset-0 w-full h-full object-contain pointer-events-none"
         />
@@ -144,7 +145,7 @@ function StashGridItem({ item }: { item: StashItem; characterId: string }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function StashPanel({ stash, inventoryEquip, characterId }: Props) {
+export function StashPanel({ stash, inventoryEquip, characterId, scrollVersion }: Props) {
   const [activeCategory, setActiveCategory] = useState<Category>('all');
 
   // For "All", sort by newest first (created_at DESC). Other categories preserve original order.
@@ -250,7 +251,7 @@ export function StashPanel({ stash, inventoryEquip, characterId }: Props) {
             );
           })}
           {filteredStash.map(item => (
-            <StashGridItem key={item.instance_id} item={item} characterId={characterId} />
+            <StashGridItem key={item.instance_id} item={item} characterId={characterId} scrollVersion={scrollVersion} />
           ))}
         </div>
       )}

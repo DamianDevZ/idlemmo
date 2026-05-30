@@ -104,7 +104,12 @@ export async function uploadRecipeScrollBg(formData: FormData): Promise<string> 
     .upload(path, file, { upsert: true, contentType: file.type });
   if (error) throw new Error(error.message);
 
+  // Store an upload timestamp so game pages can append it as a cache-buster.
+  const version = Date.now().toString();
+  await db.from('app_settings').upsert({ key: 'recipe_scroll_v', value: version }, { onConflict: 'key' });
+
   const { data: { publicUrl } } = db.storage.from('icons').getPublicUrl(path);
   revalidatePath('/admin/tier-scaling');
-  return publicUrl;
+  revalidatePath('/game/home');
+  return `${publicUrl}?v=${version}`;
 }

@@ -54,6 +54,7 @@ export default async function HomeBasePage() {
     { data: inventoryRows },
     { data: stashRows },
     { data: refiningRows },
+    { data: scrollVersionRow },
   ] = await Promise.all([
     supabase
       .from('character_inventory')
@@ -70,10 +71,12 @@ export default async function HomeBasePage() {
       .select('*, item_definitions!output_item_id(id, name, display_name, image_url), skills!required_skill_id(name, display_name)')
       .eq('category', 'refining')
       .order('tier'),
+    supabase.from('app_settings').select('value').eq('key', 'recipe_scroll_v').single(),
   ]);
 
   const inventory = (inventoryRows ?? []) as (DbInventoryItem & { item_definitions: DbItemDefinition })[];
   const rawStash = (stashRows ?? []) as (DbStashItem & { item_definitions: DbItemDefinition })[];
+  const scrollVersion = (scrollVersionRow as { value: string } | null)?.value ?? '';
 
   // ── Augment recipe scrolls with their linked item's image_url ─────────────
   // recipe_for_item_id points to the craftable item; fetch its image so the
@@ -317,7 +320,7 @@ export default async function HomeBasePage() {
                       {/* Scroll underlay for recipe items */}
                       {def?.type === 'recipe' && (
                         <img
-                          src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/icons/recipe-scroll.png`}
+                          src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/icons/recipe-scroll.png${scrollVersion ? `?v=${scrollVersion}` : ''}`}
                           alt=""
                           className="absolute inset-0 w-full h-full object-contain pointer-events-none"
                         />
@@ -369,6 +372,7 @@ export default async function HomeBasePage() {
               stash={stash as unknown as Parameters<typeof StashPanel>[0]['stash']}
               inventoryEquip={inventoryEquip as unknown as Parameters<typeof StashPanel>[0]['inventoryEquip']}
               characterId={character.id}
+              scrollVersion={scrollVersion}
             />
           )}
         </TabsContent>
