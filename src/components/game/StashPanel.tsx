@@ -244,7 +244,7 @@ export function StashPanel({ stash, inventoryEquip, characterId }: Props) {
                   <span className="absolute top-1 left-1 text-[10px] font-black text-primary leading-none">✓</span>
                 )}
                 <div className="absolute bottom-0 inset-x-0 bg-black/50 px-1 py-0.5">
-                  <p className="text-[10px] text-white/80 leading-tight truncate text-center">{def?.display_name ?? '?'}</p>
+                  <p className="text-[10px] text-white/80 leading-tight truncate">{def?.display_name ?? '?'}</p>
                 </div>
               </div>
             );
