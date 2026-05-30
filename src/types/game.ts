@@ -66,7 +66,8 @@ export type EventType =
   | 'level_up'
   | 'collect_prompt'
   | 'session_ended'
-  | 'campsite_reached';
+  | 'campsite_reached'
+  | 'offline_summary';
 
 export type FriendRequestStatus = 'pending' | 'accepted' | 'declined' | 'blocked';
 
