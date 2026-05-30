@@ -48,7 +48,7 @@ export default async function ItemEditorPage({
       ? Promise.resolve({ data: null })
       : db.from('item_definitions').select('*').eq('id', id).single(),
     db.from('skills').select('id, name, display_name, skill_categories(name)').order('display_name'),
-    db.from('item_definitions').select('id, name, display_name, equipment_tier, is_tiered, material_subtype, type').in('type', ['material', 'unique']).order('display_name'),
+    db.from('item_definitions').select('id, name, display_name, equipment_tier, is_tiered, material_subtype, type').order('display_name'),
     isNew
       ? Promise.resolve({ data: [] })
       : db.from('recipes').select('*').eq('output_item_id', id).order('output_tier'),
