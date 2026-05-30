@@ -170,6 +170,16 @@ function formatEvent(ev: DbExplorationEvent): EventDisplay {
       };
     case 'campsite_reached':
       return { icon: '🏕️', title: 'Campsite', subtitle: 'Rested and continued exploring', accent: 'muted' };
+    case 'offline_summary': {
+      const ticks = (d.ticks as number) ?? 0;
+      const resources = (d.resources as Array<{ displayName: string; quantity: number }>) ?? [];
+      return {
+        icon: '⏳',
+        title: `While you were away (${ticks} ticks)`,
+        subtitle: resources.map(r => `${r.quantity}\u00D7 ${r.displayName}`).join(', ') || undefined,
+        accent: 'yellow',
+      };
+    }
     default:
       return { icon: '⚙️', title: capitalise(ev.event_type), accent: 'muted' };
   }
@@ -217,7 +227,10 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
   const [activeSession, setActiveSession] = useState(initialSession);
   const [events, setEvents] = useState<DbExplorationEvent[]>(initialEvents);
   const [pendingEvent, setPendingEvent] = useState<DbExplorationEvent | null>(null);
-  const [autoApprove, setAutoApprove] = useState(false);
+  const [autoApprove, setAutoApprove] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(`explore_auto_${character.id}`) === 'true';
+  });
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState('');
 
@@ -427,7 +440,7 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
     const elapsed = Date.now() - new Date(activeSession.last_tick_at).getTime();
     const pendingTicks = Math.floor(elapsed / intervalMs);
 
-    if (pendingTicks >= 2) {
+    if (pendingTicks >= 2 && autoApproveRef.current) {
       setCatchingUp(true);
       fetch('/api/tick/catchup', {
         method: 'POST',
@@ -438,6 +451,17 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
         .then((json: { processed?: number; summary?: typeof offlineSummary }) => {
           if (json.summary) {
             setOfflineSummary(json.summary);
+            // Also push a synthetic entry into the history log
+            const s = json.summary;
+            setEvents(prev => [{
+              id: crypto.randomUUID(),
+              session_id: sessionRef.current?.id ?? '',
+              character_id: character.id,
+              event_type: 'offline_summary',
+              data: { ticks: s.ticksProcessed, resources: s.resourcesGained },
+              occurred_at: new Date().toISOString(),
+              acknowledged_at: null,
+            } as DbExplorationEvent, ...prev].slice(0, 50));
             if ((json.summary as { sessionEnded?: boolean }).sessionEnded) {
               setActiveSession(null);
               setCatchingUp(false);
@@ -698,7 +722,11 @@ export default function ExploreClient({ character, areas, areaTiers, activeSessi
               <input
                 type="checkbox"
                 checked={autoApprove}
-                onChange={e => setAutoApprove(e.target.checked)}
+                onChange={e => {
+                  const v = e.target.checked;
+                  setAutoApprove(v);
+                  localStorage.setItem(`explore_auto_${character.id}`, String(v));
+                }}
                 className="w-3.5 h-3.5 accent-primary"
               />
               <span className="text-xs text-muted-foreground">Auto</span>
