@@ -8,6 +8,7 @@ export type SelectableItem = {
   display_name: string;
   type: string;
   material_subtype?: string | null;
+  image_url?: string | null;
 };
 
 // Preferred display order + labels for known group keys.
@@ -134,8 +135,14 @@ export function ItemSelect({
         className="w-full text-left px-2 py-1 text-xs bg-background border border-border rounded text-body
           focus:outline-none focus:ring-1 focus:ring-ring flex items-center justify-between gap-1 min-w-0"
       >
-        <span className={`truncate ${selected ? 'text-body' : 'text-muted-foreground'}`}>
-          {selected?.display_name ?? placeholder}
+        <span className={`flex items-center gap-1.5 min-w-0 overflow-hidden ${selected ? 'text-body' : 'text-muted-foreground'}`}>
+          {selected?.image_url
+            ? <img src={selected.image_url} alt="" className="w-4 h-4 rounded object-cover shrink-0" />
+            : selected
+              ? <span className="w-4 h-4 rounded bg-accent/60 flex items-center justify-center text-[8px] text-muted-foreground shrink-0">?</span>
+              : null
+          }
+          <span className="truncate">{selected?.display_name ?? placeholder}</span>
         </span>
         <span className="text-muted-foreground shrink-0 text-[10px]">{open ? '▴' : '▾'}</span>
       </button>
@@ -181,13 +188,17 @@ export function ItemSelect({
                         key={item.id}
                         type="button"
                         onClick={() => select(item.id)}
-                        className={`w-full text-left pl-6 pr-3 py-1 text-xs transition-colors
+                        className={`w-full text-left pl-5 pr-3 py-1 text-xs transition-colors flex items-center gap-1.5
                           ${item.id === value
                             ? 'bg-primary/10 text-primary font-medium'
                             : 'text-body hover:bg-accent/40'
                           }`}
                       >
-                        {item.display_name}
+                        {item.image_url
+                          ? <img src={item.image_url} alt="" className="w-4 h-4 rounded object-cover shrink-0" />
+                          : <span className="w-4 h-4 rounded bg-accent/60 flex items-center justify-center text-[8px] text-muted-foreground shrink-0">?</span>
+                        }
+                        <span className="truncate">{item.display_name}</span>
                       </button>
                     )) : (
                       <p className="pl-6 pr-3 py-1 text-xs text-muted-foreground italic">No items yet</p>

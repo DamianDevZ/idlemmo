@@ -48,7 +48,7 @@ export default async function ItemEditorPage({
       ? Promise.resolve({ data: null })
       : db.from('item_definitions').select('*').eq('id', id).single(),
     db.from('skills').select('id, name, display_name, skill_categories(name)').order('display_name'),
-    db.from('item_definitions').select('id, name, display_name, equipment_tier, is_tiered, material_subtype, type').order('display_name'),
+    db.from('item_definitions').select('id, name, display_name, equipment_tier, is_tiered, material_subtype, type, image_url').order('display_name'),
     isNew
       ? Promise.resolve({ data: [] })
       : db.from('recipes').select('*').eq('output_item_id', id).order('output_tier'),
@@ -95,6 +95,7 @@ export default async function ItemEditorPage({
     equipment_tier: m.equipment_tier as number | null,
     is_tiered: (m as unknown as { is_tiered: boolean }).is_tiered,
     material_subtype: (m as unknown as { material_subtype: string | null }).material_subtype ?? null,
+    image_url: (m as unknown as { image_url: string | null }).image_url ?? null,
   }));
 
   const recipes: RecipeFormData[] = (recipeResult.data ?? []).map(r => ({

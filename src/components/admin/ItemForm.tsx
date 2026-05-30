@@ -64,7 +64,7 @@ type ToolConfig = {
 };
 
 export type SkillOption    = { id: string; name: string; display_name: string; category: string };
-export type MaterialItem   = { id: string; name: string; display_name: string; type: string; equipment_tier: number | null; is_tiered: boolean; material_subtype?: string | null };
+export type MaterialItem   = { id: string; name: string; display_name: string; type: string; equipment_tier: number | null; is_tiered: boolean; material_subtype?: string | null; image_url?: string | null };
 export type WeaponType     = { id: string; name: string; display_name: string };
 export type TierScalingRow = { id?: string; item_type: string; stat_key: string; stat_label: string; tier: number; multiplier: number };
 
