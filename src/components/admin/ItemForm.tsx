@@ -954,8 +954,8 @@ export function ItemForm({
                 </button>
               )}
 
-              {/* Recipe scroll item banner — not shown for tools (no scroll unlock needed) */}
-              {isCraftable && item.type !== 'recipe' && item.type !== 'tool' && (
+              {/* Recipe scroll item banner */}
+              {isCraftable && item.type !== 'recipe' && (
                 <div className="rounded-md bg-background border border-border px-4 py-3 space-y-1">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recipe Scroll Item</p>
                   {existingRecipeItem ? (
