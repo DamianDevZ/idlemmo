@@ -135,7 +135,7 @@ export async function upsertItem(
     // The scroll item (type='recipe') is what players hold in their inventory to
     // unlock the crafting recipe. Its display name is "{item} {suffix}" (e.g. "Cloth Scroll").
     // Refining recipes (material items) are always available — no scroll needed.
-    if (recipes.length > 0 && data.type !== 'recipe' && data.type !== 'material') {
+    if (recipes.length > 0 && data.type !== 'recipe' && data.type !== 'material' && data.type !== 'tool') {
       const recipeItemName = `${data.display_name} ${recipeSuffix}`;
       const { data: existing } = await db
         .from('item_definitions')
