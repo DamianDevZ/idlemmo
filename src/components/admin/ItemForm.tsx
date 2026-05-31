@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -7,7 +7,7 @@ import type { RecipeFormData, RecipeIngredient } from '@/features/admin/item-act
 import { groupedItemOptions } from '@/lib/admin/groupedItemOptions';
 import { ItemSelect } from '@/components/admin/ItemSelect';
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type ResistanceMode = 'percent' | 'flat';
 type ResistanceEntry = { value: number; mode: ResistanceMode };
@@ -68,20 +68,20 @@ export type MaterialItem   = { id: string; name: string; display_name: string; t
 export type WeaponType     = { id: string; name: string; display_name: string };
 export type TierScalingRow = { id?: string; item_type: string; stat_key: string; stat_label: string; tier: number; multiplier: number };
 
-// ── Constants ──────────────────────────────────────────────────────────────────
+// â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const TYPES = ['material','tool','weapon','armor','consumable','recipe','unique','misc','special_attack'];
 const DAMAGE_TYPES = ['slash','pierce','blunt','bleed','fire','ice','poison','lightning','true'];
-// Resistance grid excludes 'true' — true damage bypasses all armor
+// Resistance grid excludes 'true' â€” true damage bypasses all armor
 const RESIST_TYPES: { key: string; label: string; emoji: string }[] = [
-  { key: 'slash',     label: 'Slash',     emoji: '⚔️' },
-  { key: 'fire',      label: 'Fire',      emoji: '🔥' },
-  { key: 'pierce',    label: 'Pierce',    emoji: '🏹' },
-  { key: 'ice',       label: 'Ice',       emoji: '❄️' },
-  { key: 'blunt',     label: 'Blunt',     emoji: '🔨' },
-  { key: 'poison',    label: 'Poison',    emoji: '☠️' },
-  { key: 'bleed',     label: 'Bleed',     emoji: '🩸' },
-  { key: 'lightning', label: 'Lightning', emoji: '⚡' },
+  { key: 'slash',     label: 'Slash',     emoji: 'âš”ï¸' },
+  { key: 'fire',      label: 'Fire',      emoji: 'ðŸ”¥' },
+  { key: 'pierce',    label: 'Pierce',    emoji: 'ðŸ¹' },
+  { key: 'ice',       label: 'Ice',       emoji: 'â„ï¸' },
+  { key: 'blunt',     label: 'Blunt',     emoji: 'ðŸ”¨' },
+  { key: 'poison',    label: 'Poison',    emoji: 'â˜ ï¸' },
+  { key: 'bleed',     label: 'Bleed',     emoji: 'ðŸ©¸' },
+  { key: 'lightning', label: 'Lightning', emoji: 'âš¡' },
 ];
 // Consumable effects constants
 const EFFECT_TRIGGERS: { value: EffectTrigger; label: string; hint: string }[] = [
@@ -154,7 +154,7 @@ function blankRecipe(output_tier: number): RecipeFormData {
   return { ...BLANK_RECIPE, output_tier };
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -185,7 +185,7 @@ function Select({ children, ...props }: React.SelectHTMLAttributes<HTMLSelectEle
   );
 }
 
-// ── Main Form ─────────────────────────────────────────────────────────────────
+// â”€â”€ Main Form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function initResistances(raw?: ResistancesMap): ResistancesMap {
   const base: ResistancesMap = {};
@@ -250,7 +250,7 @@ function TierScalingPreview({
     <div className="rounded-md border border-border bg-background p-3 space-y-2">
       <div className="flex items-center justify-between">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Tier scaling preview</p>
-        <a href="/admin/tier-scaling" target="_blank" className="text-[10px] text-primary hover:underline">Edit scaling →</a>
+        <a href="/admin/tier-scaling" target="_blank" className="text-[10px] text-primary hover:underline">Edit scaling â†’</a>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
@@ -284,7 +284,7 @@ function TierScalingPreview({
                       <td key={k} className="py-0.5 px-2 text-right text-body tabular-nums">
                         {base != null && mult != null
                           ? (base * mult).toFixed(2).replace(/\.?0+$/, '') || '0'
-                          : <span className="text-muted-foreground">—</span>}
+                          : <span className="text-muted-foreground">â€”</span>}
                       </td>
                     );
                   })}
@@ -339,7 +339,7 @@ export function ItemForm({
       ? initial.tool_config
       : { ...BLANK_TOOL_CONFIG }
   );
-  // Map of output_tier → RecipeFormData|null for all tiers
+  // Map of output_tier â†’ RecipeFormData|null for all tiers
   // output_tier=0 = non-tiered item recipe; 1..N = per-tier recipe
   const [tierRecipes, setTierRecipes] = useState<Record<number, RecipeFormData | null>>(() => {
     const map: Record<number, RecipeFormData | null> = {};
@@ -416,7 +416,7 @@ export function ItemForm({
     }
   }
 
-  // Copies the active tier's recipe to every tier above — same ingredient tiers verbatim
+  // Copies the active tier's recipe to every tier above â€” same ingredient tiers verbatim
   function duplicateToFollowing() {
     if (!recipe) return;
     const src = activeRecipeTier;
@@ -435,7 +435,7 @@ export function ItemForm({
     });
   }
 
-  // Copies the active tier's recipe to every tier above — ingredient tiers are set to match the target tier
+  // Copies the active tier's recipe to every tier above â€” ingredient tiers are set to match the target tier
   function matchToTier() {
     if (!recipe) return;
     const src = activeRecipeTier;
@@ -457,7 +457,7 @@ export function ItemForm({
     });
   }
 
-  // Copies the active tier's recipe to every tier above — ingredient tiers increase by +1 per tier step
+  // Copies the active tier's recipe to every tier above â€” ingredient tiers increase by +1 per tier step
   function increasePerTier() {
     if (!recipe) return;
     const src = activeRecipeTier;
@@ -612,7 +612,7 @@ export function ItemForm({
   const showConsumable = item.type === 'consumable';
   const showTool = item.type === 'tool';
   const showUltimate = item.type === 'special_attack';
-  // Materials don't have a fixed tier — they span all tiers when is_tiered=true
+  // Materials don't have a fixed tier â€” they span all tiers when is_tiered=true
   const showEquipTier = ['weapon','armor','tool','consumable'].includes(item.type);
   // Refined materials have a crafting recipe; weapon/armor use crafting skills, refined use refining skills
   const showRecipe = showWeapon || showArmor || showTool || showConsumable || (showMaterial && item.material_subtype === 'refined');
@@ -628,7 +628,7 @@ export function ItemForm({
 
       <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-6 items-start">
 
-        {/* ── LEFT: Identity panel ──────────────────────────────────────── */}
+        {/* â”€â”€ LEFT: Identity panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="bg-card border border-border rounded-lg p-5 space-y-4">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Identity</p>
 
@@ -696,7 +696,7 @@ export function ItemForm({
             </div>
           )}
 
-          {/* Tier scaling preview — shown when item is tiered and has at least one stat checked */}
+          {/* Tier scaling preview â€” shown when item is tiered and has at least one stat checked */}
           {item.is_tiered && item.tiered_stats.length > 0 && <TierScalingPreview
             itemType={item.type}
             tieredStats={item.tiered_stats}
@@ -716,7 +716,7 @@ export function ItemForm({
               disabled={isPending}
               className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              {isPending ? 'Saving…' : isNew ? 'Create Item' : 'Save Changes'}
+              {isPending ? 'Savingâ€¦' : isNew ? 'Create Item' : 'Save Changes'}
             </button>
             {!isNew && (
               <button
@@ -730,10 +730,10 @@ export function ItemForm({
           </div>
         </div>
 
-        {/* ── RIGHT: Stats + Recipe panels ─────────────────────────────── */}
+        {/* â”€â”€ RIGHT: Stats + Recipe panels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <div className="space-y-5">
 
-          {/* ── Weapon stats ──────────────────────────────────────────────── */}
+          {/* â”€â”€ Weapon stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {showWeapon && (
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Weapon Stats</p>
@@ -795,7 +795,7 @@ export function ItemForm({
               <div className="border-t border-border pt-4 space-y-3">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Attribute Scaling</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">The scaling multiplier uses the item's drop grade — S=1.5× A=1.4× B=1.3× C=1.2× D=1.1× F=1.0×</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">The scaling multiplier uses the item's drop grade â€” S=1.5Ã— A=1.4Ã— B=1.3Ã— C=1.2Ã— D=1.1Ã— F=1.0Ã—</p>
                 </div>
                 <Field label="Attribute">
                   <Select value={item.primary_scaling_attr ?? ''} onChange={e => set('primary_scaling_attr', e.target.value || null)}>
@@ -810,7 +810,7 @@ export function ItemForm({
             </div>
           )}
 
-          {/* ── Armor stats ───────────────────────────────────────────────── */}
+          {/* â”€â”€ Armor stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {showArmor && (
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Armor Stats</p>
@@ -829,7 +829,7 @@ export function ItemForm({
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Damage Resistances</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Positive = resist · Negative = weakness · &ldquo;true&rdquo; damage bypasses all
+                    Positive = resist Â· Negative = weakness Â· &ldquo;true&rdquo; damage bypasses all
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-x-5 gap-y-2">
@@ -861,7 +861,7 @@ export function ItemForm({
             </div>
           )}
 
-          {/* ── Material stats ────────────────────────────────────────────── */}
+          {/* â”€â”€ Material stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {showMaterial && (
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Material</p>
@@ -911,7 +911,7 @@ export function ItemForm({
 
               {item.material_subtype === 'unique' && (
                 <p className="text-xs text-muted-foreground">
-                  Unique materials are obtained via boss drops, events, or special quests — not crafted or gathered normally.
+                  Unique materials are obtained via boss drops, events, or special quests â€” not crafted or gathered normally.
                 </p>
               )}
 
@@ -921,265 +921,7 @@ export function ItemForm({
             </div>
           )}
 
-          {/* ── Crafting / Refining Recipe ─────────────────────────────── */}
-          {showRecipe && (() => {
-            const isCraftable = Object.values(tierRecipes).some(r => r !== null);
-            const tierList = item.is_tiered
-              ? Array.from({ length: maxTier }, (_, i) => i + 1)
-              : [0];
-            const tiny = 'w-full px-2 py-1 text-xs bg-background border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-ring';
-
-            return (
-            <div className="bg-card border border-border rounded-lg p-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  {showMaterial ? 'Refining Recipe' : 'Crafting Recipe'}
-                </p>
-                {isCraftable && (
-                  <button type="button" onClick={() => setTierRecipes({})}
-                    className="text-xs text-destructive hover:underline transition-colors">
-                    × Remove all
-                  </button>
-                )}
-              </div>
-
-              {/* Not yet craftable */}
-              {!isCraftable && (
-                <button type="button" onClick={makeAllCraftable}
-                  className="w-full py-3 rounded-lg border-2 border-dashed border-primary/40 text-sm font-semibold text-primary hover:bg-primary/10 hover:border-primary transition-colors">
-                  + Make Craftable
-                  {item.is_tiered && (
-                    <span className="ml-2 text-xs font-normal text-muted-foreground">(creates recipes for all {maxTier} tiers)</span>
-                  )}
-                </button>
-              )}
-
-              {/* Recipe scroll item banner */}
-              {isCraftable && item.type !== 'recipe' && (
-                <div className="rounded-md bg-background border border-border px-4 py-3 space-y-1">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recipe Scroll Item</p>
-                  {existingRecipeItem ? (
-                    <p className="text-sm text-body">
-                      <span className="text-muted-foreground">Auto-created: </span>
-                      <a href={`/admin/items/${existingRecipeItem.id}`} className="text-primary hover:underline">
-                        {existingRecipeItem.display_name}
-                      </a>
-                      <span className="text-muted-foreground text-xs ml-2">(click to edit icon, rarity, etc.)</span>
-                    </p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Will be created as <span className="font-medium text-body">&quot;{item.display_name} {recipeSuffix}&quot;</span> when you save.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* All tier sections shown at once — like the loot table */}
-              {isCraftable && tierList.map(t => {
-                const tr = tierRecipes[t] ?? null;
-
-                const setField = <K extends keyof RecipeFormData>(key: K, value: RecipeFormData[K]) =>
-                  setTierRecipes(prev => ({ ...prev, [t]: { ...(prev[t] ?? blankRecipe(t)), [key]: value } }));
-
-                const addIng = () => setTierRecipes(prev => {
-                  const cur = prev[t]; if (!cur) return prev;
-                  return { ...prev, [t]: { ...cur, ingredients: [...cur.ingredients, { item_id: '', tier: null, quantity: 1 }] } };
-                });
-
-                const removeIng = (i: number) => setTierRecipes(prev => {
-                  const cur = prev[t]; if (!cur) return prev;
-                  return { ...prev, [t]: { ...cur, ingredients: cur.ingredients.filter((_, idx) => idx !== i) } };
-                });
-
-                const setIng = (i: number, patch: Partial<RecipeIngredient>) => setTierRecipes(prev => {
-                  const cur = prev[t]; if (!cur) return prev;
-                  const next = [...cur.ingredients]; next[i] = { ...next[i], ...patch };
-                  return { ...prev, [t]: { ...cur, ingredients: next } };
-                });
-
-                const fillDown = (mode: 'duplicate' | 'match' | 'increase') => {
-                  if (!tr) return;
-                  setTierRecipes(prev => {
-                    const next = { ...prev };
-                    for (let dt = t + 1; dt <= maxTier; dt++) {
-                      const delta = dt - t;
-                      next[dt] = {
-                        ...(prev[dt] ?? blankRecipe(dt)),
-                        id: prev[dt]?.id,
-                        output_tier: dt,
-                        ingredients: tr.ingredients.map(ing => ({
-                          ...ing,
-                          tier: ing.tier == null ? null
-                            : mode === 'duplicate' ? ing.tier
-                            : mode === 'match'     ? dt
-                            : Math.min(ing.tier + delta, maxTier),
-                        })),
-                      };
-                    }
-                    return next;
-                  });
-                };
-
-                return (
-                  <div key={t} className="rounded-lg border border-border overflow-hidden">
-                    {/* Tier header */}
-                    <div className="flex items-center justify-between px-4 py-2.5 bg-accent/20 border-b border-border">
-                      <div className="flex items-center gap-2">
-                        {item.is_tiered && (
-                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">T{t}</span>
-                        )}
-                        <span className="text-sm font-semibold text-heading">
-                          {item.is_tiered ? `Tier ${t}` : 'Recipe'}
-                        </span>
-                        {tr && (
-                          <span className="text-xs text-muted-foreground">
-                            ({tr.ingredients.length} ingredient{tr.ingredients.length !== 1 ? 's' : ''})
-                          </span>
-                        )}
-                      </div>
-                      <button type="button"
-                        onClick={() => setTierRecipes(prev =>
-                          prev[t] ? { ...prev, [t]: null } : { ...prev, [t]: blankRecipe(t) }
-                        )}
-                        className={`text-xs transition-colors ${
-                          tr ? 'text-destructive hover:underline' : 'text-primary hover:underline'
-                        }`}>
-                        {tr ? 'Remove' : '+ Add'}
-                      </button>
-                    </div>
-
-                    {tr ? (
-                      <div className="p-4 space-y-3">
-                        {/* Output qty + optional refining skill on one row */}
-                        <div className="flex flex-wrap items-center gap-4">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Output Qty</span>
-                            <input type="number" min={1} value={tr.output_quantity}
-                              onChange={e => setField('output_quantity', Number(e.target.value))}
-                              className="w-16 px-2 py-1.5 text-sm bg-background border border-border rounded-md text-body text-center focus:outline-none focus:ring-1 focus:ring-ring" />
-                          </div>
-                          {showMaterial && (
-                            <div className="flex items-center gap-2 flex-1 min-w-40">
-                              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Refining Skill</span>
-                              <select value={tr.required_skill_id}
-                                onChange={e => setField('required_skill_id', e.target.value)}
-                                className="flex-1 px-2 py-1.5 text-sm bg-background border border-border rounded-md text-body focus:outline-none focus:ring-1 focus:ring-ring">
-                                <option value="">Select skill…</option>
-                                {skills.filter(s => s.category === recipeSkillCategory).map(s => (
-                                  <option key={s.id} value={s.id}>{s.display_name}</option>
-                                ))}
-                              </select>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Ingredients table */}
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Ingredients</p>
-                            <button type="button" onClick={addIng}
-                              className="text-xs px-2 py-0.5 rounded border border-border text-muted-foreground hover:text-body hover:border-ring transition-colors">+ Add</button>
-                          </div>
-
-                          {tr.ingredients.length === 0
-                            ? <p className="text-xs text-muted-foreground italic">No ingredients yet.</p>
-                            : (
-                              <div className="overflow-x-auto rounded-md border border-border/60">
-                                <table className="w-full text-xs">
-                                  <thead>
-                                    <tr className="border-b border-border/50 bg-accent/20">
-                                      <th className="px-3 py-1.5 text-left font-semibold text-muted-foreground">Material</th>
-                                      <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground w-20">Tier</th>
-                                      <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground w-16">Qty</th>
-                                      <th className="px-2 py-1.5 w-8" />
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {tr.ingredients.map((ing, i) => {
-                                      const mat = materialItems.find(m => m.id === ing.item_id);
-                                      const matIsTiered = mat?.is_tiered ?? false;
-                                      return (
-                                        <tr key={i} className="border-b border-border/30 last:border-0">
-                                          <td className="px-3 py-1.5">
-                                            <ItemSelect
-                                              value={ing.item_id}
-                                              onChange={id => setIng(i, { item_id: id, tier: null })}
-                                              items={materialItems}
-                                              placeholder="Select ingredient…"
-                                            />
-                                          </td>
-                                          <td className="px-2 py-1.5">
-                                            {matIsTiered ? (
-                                              <select value={ing.tier ?? ''}
-                                                onChange={e => setIng(i, { tier: e.target.value ? Number(e.target.value) : null })}
-                                                className={tiny}>
-                                                <option value="">—</option>
-                                                {tierOptions.map(tv => (
-                                                  <option key={tv} value={tv}>T{tv}</option>
-                                                ))}
-                                              </select>
-                                            ) : (
-                                              <span className="text-muted-foreground px-1">—</span>
-                                            )}
-                                          </td>
-                                          <td className="px-2 py-1.5">
-                                            <input type="number" min={1} value={ing.quantity}
-                                              onChange={e => setIng(i, { quantity: Number(e.target.value) })}
-                                              className="w-14 px-2 py-1 text-xs bg-background border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-ring text-center" />
-                                          </td>
-                                          <td className="px-2 py-1.5 text-center">
-                                            <button type="button" onClick={() => removeIng(i)}
-                                              className="text-muted-foreground hover:text-destructive transition-colors text-base leading-none">×</button>
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )
-                          }
-                        </div>
-
-                        {/* Fill-down buttons */}
-                        {item.is_tiered && t < maxTier && tr.ingredients.length > 0 && (
-                          <div className="pt-1 space-y-1.5">
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                              Copy T{t} → T{t + 1}–T{maxTier}:
-                            </p>
-                            <div className="grid grid-cols-3 gap-1.5">
-                              <button type="button" onClick={() => fillDown('duplicate')}
-                                className="py-1.5 text-xs rounded border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors">
-                                📋 Duplicate
-                                <span className="block text-[10px] leading-tight opacity-70">same ingredient tiers</span>
-                              </button>
-                              <button type="button" onClick={() => fillDown('match')}
-                                className="py-1.5 text-xs rounded border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors">
-                                🎯 Match to tier
-                                <span className="block text-[10px] leading-tight opacity-70">ingredients → T{'{n}'}</span>
-                              </button>
-                              <button type="button" onClick={() => fillDown('increase')}
-                                className="py-1.5 text-xs rounded border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors">
-                                📈 Increase per tier
-                                <span className="block text-[10px] leading-tight opacity-70">+1 tier each step</span>
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="px-4 py-3">
-                        <p className="text-xs text-muted-foreground italic">No recipe configured for {item.is_tiered ? `T${t}` : 'this item'}.</p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            );
-          })()}
-
-          {/* ── Consumable Effects ─────────────────────────────────────── */}
+          {/* â”€â”€ Consumable Effects â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {showConsumable && (
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
               <div className="flex items-center justify-between">
@@ -1279,7 +1021,7 @@ export function ItemForm({
                         type="button"
                         onClick={() => removeEffect(i)}
                         className="self-end p-1 text-muted-foreground hover:text-destructive transition-colors text-lg leading-none"
-                      >×</button>
+                      >Ã—</button>
                       <span className="text-[10px] text-muted-foreground italic">
                         {EFFECT_TRIGGERS.find(t => t.value === eff.trigger)?.hint}
                       </span>
@@ -1291,7 +1033,7 @@ export function ItemForm({
             </div>
           )}
 
-          {/* ── Tool stats ─────────────────────────────────────────── */}
+          {/* â”€â”€ Tool stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {showTool && (
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tool Stats</p>
@@ -1405,7 +1147,7 @@ export function ItemForm({
                       const bonus = belowBonusAtStep(step);
                       return (
                         <div key={tier} className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">T{tier} (below ×{step})</span>
+                          <span className="text-muted-foreground">T{tier} (below Ã—{step})</span>
                           <span className="text-green-400">+{bonus.toFixed(0)}%</span>
                         </div>
                       );
@@ -1415,8 +1157,267 @@ export function ItemForm({
               </div>
             </div>
           )}
+          {/* â”€â”€ Crafting / Refining Recipe â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {showRecipe && (() => {
+            const isCraftable = Object.values(tierRecipes).some(r => r !== null);
+            const tierList = item.is_tiered
+              ? Array.from({ length: maxTier }, (_, i) => i + 1)
+              : [0];
+            const tiny = 'w-full px-2 py-1 text-xs bg-background border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-ring';
 
-          {/* ── Ultimate stats ──────────────────────────────────────── */}
+            return (
+            <div className="bg-card border border-border rounded-lg p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  {showMaterial ? 'Refining Recipe' : 'Crafting Recipe'}
+                </p>
+                {isCraftable && (
+                  <button type="button" onClick={() => setTierRecipes({})}
+                    className="text-xs text-destructive hover:underline transition-colors">
+                    Ã— Remove all
+                  </button>
+                )}
+              </div>
+
+              {/* Not yet craftable */}
+              {!isCraftable && (
+                <button type="button" onClick={makeAllCraftable}
+                  className="w-full py-3 rounded-lg border-2 border-dashed border-primary/40 text-sm font-semibold text-primary hover:bg-primary/10 hover:border-primary transition-colors">
+                  + Make Craftable
+                  {item.is_tiered && (
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">(creates recipes for all {maxTier} tiers)</span>
+                  )}
+                </button>
+              )}
+
+              {/* Recipe scroll item banner */}
+              {isCraftable && item.type !== 'recipe' && (
+                <div className="rounded-md bg-background border border-border px-4 py-3 space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recipe Scroll Item</p>
+                  {existingRecipeItem ? (
+                    <p className="text-sm text-body">
+                      <span className="text-muted-foreground">Auto-created: </span>
+                      <a href={`/admin/items/${existingRecipeItem.id}`} className="text-primary hover:underline">
+                        {existingRecipeItem.display_name}
+                      </a>
+                      <span className="text-muted-foreground text-xs ml-2">(click to edit icon, rarity, etc.)</span>
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Will be created as <span className="font-medium text-body">&quot;{item.display_name} {recipeSuffix}&quot;</span> when you save.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* All tier sections shown at once â€” like the loot table */}
+              {isCraftable && tierList.map(t => {
+                const tr = tierRecipes[t] ?? null;
+
+                const setField = <K extends keyof RecipeFormData>(key: K, value: RecipeFormData[K]) =>
+                  setTierRecipes(prev => ({ ...prev, [t]: { ...(prev[t] ?? blankRecipe(t)), [key]: value } }));
+
+                const addIng = () => setTierRecipes(prev => {
+                  const cur = prev[t]; if (!cur) return prev;
+                  return { ...prev, [t]: { ...cur, ingredients: [...cur.ingredients, { item_id: '', tier: null, quantity: 1 }] } };
+                });
+
+                const removeIng = (i: number) => setTierRecipes(prev => {
+                  const cur = prev[t]; if (!cur) return prev;
+                  return { ...prev, [t]: { ...cur, ingredients: cur.ingredients.filter((_, idx) => idx !== i) } };
+                });
+
+                const setIng = (i: number, patch: Partial<RecipeIngredient>) => setTierRecipes(prev => {
+                  const cur = prev[t]; if (!cur) return prev;
+                  const next = [...cur.ingredients]; next[i] = { ...next[i], ...patch };
+                  return { ...prev, [t]: { ...cur, ingredients: next } };
+                });
+
+                const fillDown = (mode: 'duplicate' | 'match' | 'increase') => {
+                  if (!tr) return;
+                  setTierRecipes(prev => {
+                    const next = { ...prev };
+                    for (let dt = t + 1; dt <= maxTier; dt++) {
+                      const delta = dt - t;
+                      next[dt] = {
+                        ...(prev[dt] ?? blankRecipe(dt)),
+                        id: prev[dt]?.id,
+                        output_tier: dt,
+                        ingredients: tr.ingredients.map(ing => ({
+                          ...ing,
+                          tier: ing.tier == null ? null
+                            : mode === 'duplicate' ? ing.tier
+                            : mode === 'match'     ? dt
+                            : Math.min(ing.tier + delta, maxTier),
+                        })),
+                      };
+                    }
+                    return next;
+                  });
+                };
+
+                return (
+                  <div key={t} className="rounded-lg border border-border overflow-hidden">
+                    {/* Tier header */}
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-accent/20 border-b border-border">
+                      <div className="flex items-center gap-2">
+                        {item.is_tiered && (
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">T{t}</span>
+                        )}
+                        <span className="text-sm font-semibold text-heading">
+                          {item.is_tiered ? `Tier ${t}` : 'Recipe'}
+                        </span>
+                        {tr && (
+                          <span className="text-xs text-muted-foreground">
+                            ({tr.ingredients.length} ingredient{tr.ingredients.length !== 1 ? 's' : ''})
+                          </span>
+                        )}
+                      </div>
+                      <button type="button"
+                        onClick={() => setTierRecipes(prev =>
+                          prev[t] ? { ...prev, [t]: null } : { ...prev, [t]: blankRecipe(t) }
+                        )}
+                        className={`text-xs transition-colors ${
+                          tr ? 'text-destructive hover:underline' : 'text-primary hover:underline'
+                        }`}>
+                        {tr ? 'Remove' : '+ Add'}
+                      </button>
+                    </div>
+
+                    {tr ? (
+                      <div className="p-4 space-y-3">
+                        {/* Output qty + optional refining skill on one row */}
+                        <div className="flex flex-wrap items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Output Qty</span>
+                            <input type="number" min={1} value={tr.output_quantity}
+                              onChange={e => setField('output_quantity', Number(e.target.value))}
+                              className="w-16 px-2 py-1.5 text-sm bg-background border border-border rounded-md text-body text-center focus:outline-none focus:ring-1 focus:ring-ring" />
+                          </div>
+                          {showMaterial && (
+                            <div className="flex items-center gap-2 flex-1 min-w-40">
+                              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">Refining Skill</span>
+                              <select value={tr.required_skill_id}
+                                onChange={e => setField('required_skill_id', e.target.value)}
+                                className="flex-1 px-2 py-1.5 text-sm bg-background border border-border rounded-md text-body focus:outline-none focus:ring-1 focus:ring-ring">
+                                <option value="">Select skillâ€¦</option>
+                                {skills.filter(s => s.category === recipeSkillCategory).map(s => (
+                                  <option key={s.id} value={s.id}>{s.display_name}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Ingredients table */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Ingredients</p>
+                            <button type="button" onClick={addIng}
+                              className="text-xs px-2 py-0.5 rounded border border-border text-muted-foreground hover:text-body hover:border-ring transition-colors">+ Add</button>
+                          </div>
+
+                          {tr.ingredients.length === 0
+                            ? <p className="text-xs text-muted-foreground italic">No ingredients yet.</p>
+                            : (
+                              <div className="overflow-x-auto rounded-md border border-border/60">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="border-b border-border/50 bg-accent/20">
+                                      <th className="px-3 py-1.5 text-left font-semibold text-muted-foreground">Material</th>
+                                      <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground w-20">Tier</th>
+                                      <th className="px-2 py-1.5 text-left font-semibold text-muted-foreground w-16">Qty</th>
+                                      <th className="px-2 py-1.5 w-8" />
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {tr.ingredients.map((ing, i) => {
+                                      const mat = materialItems.find(m => m.id === ing.item_id);
+                                      const matIsTiered = mat?.is_tiered ?? false;
+                                      return (
+                                        <tr key={i} className="border-b border-border/30 last:border-0">
+                                          <td className="px-3 py-1.5">
+                                            <ItemSelect
+                                              value={ing.item_id}
+                                              onChange={id => setIng(i, { item_id: id, tier: null })}
+                                              items={materialItems}
+                                              placeholder="Select ingredientâ€¦"
+                                            />
+                                          </td>
+                                          <td className="px-2 py-1.5">
+                                            {matIsTiered ? (
+                                              <select value={ing.tier ?? ''}
+                                                onChange={e => setIng(i, { tier: e.target.value ? Number(e.target.value) : null })}
+                                                className={tiny}>
+                                                <option value="">â€”</option>
+                                                {tierOptions.map(tv => (
+                                                  <option key={tv} value={tv}>T{tv}</option>
+                                                ))}
+                                              </select>
+                                            ) : (
+                                              <span className="text-muted-foreground px-1">â€”</span>
+                                            )}
+                                          </td>
+                                          <td className="px-2 py-1.5">
+                                            <input type="number" min={1} value={ing.quantity}
+                                              onChange={e => setIng(i, { quantity: Number(e.target.value) })}
+                                              className="w-14 px-2 py-1 text-xs bg-background border border-border rounded text-body focus:outline-none focus:ring-1 focus:ring-ring text-center" />
+                                          </td>
+                                          <td className="px-2 py-1.5 text-center">
+                                            <button type="button" onClick={() => removeIng(i)}
+                                              className="text-muted-foreground hover:text-destructive transition-colors text-base leading-none">Ã—</button>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )
+                          }
+                        </div>
+
+                        {/* Fill-down buttons */}
+                        {item.is_tiered && t < maxTier && tr.ingredients.length > 0 && (
+                          <div className="pt-1 space-y-1.5">
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                              Copy T{t} â†’ T{t + 1}â€“T{maxTier}:
+                            </p>
+                            <div className="grid grid-cols-3 gap-1.5">
+                              <button type="button" onClick={() => fillDown('duplicate')}
+                                className="py-1.5 text-xs rounded border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors">
+                                ðŸ“‹ Duplicate
+                                <span className="block text-[10px] leading-tight opacity-70">same ingredient tiers</span>
+                              </button>
+                              <button type="button" onClick={() => fillDown('match')}
+                                className="py-1.5 text-xs rounded border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors">
+                                ðŸŽ¯ Match to tier
+                                <span className="block text-[10px] leading-tight opacity-70">ingredients â†’ T{'{n}'}</span>
+                              </button>
+                              <button type="button" onClick={() => fillDown('increase')}
+                                className="py-1.5 text-xs rounded border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors">
+                                ðŸ“ˆ Increase per tier
+                                <span className="block text-[10px] leading-tight opacity-70">+1 tier each step</span>
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="px-4 py-3">
+                        <p className="text-xs text-muted-foreground italic">No recipe configured for {item.is_tiered ? `T${t}` : 'this item'}.</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            );
+          })()}
+
+
+
+          {/* â”€â”€ Ultimate stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {showUltimate && (
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Ultimate Stats</p>
@@ -1433,7 +1434,7 @@ export function ItemForm({
               <div className="border-t border-border pt-4 space-y-3">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Attribute Scaling</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">The scaling multiplier uses the item's drop grade — S=1.5× A=1.4× B=1.3× C=1.2× D=1.1× F=1.0×</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">The scaling multiplier uses the item's drop grade â€” S=1.5Ã— A=1.4Ã— B=1.3Ã— C=1.2Ã— D=1.1Ã— F=1.0Ã—</p>
                 </div>
                 <Field label="Attribute">
                   <Select value={item.primary_scaling_attr ?? ''} onChange={e => set('primary_scaling_attr', e.target.value || null)}>
@@ -1476,7 +1477,7 @@ export function ItemForm({
             </div>
           )}
 
-          {/* ── Drop grade weights override (weapon / armor / tool) ──────── */}
+          {/* â”€â”€ Drop grade weights override (weapon / armor / tool) â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {(showWeapon || showArmor || showTool) && (
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
               <div>
@@ -1496,7 +1497,7 @@ export function ItemForm({
                       type="number"
                       min={0}
                       step={1}
-                      placeholder="—"
+                      placeholder="â€”"
                       value={item.grade_weights?.[g as keyof NonNullable<Item['grade_weights']>] ?? ''}
                       onChange={e => setGradeWeight(g, e.target.value)}
                       className="px-2 py-1.5 text-sm bg-background border border-border rounded-md text-body text-center placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
