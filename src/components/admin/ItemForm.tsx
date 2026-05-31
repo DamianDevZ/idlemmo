@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -7,7 +7,7 @@ import type { RecipeFormData, RecipeIngredient } from '@/features/admin/item-act
 import { groupedItemOptions } from '@/lib/admin/groupedItemOptions';
 import { ItemSelect } from '@/components/admin/ItemSelect';
 
-// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Types ──────────────────────────────────────────────────────────────────────
 
 type ResistanceMode = 'percent' | 'flat';
 type ResistanceEntry = { value: number; mode: ResistanceMode };
@@ -68,20 +68,20 @@ export type MaterialItem   = { id: string; name: string; display_name: string; t
 export type WeaponType     = { id: string; name: string; display_name: string };
 export type TierScalingRow = { id?: string; item_type: string; stat_key: string; stat_label: string; tier: number; multiplier: number };
 
-// â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Constants ──────────────────────────────────────────────────────────────────
 
 const TYPES = ['material','tool','weapon','armor','consumable','recipe','unique','misc','special_attack'];
 const DAMAGE_TYPES = ['slash','pierce','blunt','bleed','fire','ice','poison','lightning','true'];
-// Resistance grid excludes 'true' â€” true damage bypasses all armor
+// Resistance grid excludes 'true' — true damage bypasses all armor
 const RESIST_TYPES: { key: string; label: string; emoji: string }[] = [
-  { key: 'slash',     label: 'Slash',     emoji: 'âš”ï¸' },
-  { key: 'fire',      label: 'Fire',      emoji: 'ðŸ”¥' },
-  { key: 'pierce',    label: 'Pierce',    emoji: 'ðŸ¹' },
-  { key: 'ice',       label: 'Ice',       emoji: 'â„ï¸' },
-  { key: 'blunt',     label: 'Blunt',     emoji: 'ðŸ”¨' },
-  { key: 'poison',    label: 'Poison',    emoji: 'â˜ ï¸' },
-  { key: 'bleed',     label: 'Bleed',     emoji: 'ðŸ©¸' },
-  { key: 'lightning', label: 'Lightning', emoji: 'âš¡' },
+  { key: 'slash',     label: 'Slash',     emoji: '⚔️' },
+  { key: 'fire',      label: 'Fire',      emoji: '🔥' },
+  { key: 'pierce',    label: 'Pierce',    emoji: '🏹' },
+  { key: 'ice',       label: 'Ice',       emoji: '❄️' },
+  { key: 'blunt',     label: 'Blunt',     emoji: '🔨' },
+  { key: 'poison',    label: 'Poison',    emoji: '☠️' },
+  { key: 'bleed',     label: 'Bleed',     emoji: '🩸' },
+  { key: 'lightning', label: 'Lightning', emoji: '⚡' },
 ];
 // Consumable effects constants
 const EFFECT_TRIGGERS: { value: EffectTrigger; label: string; hint: string }[] = [
@@ -154,7 +154,7 @@ function blankRecipe(output_tier: number): RecipeFormData {
   return { ...BLANK_RECIPE, output_tier };
 }
 
-// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -185,7 +185,7 @@ function Select({ children, ...props }: React.SelectHTMLAttributes<HTMLSelectEle
   );
 }
 
-// â”€â”€ Main Form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Main Form ─────────────────────────────────────────────────────────────────
 
 function initResistances(raw?: ResistancesMap): ResistancesMap {
   const base: ResistancesMap = {};
@@ -250,7 +250,7 @@ function TierScalingPreview({
     <div className="rounded-md border border-border bg-background p-3 space-y-2">
       <div className="flex items-center justify-between">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Tier scaling preview</p>
-        <a href="/admin/tier-scaling" target="_blank" className="text-[10px] text-primary hover:underline">Edit scaling â†’</a>
+        <a href="/admin/tier-scaling" target="_blank" className="text-[10px] text-primary hover:underline">Edit scaling →</a>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
@@ -284,7 +284,7 @@ function TierScalingPreview({
                       <td key={k} className="py-0.5 px-2 text-right text-body tabular-nums">
                         {base != null && mult != null
                           ? (base * mult).toFixed(2).replace(/\.?0+$/, '') || '0'
-                          : <span className="text-muted-foreground">â€”</span>}
+                          : <span className="text-muted-foreground">—</span>}
                       </td>
                     );
                   })}
@@ -339,7 +339,7 @@ export function ItemForm({
       ? initial.tool_config
       : { ...BLANK_TOOL_CONFIG }
   );
-  // Map of output_tier â†’ RecipeFormData|null for all tiers
+  // Map of output_tier → RecipeFormData|null for all tiers
   // output_tier=0 = non-tiered item recipe; 1..N = per-tier recipe
   const [tierRecipes, setTierRecipes] = useState<Record<number, RecipeFormData | null>>(() => {
     const map: Record<number, RecipeFormData | null> = {};
@@ -416,7 +416,7 @@ export function ItemForm({
     }
   }
 
-  // Copies the active tier's recipe to every tier above â€” same ingredient tiers verbatim
+  // Copies the active tier's recipe to every tier above — same ingredient tiers verbatim
   function duplicateToFollowing() {
     if (!recipe) return;
     const src = activeRecipeTier;
@@ -435,7 +435,7 @@ export function ItemForm({
     });
   }
 
-  // Copies the active tier's recipe to every tier above â€” ingredient tiers are set to match the target tier
+  // Copies the active tier's recipe to every tier above — ingredient tiers are set to match the target tier
   function matchToTier() {
     if (!recipe) return;
     const src = activeRecipeTier;
@@ -457,7 +457,7 @@ export function ItemForm({
     });
   }
 
-  // Copies the active tier's recipe to every tier above â€” ingredient tiers increase by +1 per tier step
+  // Copies the active tier's recipe to every tier above — ingredient tiers increase by +1 per tier step
   function increasePerTier() {
     if (!recipe) return;
     const src = activeRecipeTier;
@@ -612,7 +612,7 @@ export function ItemForm({
   const showConsumable = item.type === 'consumable';
   const showTool = item.type === 'tool';
   const showUltimate = item.type === 'special_attack';
-  // Materials don't have a fixed tier â€” they span all tiers when is_tiered=true
+  // Materials don't have a fixed tier — they span all tiers when is_tiered=true
   const showEquipTier = ['weapon','armor','tool','consumable'].includes(item.type);
   // Refined materials have a crafting recipe; weapon/armor use crafting skills, refined use refining skills
   const showRecipe = showWeapon || showArmor || showTool || showConsumable || (showMaterial && item.material_subtype === 'refined');
@@ -628,7 +628,7 @@ export function ItemForm({
 
       <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-6 items-start">
 
-        {/* â”€â”€ LEFT: Identity panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ── LEFT: Identity panel ──────────────────────────────────────── */}
         <div className="bg-card border border-border rounded-lg p-5 space-y-4">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Identity</p>
 
@@ -696,7 +696,7 @@ export function ItemForm({
             </div>
           )}
 
-          {/* Tier scaling preview â€” shown when item is tiered and has at least one stat checked */}
+          {/* Tier scaling preview — shown when item is tiered and has at least one stat checked */}
           {item.is_tiered && item.tiered_stats.length > 0 && <TierScalingPreview
             itemType={item.type}
             tieredStats={item.tiered_stats}
@@ -716,7 +716,7 @@ export function ItemForm({
               disabled={isPending}
               className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              {isPending ? 'Savingâ€¦' : isNew ? 'Create Item' : 'Save Changes'}
+              {isPending ? 'Saving…' : isNew ? 'Create Item' : 'Save Changes'}
             </button>
             {!isNew && (
               <button
@@ -730,10 +730,10 @@ export function ItemForm({
           </div>
         </div>
 
-        {/* â”€â”€ RIGHT: Stats + Recipe panels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        {/* ── RIGHT: Stats + Recipe panels ─────────────────────────────── */}
         <div className="space-y-5">
 
-          {/* â”€â”€ Weapon stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* ── Weapon stats ──────────────────────────────────────────────── */}
           {showWeapon && (
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Weapon Stats</p>
@@ -795,7 +795,7 @@ export function ItemForm({
               <div className="border-t border-border pt-4 space-y-3">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Attribute Scaling</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">The scaling multiplier uses the item's drop grade â€” S=1.5Ã— A=1.4Ã— B=1.3Ã— C=1.2Ã— D=1.1Ã— F=1.0Ã—</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">The scaling multiplier uses the item's drop grade — S=1.5× A=1.4× B=1.3× C=1.2× D=1.1× F=1.0×</p>
                 </div>
                 <Field label="Attribute">
                   <Select value={item.primary_scaling_attr ?? ''} onChange={e => set('primary_scaling_attr', e.target.value || null)}>
@@ -810,7 +810,7 @@ export function ItemForm({
             </div>
           )}
 
-          {/* â”€â”€ Armor stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* ── Armor stats ───────────────────────────────────────────────── */}
           {showArmor && (
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Armor Stats</p>
@@ -829,7 +829,7 @@ export function ItemForm({
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Damage Resistances</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Positive = resist Â· Negative = weakness Â· &ldquo;true&rdquo; damage bypasses all
+                    Positive = resist · Negative = weakness · &ldquo;true&rdquo; damage bypasses all
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-x-5 gap-y-2">
@@ -861,7 +861,7 @@ export function ItemForm({
             </div>
           )}
 
-          {/* â”€â”€ Material stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* ── Material stats ────────────────────────────────────────────── */}
           {showMaterial && (
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Material</p>
@@ -911,7 +911,7 @@ export function ItemForm({
 
               {item.material_subtype === 'unique' && (
                 <p className="text-xs text-muted-foreground">
-                  Unique materials are obtained via boss drops, events, or special quests â€” not crafted or gathered normally.
+                  Unique materials are obtained via boss drops, events, or special quests — not crafted or gathered normally.
                 </p>
               )}
 
@@ -921,7 +921,7 @@ export function ItemForm({
             </div>
           )}
 
-          {/* â”€â”€ Consumable Effects â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* ── Consumable Effects ─────────────────────────────────────── */}
           {showConsumable && (
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
               <div className="flex items-center justify-between">
@@ -1021,7 +1021,7 @@ export function ItemForm({
                         type="button"
                         onClick={() => removeEffect(i)}
                         className="self-end p-1 text-muted-foreground hover:text-destructive transition-colors text-lg leading-none"
-                      >Ã—</button>
+                      >×</button>
                       <span className="text-[10px] text-muted-foreground italic">
                         {EFFECT_TRIGGERS.find(t => t.value === eff.trigger)?.hint}
                       </span>
@@ -1033,7 +1033,7 @@ export function ItemForm({
             </div>
           )}
 
-          {/* â”€â”€ Tool stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* ── Tool stats ─────────────────────────────────────────── */}
           {showTool && (
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tool Stats</p>
@@ -1147,7 +1147,7 @@ export function ItemForm({
                       const bonus = belowBonusAtStep(step);
                       return (
                         <div key={tier} className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">T{tier} (below Ã—{step})</span>
+                          <span className="text-muted-foreground">T{tier} (below ×{step})</span>
                           <span className="text-green-400">+{bonus.toFixed(0)}%</span>
                         </div>
                       );
@@ -1157,7 +1157,8 @@ export function ItemForm({
               </div>
             </div>
           )}
-          {/* â”€â”€ Crafting / Refining Recipe â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+
+          {/* ── Crafting / Refining Recipe ─────────────────────────────── */}
           {showRecipe && (() => {
             const isCraftable = Object.values(tierRecipes).some(r => r !== null);
             const tierList = item.is_tiered
@@ -1174,7 +1175,7 @@ export function ItemForm({
                 {isCraftable && (
                   <button type="button" onClick={() => setTierRecipes({})}
                     className="text-xs text-destructive hover:underline transition-colors">
-                    Ã— Remove all
+                    × Remove all
                   </button>
                 )}
               </div>
@@ -1210,7 +1211,7 @@ export function ItemForm({
                 </div>
               )}
 
-              {/* All tier sections shown at once â€” like the loot table */}
+              {/* All tier sections shown at once — like the loot table */}
               {isCraftable && tierList.map(t => {
                 const tr = tierRecipes[t] ?? null;
 
@@ -1300,7 +1301,7 @@ export function ItemForm({
                               <select value={tr.required_skill_id}
                                 onChange={e => setField('required_skill_id', e.target.value)}
                                 className="flex-1 px-2 py-1.5 text-sm bg-background border border-border rounded-md text-body focus:outline-none focus:ring-1 focus:ring-ring">
-                                <option value="">Select skillâ€¦</option>
+                                <option value="">Select skill…</option>
                                 {skills.filter(s => s.category === recipeSkillCategory).map(s => (
                                   <option key={s.id} value={s.id}>{s.display_name}</option>
                                 ))}
@@ -1341,7 +1342,7 @@ export function ItemForm({
                                               value={ing.item_id}
                                               onChange={id => setIng(i, { item_id: id, tier: null })}
                                               items={materialItems}
-                                              placeholder="Select ingredientâ€¦"
+                                              placeholder="Select ingredient…"
                                             />
                                           </td>
                                           <td className="px-2 py-1.5">
@@ -1349,13 +1350,13 @@ export function ItemForm({
                                               <select value={ing.tier ?? ''}
                                                 onChange={e => setIng(i, { tier: e.target.value ? Number(e.target.value) : null })}
                                                 className={tiny}>
-                                                <option value="">â€”</option>
+                                                <option value="">—</option>
                                                 {tierOptions.map(tv => (
                                                   <option key={tv} value={tv}>T{tv}</option>
                                                 ))}
                                               </select>
                                             ) : (
-                                              <span className="text-muted-foreground px-1">â€”</span>
+                                              <span className="text-muted-foreground px-1">—</span>
                                             )}
                                           </td>
                                           <td className="px-2 py-1.5">
@@ -1365,7 +1366,7 @@ export function ItemForm({
                                           </td>
                                           <td className="px-2 py-1.5 text-center">
                                             <button type="button" onClick={() => removeIng(i)}
-                                              className="text-muted-foreground hover:text-destructive transition-colors text-base leading-none">Ã—</button>
+                                              className="text-muted-foreground hover:text-destructive transition-colors text-base leading-none">×</button>
                                           </td>
                                         </tr>
                                       );
@@ -1381,22 +1382,22 @@ export function ItemForm({
                         {item.is_tiered && t < maxTier && tr.ingredients.length > 0 && (
                           <div className="pt-1 space-y-1.5">
                             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                              Copy T{t} â†’ T{t + 1}â€“T{maxTier}:
+                              Copy T{t} → T{t + 1}–T{maxTier}:
                             </p>
                             <div className="grid grid-cols-3 gap-1.5">
                               <button type="button" onClick={() => fillDown('duplicate')}
                                 className="py-1.5 text-xs rounded border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors">
-                                ðŸ“‹ Duplicate
+                                📋 Duplicate
                                 <span className="block text-[10px] leading-tight opacity-70">same ingredient tiers</span>
                               </button>
                               <button type="button" onClick={() => fillDown('match')}
                                 className="py-1.5 text-xs rounded border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors">
-                                ðŸŽ¯ Match to tier
-                                <span className="block text-[10px] leading-tight opacity-70">ingredients â†’ T{'{n}'}</span>
+                                🎯 Match to tier
+                                <span className="block text-[10px] leading-tight opacity-70">ingredients → T{'{n}'}</span>
                               </button>
                               <button type="button" onClick={() => fillDown('increase')}
                                 className="py-1.5 text-xs rounded border border-dashed border-border text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors">
-                                ðŸ“ˆ Increase per tier
+                                📈 Increase per tier
                                 <span className="block text-[10px] leading-tight opacity-70">+1 tier each step</span>
                               </button>
                             </div>
@@ -1415,9 +1416,7 @@ export function ItemForm({
             );
           })()}
 
-
-
-          {/* â”€â”€ Ultimate stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* ── Ultimate stats ──────────────────────────────────────── */}
           {showUltimate && (
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Ultimate Stats</p>
@@ -1434,7 +1433,7 @@ export function ItemForm({
               <div className="border-t border-border pt-4 space-y-3">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Attribute Scaling</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">The scaling multiplier uses the item's drop grade â€” S=1.5Ã— A=1.4Ã— B=1.3Ã— C=1.2Ã— D=1.1Ã— F=1.0Ã—</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">The scaling multiplier uses the item's drop grade — S=1.5× A=1.4× B=1.3× C=1.2× D=1.1× F=1.0×</p>
                 </div>
                 <Field label="Attribute">
                   <Select value={item.primary_scaling_attr ?? ''} onChange={e => set('primary_scaling_attr', e.target.value || null)}>
@@ -1477,7 +1476,7 @@ export function ItemForm({
             </div>
           )}
 
-          {/* â”€â”€ Drop grade weights override (weapon / armor / tool) â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* ── Drop grade weights override (weapon / armor / tool) ──────── */}
           {(showWeapon || showArmor || showTool) && (
             <div className="bg-card border border-border rounded-lg p-5 space-y-4">
               <div>
@@ -1497,7 +1496,7 @@ export function ItemForm({
                       type="number"
                       min={0}
                       step={1}
-                      placeholder="â€”"
+                      placeholder="—"
                       value={item.grade_weights?.[g as keyof NonNullable<Item['grade_weights']>] ?? ''}
                       onChange={e => setGradeWeight(g, e.target.value)}
                       className="px-2 py-1.5 text-sm bg-background border border-border rounded-md text-body text-center placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
