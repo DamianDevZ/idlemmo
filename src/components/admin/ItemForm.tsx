@@ -615,7 +615,7 @@ export function ItemForm({
   // Materials don't have a fixed tier — they span all tiers when is_tiered=true
   const showEquipTier = ['weapon','armor','tool','consumable'].includes(item.type);
   // Refined materials have a crafting recipe; weapon/armor use crafting skills, refined use refining skills
-  const showRecipe = showWeapon || showArmor || showConsumable || (showMaterial && item.material_subtype === 'refined');
+  const showRecipe = showWeapon || showArmor || showTool || showConsumable || (showMaterial && item.material_subtype === 'refined');
   const recipeSkillCategory = showMaterial ? 'refining' : 'crafting';
 
   return (
